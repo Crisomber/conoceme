@@ -26,10 +26,28 @@
   --radius: 14px;
   --wrap: 1120px;
   --shadow: 0 1px 0 var(--line), 0 12px 32px -18px rgba(23, 32, 43, .35);
+  color-scheme: light;
 }
 
+/* Oscuro: lo elige js/tema.js (data-theme); sin JS se sigue al sistema */
+:root[data-theme="dark"] {
+  --bg: #11161D;
+  --surface: #18202A;
+  --surface-2: #1E2833;
+  --ink: #E6ECF2;
+  --muted: #9AA7B4;
+  --line: #2C3846;
+  --accent: #F0904A;
+  --accent-ink: #17202B;
+  --accent-soft: #3A2718;
+  --blue: #8DB4FF;
+  --ok: #6FD39C;
+  --term-bg: #0B0F14;
+  --shadow: 0 1px 0 var(--line), 0 12px 32px -18px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #11161D;
     --surface: #18202A;
     --surface-2: #1E2833;
@@ -43,6 +61,7 @@
     --ok: #6FD39C;
     --term-bg: #0B0F14;
     --shadow: 0 1px 0 var(--line), 0 12px 32px -18px rgba(0, 0, 0, .7);
+    color-scheme: dark;
   }
 }
 

@@ -38,9 +38,92 @@
 .nav-list a { text-decoration: none; font-weight: 500; color: var(--muted); padding: .25rem 0; border-bottom: 2px solid transparent; }
 .nav-list a:hover, .nav-list a[aria-current] { color: var(--ink); border-bottom-color: var(--accent); }
 
+.header-inner > nav { margin-left: auto; }
+
 @media (max-width: 520px) {
   .nav-list { gap: .9rem; font-size: .92rem; }
   .brand-name { display: none; }
+}
+
+/* ---------- Opción: interruptor sol/luna ----------
+   Lo crea js/tema.js en los headers con data-boton-tema.
+   Todas las medidas van en em: cambia font-size para escalarlo.
+   ----------------------------------------------------- */
+.theme-toggle {
+  position: relative; flex: none; overflow: hidden; cursor: pointer;
+  font-size: 10px; width: 5.6em; height: 3em; padding: 0;
+  border: .2em solid #A9B9D3; border-radius: 999px;
+  background: #3E4454;
+  box-shadow: inset 0 .2em .4em rgba(10, 20, 40, .35), 0 .1em .2em rgba(10, 20, 40, .12);
+}
+.theme-toggle:hover { filter: brightness(1.06); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.tt-cielo { position: absolute; inset: 0; transition: opacity .45s ease; }
+/* Día: anillos de luz alrededor del sol + nubes */
+.tt-dia {
+  background: radial-gradient(circle at 1.3em 50%, #A6D5F7 0 1.9em, #8CC7F4 1.9em 2.7em, #72B8F0 2.7em 3.5em, #4FA3EB 3.5em);
+}
+.tt-nubes {
+  position: absolute; inset: 0; transition: transform .45s ease;
+  background:
+    radial-gradient(circle at 2.4em 3.1em, #EAF5FD 0 .8em, transparent .85em),
+    radial-gradient(circle at 3.4em 2.6em, #EAF5FD 0 .85em, transparent .9em),
+    radial-gradient(circle at 4.6em 2.1em, #EAF5FD 0 1em, transparent 1.05em),
+    radial-gradient(circle at 3em 2.2em, #C3E2F9 0 .75em, transparent .8em),
+    radial-gradient(circle at 4.3em 1.3em, #C3E2F9 0 .9em, transparent .95em);
+}
+/* Noche: anillos alrededor de la luna + estrellas */
+.tt-noche {
+  opacity: 0;
+  background: radial-gradient(circle at 3.9em 50%, #6B7283 0 1.6em, #555C6D 1.6em 2.3em, #3F4556 2.3em 3em, #23293A 3em);
+}
+.tt-estrellas {
+  position: absolute; inset: 0; transform: translateY(-.6em); transition: transform .45s ease;
+  background:
+    radial-gradient(circle at .8em .8em, #fff 0 .1em, transparent .16em),
+    radial-gradient(circle at 1.5em 1.9em, #fff 0 .08em, transparent .14em),
+    radial-gradient(circle at .6em 1.8em, #C9D0DD 0 .12em, transparent .18em),
+    radial-gradient(circle at 2.4em .9em, #fff 0 .08em, transparent .14em);
+}
+.tt-estrellas::before, .tt-estrellas::after {
+  content: "✦"; position: absolute; color: #fff; line-height: 1;
+}
+.tt-estrellas::before { left: 1.5em; top: .35em; font-size: .7em; }
+.tt-estrellas::after { left: 2em; top: 1.5em; font-size: .55em; }
+
+/* El sol / la luna */
+.tt-astro {
+  position: absolute; top: .2em; left: .2em; width: 2.2em; height: 2.2em; border-radius: 50%;
+  background: #FFD233;
+  box-shadow: inset 0 -.18em 0 #F3A712, 0 .15em .35em rgba(10, 20, 40, .35);
+  transition: transform .45s cubic-bezier(.5, .1, .3, 1.3), background-color .45s ease, box-shadow .45s ease;
+}
+.tt-astro::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: 0; transition: opacity .45s ease;
+  background:
+    radial-gradient(circle at 34% 50%, #A2ADC1 0 .33em, transparent .36em),
+    radial-gradient(circle at 63% 22%, #A2ADC1 0 .19em, transparent .22em),
+    radial-gradient(circle at 68% 72%, #A2ADC1 0 .24em, transparent .27em);
+}
+
+:root[data-theme="dark"] .theme-toggle { border-color: #7D8AA6; }
+:root[data-theme="dark"] .tt-dia { opacity: 0; }
+:root[data-theme="dark"] .tt-nubes { transform: translateY(1.2em); }
+:root[data-theme="dark"] .tt-noche { opacity: 1; }
+:root[data-theme="dark"] .tt-estrellas { transform: none; }
+:root[data-theme="dark"] .tt-astro {
+  transform: translateX(2.6em);
+  background-color: #D6DBE4;
+  box-shadow: inset 0 -.18em 0 #A9B2C2, 0 .15em .35em rgba(0, 0, 0, .5);
+}
+:root[data-theme="dark"] .tt-astro::before { opacity: 1; }
+
+@media (max-width: 520px) {
+  .theme-toggle { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle * , .theme-toggle *::before { transition: none !important; }
 }
 
 /* ---------- Opción: ocultar el header al bajar ----------
