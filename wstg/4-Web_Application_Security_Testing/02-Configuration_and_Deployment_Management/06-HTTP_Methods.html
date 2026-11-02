@@ -1,0 +1,263 @@
+<h1 id="http-methods">Métodos HTTP</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>HTTP ofrece varios métodos (o verbos) que pueden usarse para realizar acciones en el servidor web. Si bien GET y POST son, con mucho, los métodos más comunes para acceder a la información que proporciona un servidor web, pueden ser compatibles otros métodos que, en ocasiones, pueden ser explotados por los atacantes.</p>
+<p>La <a href="https://datatracker.ietf.org/doc/html/rfc7231" target="_blank" rel="noopener">RFC 7231</a> define los principales métodos (o verbos) válidos de petición HTTP, aunque en otras RFC se han añadido métodos adicionales, como la <a href="https://datatracker.ietf.org/doc/html/rfc5789" target="_blank" rel="noopener">RFC 5789</a>. Varios de estos verbos se han reutilizado con distintos fines en aplicaciones <a href="https://en.wikipedia.org/wiki/Representational_state_transfer" target="_blank" rel="noopener">RESTful</a>, como se lista en la tabla siguiente.</p>
+<div class="tabla"><table><thead><tr>
+<th>Método</th>
+<th>Propósito original</th>
+<th>Propósito en RESTful</th>
+</tr>
+</thead><tbody><tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.1" target="_blank" rel="noopener"><code>GET</code></a></td>
+<td>Solicitar un archivo.</td>
+<td>Solicitar un objeto.</td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.2" target="_blank" rel="noopener"><code>HEAD</code></a></td>
+<td>Solicitar un archivo, pero devolver solo las cabeceras HTTP.</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.3" target="_blank" rel="noopener"><code>POST</code></a></td>
+<td>Enviar datos.</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.4" target="_blank" rel="noopener"><code>PUT</code></a></td>
+<td>Subir un archivo.</td>
+<td>Crear un objeto.</td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.5" target="_blank" rel="noopener"><code>DELETE</code></a></td>
+<td>Eliminar un archivo</td>
+<td>Eliminar un objeto.</td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.6" target="_blank" rel="noopener"><code>CONNECT</code></a></td>
+<td>Establecer una conexión con otro sistema.</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.7" target="_blank" rel="noopener"><code>OPTIONS</code></a></td>
+<td>Listar los métodos HTTP admitidos.</td>
+<td>Realizar una petición <a href="https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request" target="_blank" rel="noopener">CORS Preflight</a>.</td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.8" target="_blank" rel="noopener"><code>TRACE</code></a></td>
+<td>Devolver como eco la petición HTTP con fines de depuración.</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc5789#section-2" target="_blank" rel="noopener"><code>PATCH</code></a></td>
+<td></td>
+<td>Modificar un objeto.</td>
+</tr>
+<tr>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc9110#section-9.3.7" target="_blank" rel="noopener"><code>QUERY</code></a></td>
+<td>Recuperación segura de datos con un cuerpo de petición.</td>
+<td>Consultar objetos o recursos con parámetros complejos.</td>
+</tr>
+</tbody></table></div>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Enumerar los métodos HTTP admitidos.</li>
+<li>Probar la evasión del control de acceso.</li>
+<li>Probar técnicas de sobrescritura de métodos HTTP.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="discover-the-supported-methods">Descubrir los métodos admitidos</h3>
+<p>Para realizar esta prueba, el evaluador necesita una forma de identificar qué métodos HTTP admite el servidor web que se está examinando. La manera más sencilla de hacerlo es enviar una petición <code>OPTIONS</code> al servidor:</p>
+<pre><code class="language-http">OPTIONS / HTTP/1.1
+Host: example.org
+</code></pre>
+<p>El servidor debería responder entonces con una lista de los métodos admitidos:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Allow: OPTIONS, GET, HEAD, POST
+</code></pre>
+<p>Sin embargo, no todos los servidores responden a las peticiones OPTIONS, y algunos incluso pueden devolver información inexacta. También vale la pena señalar que los servidores pueden admitir distintos métodos para distintas rutas. Esto significa que, aunque un método no esté admitido para el directorio raíz /, eso no indica necesariamente que el mismo método no vaya a estar admitido en otro lugar.</p>
+<p>Una forma más fiable de probar los métodos admitidos es simplemente enviar una petición con ese tipo de método y examinar la respuesta del servidor. Si el método no está permitido, el servidor debería devolver un estado <code>405 Method Not Allowed</code>.</p>
+<p>Vale la pena señalar que algunos servidores tratan los métodos desconocidos como equivalentes a <code>GET</code>, por lo que pueden responder a métodos arbitrarios, como en la petición que se muestra a continuación. Esto en ocasiones puede ser útil para evadir un firewall de aplicaciones web o cualquier otro filtrado que bloquee métodos específicos.</p>
+<pre><code class="language-http">FOO / HTTP/1.1
+Host: example.org
+</code></pre>
+<p>Las peticiones con métodos arbitrarios también pueden hacerse con curl usando la opción <code>-X</code>:</p>
+<pre><code class="language-bash">curl -X FOO https://example.org
+</code></pre>
+<p>También existen diversas herramientas automatizadas que pueden intentar determinar los métodos admitidos, como el script de Nmap <a href="https://nmap.org/nsedoc/scripts/http-methods.html" target="_blank" rel="noopener"><code>http-methods</code></a>. Sin embargo, estas herramientas pueden no probar los métodos peligrosos (es decir, los que pueden causar cambios, como <code>PUT</code> o <code>DELETE</code>), o pueden causar cambios no intencionados en el servidor web si estos métodos están admitidos. Por ello, deben usarse con cuidado.</p>
+<h4 id="testing-through-proxies-and-cdns">Pruebas a través de proxies y CDN</h4>
+<p>Cuando la aplicación se encuentra detrás de un proxy inverso, balanceador de carga, CDN o WAF, el manejo de métodos en el borde puede diferir del del origen, y los resultados deben compararse:</p>
+<ul>
+<li>Muchos CDN almacenan en caché y reenvían por defecto solo un conjunto limitado de métodos (normalmente <code>GET</code>/<code>HEAD</code>, a veces <code>OPTIONS</code>), y pueden rechazar o eliminar otros (<code>TRACE</code>, <code>CONNECT</code>, a veces <code>PUT</code>/<code>DELETE</code>) antes de que lleguen al origen. Por lo tanto, una cabecera <code>Allow</code> o una respuesta a <code>OPTIONS</code> observada en el borde no refleja necesariamente lo que admite el propio origen.</li>
+<li>Cuando sea viable (p. ej., en una prueba de caja gris con acceso al origen, o mediante una conexión directa basada en una cabecera <code>Host</code>/IP), hay que probar el origen directamente además de a través del borde, ya que un método bloqueado en el borde pero admitido en el origen es explotable si el origen llega a ser alcanzable directamente (reglas de firewall mal configuradas, SSRF, otros hosts virtuales que comparten el origen, etc.).</li>
+<li>Algunos proxies/WAF normalizan o convierten a un mismo caso el token del método antes de compararlo con una lista de bloqueo; probar con mayúsculas y minúsculas mezcladas (<code>DeLeTe</code>) o con espacios en blanco no estándar puede revelar una aplicación inconsistente de las reglas entre el proxy y el origen.</li>
+</ul>
+<h3 id="put-and-delete">PUT y DELETE</h3>
+<p>Los métodos <code>PUT</code> y <code>DELETE</code> pueden tener diferentes efectos, dependiendo de si los interpreta el servidor web o la aplicación que se ejecuta en él.</p>
+<h4 id="legacy-web-servers">Servidores web heredados</h4>
+<p>Algunos servidores web heredados permitían el uso del método <code>PUT</code> para crear archivos en el servidor. Por ejemplo, si el servidor está configurado para permitirlo, la siguiente petición crearía en el servidor un archivo llamado <code>test.html</code> con el contenido <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>.</p>
+<pre><code class="language-http">PUT /test.html HTTP/1.1
+Host: example.org
+Content-Length: 25
+
+&lt;script&gt;alert(1)&lt;/script&gt;
+</code></pre>
+<p>También pueden hacerse peticiones similares con curl:</p>
+<pre><code class="language-bash">curl https://example.org --upload-file test.html
+</code></pre>
+<p>Esto permite a un atacante subir archivos arbitrarios al servidor web, lo que podría resultar en un compromiso total del sistema si se le permite subir código ejecutable, como archivos PHP. Sin embargo, esta configuración es extremadamente rara y es poco probable que se vea en sistemas modernos.</p>
+<p>De manera similar, el método <code>DELETE</code> puede usarse para eliminar archivos del servidor web. Cabe señalar que esta es una <strong>acción destructiva</strong>; por lo tanto, se debe tener un cuidado extremo al probar este método.</p>
+<pre><code class="language-http">DELETE /test.html HTTP/1.1
+Host: example.org
+</code></pre>
+<p>O con curl:</p>
+<pre><code class="language-bash">curl https://example.org/test.html -X DELETE
+</code></pre>
+<h4 id="restful-apis">APIs RESTful</h4>
+<p>En contraste, los métodos <code>PUT</code> y <code>DELETE</code> son utilizados comúnmente por las aplicaciones RESTful modernas para crear y eliminar objetos. Por ejemplo, la siguiente petición de API podría usarse para crear un usuario llamado &quot;foo&quot; con el rol &quot;user&quot;:</p>
+<pre><code class="language-http">PUT /api/users/foo HTTP/1.1
+Host: example.org
+Content-Length: 34
+
+{
+    &quot;role&quot;: &quot;user&quot;
+}
+</code></pre>
+<p>Una petición similar con el método DELETE podría usarse para eliminar un objeto.</p>
+<pre><code class="language-http">DELETE /api/users/foo HTTP/1.1
+Host: example.org
+</code></pre>
+<p>Aunque las herramientas de escaneo automatizadas puedan reportarlo, la presencia de estos métodos en una API RESTful <strong>no es un problema de seguridad</strong>. Sin embargo, esta funcionalidad puede tener otras vulnerabilidades (como un control de acceso débil) y debe probarse a fondo.</p>
+<h3 id="trace">TRACE</h3>
+<p>El método <code>TRACE</code> (o el método equivalente de Microsoft, <code>TRACK</code>) hace que el servidor devuelva como eco el contenido de la petición. Esto llevó a que se publicara en <a href="https://www.cgisecurity.com/whitehat-mirror/WH-WhitePaper_XST_ebook.pdf" target="_blank" rel="noopener">2003</a> (PDF) una vulnerabilidad llamada Cross-Site Tracing (XST), que podía usarse para acceder a cookies que tenían el indicador <code>HttpOnly</code>. El método <code>TRACE</code> está bloqueado desde hace muchos años en todos los navegadores y plugins; por ello, este problema ya no es explotable. Sin embargo, las herramientas de escaneo automatizadas todavía pueden señalarlo, y el hecho de que el método <code>TRACE</code> esté habilitado en un servidor web sugiere que no ha sido endurecido adecuadamente.</p>
+<h3 id="connect">CONNECT</h3>
+<p>El método <code>CONNECT</code> hace que el servidor web abra una conexión TCP con otro sistema y luego transmita el tráfico del cliente a ese sistema. Esto podría permitir a un atacante canalizar tráfico a través del servidor para ocultar su dirección de origen, acceder a sistemas internos o acceder a servicios vinculados a localhost. A continuación se muestra un ejemplo de una petición <code>CONNECT</code>:</p>
+<pre><code class="language-http">CONNECT 192.168.0.1:443 HTTP/1.1
+Host: example.org
+</code></pre>
+<h3 id="patch">PATCH</h3>
+<p>El método <code>PATCH</code> está definido en la <a href="https://datatracker.ietf.org/doc/html/rfc5789" target="_blank" rel="noopener">RFC 5789</a> y se utiliza para proporcionar instrucciones sobre cómo debe modificarse un objeto. La propia RFC no define en qué formato deben estar estas instrucciones, pero otros estándares definen varios métodos, como la <a href="https://datatracker.ietf.org/doc/html/rfc6902" target="_blank" rel="noopener">RFC 6902 - JavaScript Object Notation (JSON) Patch</a>.</p>
+<p>Por ejemplo, si tenemos un usuario llamado &quot;foo&quot; con las siguientes propiedades:</p>
+<pre><code class="language-json">{
+    &quot;role&quot;: &quot;user&quot;,
+    &quot;email&quot;: &quot;foo@example.org&quot;
+}
+</code></pre>
+<p>La siguiente petición JSON PATCH podría usarse para cambiar el rol de este usuario a &quot;admin&quot;, sin modificar la dirección de correo electrónico:</p>
+<pre><code class="language-http">PATCH /api/users/foo HTTP/1.1
+Host: example.org
+
+{ &quot;op&quot;: &quot;replace&quot;, &quot;path&quot;: &quot;/role&quot;, &quot;value&quot;: &quot;admin&quot; }
+</code></pre>
+<p>Aunque la RFC establece que debe incluir instrucciones sobre cómo modificar el objeto, el método <code>PATCH</code> se usa (mal) comúnmente para incluir en su lugar el contenido modificado, como se muestra a continuación. Al igual que la petición anterior, esto cambiaría el valor &quot;role&quot; a &quot;admin&quot; sin modificar el resto del objeto. Esto contrasta con el método <code>PUT</code>, que sobrescribiría el objeto completo y, por tanto, daría como resultado un objeto sin el atributo &quot;email&quot;.</p>
+<pre><code class="language-http">PATCH /api/users/foo HTTP/1.1
+Host: example.org
+
+{
+    &quot;role&quot;: &quot;admin&quot;
+}
+</code></pre>
+<p>Al igual que con el método <code>PUT</code>, esta funcionalidad puede tener debilidades de control de acceso u otras vulnerabilidades. Además, las aplicaciones pueden no realizar el mismo nivel de validación de entrada al modificar un objeto que al crearlo. Esto podría permitir inyectar valores maliciosos (como en un ataque de cross-site scripting almacenado) o permitir objetos rotos o inválidos que pueden dar lugar a problemas relacionados con la lógica de negocio.</p>
+<h3 id="webdav-methods">Métodos WebDAV</h3>
+<p>Cuando el servidor web tiene WebDAV habilitado (p. ej., IIS con el rol WebDAV Publishing o <code>mod_dav</code> de Apache), pueden quedar expuestos métodos adicionales como <code>PROPFIND</code>, <code>PROPPATCH</code>, <code>MKCOL</code>, <code>COPY</code>, <code>MOVE</code>, <code>LOCK</code> y <code>UNLOCK</code>. El soporte de WebDAV es heredado y rara vez lo requieren las aplicaciones web modernas, por lo que su presencia merece ser señalada por sí misma, independientemente de cualquier vulnerabilidad específica.</p>
+<p><code>PROPFIND</code> puede usarse para enumerar listados de directorios y metadatos de recursos incluso cuando la navegación de directorios está deshabilitada:</p>
+<pre><code class="language-http">PROPFIND /uploads/ HTTP/1.1
+Host: example.org
+Depth: 1
+</code></pre>
+<p><code>MKCOL</code>, <code>COPY</code> y <code>MOVE</code> pueden usarse para crear directorios o reubicar/duplicar archivos, lo que, combinado con un <code>PUT</code> permisivo, ha permitido históricamente evadir las restricciones de carga de archivos (p. ej., subir un archivo con una extensión bloqueada y luego usar <code>MOVE</code>/<code>COPY</code> para renombrarlo con una extensión ejecutable). Hay que probar si los filtros de carga basados en extensiones se aplican de forma coherente en <code>PUT</code>, <code>MOVE</code> y <code>COPY</code>.</p>
+<p>Si WebDAV está presente pero no es necesario, se recomienda deshabilitarlo; si es necesario, hay que asegurar que esté limitado solo a las rutas que lo necesitan y que no sea alcanzable en rutas que sirven a la aplicación principal.</p>
+<h3 id="query">QUERY</h3>
+<p>El método <code>QUERY</code> es un método HTTP relativamente nuevo, definido en la <a href="https://datatracker.ietf.org/doc/html/rfc9110" target="_blank" rel="noopener">RFC 9110</a>, diseñado para operaciones de recuperación seguras que requieren un cuerpo de petición. Al igual que <code>POST</code>, acepta datos estructurados en el cuerpo de la petición; a diferencia de <code>POST</code>, es seguro e idempotente, lo que significa que no modifica el estado del servidor y puede almacenarse en caché. Esto lo hace semánticamente similar a <code>GET</code>, pero permite la expresividad de parámetros de filtro complejos, etc., que serían engorrosos en una URL.</p>
+<p>Por ejemplo, el método <code>QUERY</code> podría usarse para enviar una consulta de búsqueda compleja con múltiples criterios de filtro:</p>
+<pre><code class="language-http">QUERY /api/users/search HTTP/1.1
+Host: example.org
+Content-Type: application/json
+
+{
+    &quot;filters&quot;: {
+        &quot;role&quot;: &quot;admin&quot;,
+        &quot;status&quot;: &quot;active&quot;,
+        &quot;lastLogin&quot;: {&quot;after&quot;: &quot;2024-01-01&quot;}
+    }
+}
+</code></pre>
+<p>El método <code>QUERY</code> está diseñado para ser almacenable en caché y seguro (solo lectura), lo que lo distingue de <code>POST</code>. No debe usarse para operaciones que modifiquen el estado del servidor. Los evaluadores deben verificar que:</p>
+<ul>
+<li>El servidor trate correctamente <code>QUERY</code> como una operación segura y no modifique el estado del servidor.</li>
+<li>El control de acceso se aplique correctamente a las peticiones <code>QUERY</code>.</li>
+<li>El método no se use como alternativa para evadir controles de seguridad que restringen otros métodos.</li>
+</ul>
+<h3 id="access-control-bypass">Evasión del control de acceso</h3>
+<p>Si una página de la aplicación redirige a los usuarios a una página de inicio de sesión con un código 302 cuando intentan acceder a ella directamente, puede ser posible evadir esto haciendo una petición con un método HTTP diferente, como <code>HEAD</code>, <code>POST</code> o incluso un método inventado como <code>FOO</code>. Si la aplicación web responde con un <code>HTTP/1.1 200 OK</code> en lugar del esperado <code>HTTP/1.1 302 Found</code>, puede ser posible evadir la autenticación o la autorización. El siguiente ejemplo muestra cómo una petición <code>HEAD</code> puede dar lugar a que una página establezca cookies administrativas, en lugar de redirigir al usuario a una página de inicio de sesión:</p>
+<pre><code class="language-http">HEAD /admin/ HTTP/1.1
+Host: example.org
+</code></pre>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[...]
+Set-Cookie: adminSessionCookie=[...];
+</code></pre>
+<p>Alternativamente, puede ser posible hacer peticiones directas a páginas que provocan acciones, como:</p>
+<pre><code class="language-http">HEAD /admin/createUser.php?username=foo&amp;password=bar&amp;role=admin HTTP/1.1
+Host: example.org
+</code></pre>
+<p>O:</p>
+<pre><code class="language-http">FOO /admin/createUser.php
+Host: example.org
+Content-Length: 36
+
+username=foo&amp;password=bar&amp;role=admin
+</code></pre>
+<h3 id="http-method-overriding">Sobrescritura de métodos HTTP</h3>
+<p>Algunos frameworks web proporcionan una forma de sobrescribir el método HTTP real de la petición. Lo logran emulando los verbos HTTP que faltan y pasando algunas cabeceras personalizadas en las peticiones. El propósito principal de esto es sortear una aplicación intermedia (como un proxy o un firewall de aplicaciones web) que bloquea métodos específicos. Podrían usarse potencialmente las siguientes cabeceras HTTP alternativas:</p>
+<ul>
+<li><code>X-HTTP-Method</code></li>
+<li><code>X-HTTP-Method-Override</code></li>
+<li><code>X-Method-Override</code></li>
+</ul>
+<p>Para probar esto, hay que considerar escenarios en los que verbos restringidos como <code>PUT</code> o <code>DELETE</code> devuelven un <code>405 Method not allowed</code>. En tales casos, se debe repetir la misma petición, pero añadiendo las cabeceras alternativas de sobrescritura del método HTTP. Luego, hay que observar la respuesta del sistema. La aplicación debería responder con un código de estado diferente (<em>p. ej.</em>, <code>200 OK</code>) en los casos en que se admita la sobrescritura de métodos.</p>
+<p>Varios frameworks también admiten la sobrescritura de métodos mediante un parámetro de la petición en lugar de (o además de) una cabecera, comúnmente <code>_method</code> en la cadena de consulta o en el cuerpo del formulario (p. ej., <code>POST /resource.html?_method=DELETE</code>). Hay que probar esto junto con las variantes basadas en cabeceras, ya que un filtro que solo inspecciona cabeceras podría pasarlo por alto.</p>
+<p>Como el propósito de la sobrescritura de métodos suele ser hacer pasar una petición por un intermediario, siempre hay que comparar el comportamiento en el borde (proxy/CDN/WAF) con el del origen: un método que se bloquea en el borde pero que se sobrescribe y se acepta en el origen indica que el origen confía en señales de sobrescritura proporcionadas por el cliente que el borde no pretendía dejar pasar.</p>
+<p>El servidor web del siguiente ejemplo no permite el método <code>DELETE</code> y lo bloquea:</p>
+<pre><code class="language-http">DELETE /resource.html HTTP/1.1
+Host: example.org
+</code></pre>
+<pre><code class="language-http">HTTP/1.1 405 Method Not Allowed
+[...]
+</code></pre>
+<p>Después de añadir la cabecera <code>X-HTTP-Method</code>, el servidor responde a la petición con un 200:</p>
+<pre><code class="language-http">GET /resource.html HTTP/1.1
+Host: example.org
+X-HTTP-Method: DELETE
+</code></pre>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[...]
+</code></pre>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Asegurar que solo se permitan los métodos necesarios y que estos estén correctamente configurados.</li>
+<li>Asegurar que no se implementen soluciones alternativas para evadir las medidas de seguridad implementadas por los agentes de usuario, los frameworks o los servidores web.</li>
+<li>Deshabilitar WebDAV (<code>mod_dav</code>, IIS WebDAV Publishing) a menos que se requiera explícitamente y, si se requiere, limitar su alcance estrictamente.</li>
+<li>Asegurar que las restricciones de métodos se apliquen de forma coherente entre cualquier proxy de borde/CDN/WAF y el servidor de origen, y que el origen no confíe en cabeceras ni parámetros de sobrescritura de método proporcionados por el cliente, a menos que el borde dependa explícitamente de ellos.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://nmap.org/ncat/" target="_blank" rel="noopener">Ncat</a></li>
+<li><a href="https://curl.se/" target="_blank" rel="noopener">curl</a></li>
+<li><a href="https://nmap.org/nsedoc/scripts/http-methods.html" target="_blank" rel="noopener">Nmap http-methods NSE script</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc7231" target="_blank" rel="noopener">RFC 7231 - Hypertext Transfer Protocol (HTTP/1.1)</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc5789" target="_blank" rel="noopener">RFC 5789 - PATCH Method for HTTP</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9110" target="_blank" rel="noopener">RFC 9110 - HTTP Semantics</a></li>
+<li><a href="https://web.archive.org/web/20160616172703/https://www.kernelpanik.org/docs/kernelpanik/bme.eng.pdf" target="_blank" rel="noopener">HTACCESS: BILBAO Method Exposed</a></li>
+<li><a href="https://vulncat.fortify.com/en/detail?id=desc.dynamic.xtended_preview.often_misused_http_method_override" target="_blank" rel="noopener">Fortify - Misused HTTP Method Override</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Safe/HTTP" target="_blank" rel="noopener">Mozilla Developer Network - Safe HTTP Methods</a></li>
+</ul>

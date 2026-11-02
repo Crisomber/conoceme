@@ -1,0 +1,127 @@
+<h1 id="mass-assignment">Asignación masiva (Mass Assignment)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-20</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las aplicaciones web modernas se basan muy a menudo en frameworks. Muchos de estos frameworks de aplicaciones web permiten el enlace automático de la entrada del usuario (en forma de parámetros de petición HTTP) a objetos internos. Esto suele denominarse autobinding.
+Esta funcionalidad a veces puede explotarse para acceder a campos que nunca estuvieron destinados a ser modificados desde el exterior, lo que conduce a escalada de privilegios, manipulación de datos, elusión de mecanismos de seguridad y más.
+En este caso existe una vulnerabilidad de Mass Assignment.</p>
+<p>Ejemplos de propiedades sensibles:</p>
+<ul>
+<li><strong>Propiedades relacionadas con permisos</strong>: solo deberían ser establecidas por usuarios con privilegios (p. ej., <code>is_admin</code>, <code>role</code>, <code>approved</code>).</li>
+<li><strong>Propiedades dependientes de un proceso</strong>: solo deberían establecerse internamente, después de que se complete un proceso (p. ej., <code>balance</code>, <code>status</code>, <code>email_verified</code>)</li>
+<li><strong>Propiedades internas</strong>: solo deberían ser establecidas internamente por la aplicación (p. ej., <code>created_at</code>, <code>updated_at</code>)</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las peticiones que modifican objetos</li>
+<li>Evaluar si es posible modificar campos que nunca estuvieron destinados a ser modificados desde el exterior</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El siguiente es un ejemplo clásico que puede ayudar a ilustrar el problema.</p>
+<p>Supongamos una aplicación web Java con un objeto <code>User</code> similar al siguiente:</p>
+<pre><code class="language-java">public class User {
+   private String username;
+   private String password;
+   private String email;
+   private boolean isAdmin;
+
+   //Getters &amp; Setters
+}
+</code></pre>
+<p>Para crear un nuevo <code>User</code>, la aplicación web implementa la siguiente vista:</p>
+<pre><code class="language-html">&lt;form action=&quot;/createUser&quot; method=&quot;POST&quot;&gt;
+     &lt;input name=&quot;username&quot; type=&quot;text&quot;&gt;
+     &lt;input name=&quot;password&quot; type=&quot;text&quot;&gt;
+     &lt;input name=&quot;email&quot; text=&quot;text&quot;&gt;
+     &lt;input type=&quot;submit&quot; value=&quot;Create&quot;&gt;
+&lt;/form&gt;
+</code></pre>
+<p>El controlador que maneja la petición de creación (Spring proporciona el enlace automático con el modelo <code>User</code>):</p>
+<pre><code class="language-java">@RequestMapping(value = &quot;/createUser&quot;, method = RequestMethod.POST)
+public String createUser(User user) {
+   userService.add(user);
+   return &quot;successPage&quot;;
+}
+</code></pre>
+<p>Cuando se envía el formulario, el navegador genera la siguiente petición:</p>
+<pre><code class="language-http">POST /createUser
+[...]
+username=bob&amp;password=supersecretpassword&amp;email=bob@domain.test
+</code></pre>
+<p>Sin embargo, debido al autobinding, un atacante puede añadir el parámetro <code>isAdmin</code> a la petición, que el controlador enlazará automáticamente al modelo.</p>
+<pre><code class="language-http">POST /createUser
+[...]
+username=bob&amp;password=supersecretpassword&amp;email=bob@domain.test&amp;isAdmin=true
+</code></pre>
+<p>El usuario se crea entonces con la propiedad <code>isAdmin</code> establecida en <code>true</code>, lo que le otorga derechos administrativos en la aplicación.</p>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="detect-handlers">Detectar los manejadores (handlers)</h4>
+<p>Para determinar qué parte de la aplicación es vulnerable a mass assignment, se enumeran todas las partes de la aplicación que aceptan contenido del usuario y que potencialmente pueden mapearse con un modelo. Esto incluye todas las peticiones HTTP (muy probablemente GET, POST y PUT) que parezcan permitir operaciones de creación o actualización en el back-end.
+Uno de los indicadores más simples de posibles asignaciones masivas es la presencia de sintaxis de corchetes en los nombres de los parámetros de entrada, como por ejemplo:</p>
+<pre><code class="language-html">&lt;input name=&quot;user[name]&quot; type=&quot;text&quot;&gt;
+</code></pre>
+<p>Cuando se encuentren estos patrones, se debe intentar añadir una entrada relacionada con un atributo inexistente (p. ej., <code>user[nonexistingattribute]</code>) y analizar la respuesta/comportamiento.
+Si la aplicación no implementa ningún control (p. ej., una lista de campos permitidos), es probable que responda con un error (p. ej., 500) debido a que la aplicación no encuentra el atributo asociado al objeto. Más interesante aún, estos errores a veces facilitan el descubrimiento de los nombres de atributos y de los tipos de datos de valores necesarios para explotar el problema, sin acceso al código fuente.</p>
+<h4 id="identify-sensitive-fields">Identificar los campos sensibles</h4>
+<p>Dado que en las pruebas de caja negra el evaluador no tiene visibilidad del código fuente, es necesario encontrar otras formas de recopilar información sobre los atributos asociados a los objetos.
+Se analizan las respuestas recibidas del back-end, prestando particular atención a:</p>
+<ul>
+<li>El código fuente de la página HTML</li>
+<li>El código JavaScript personalizado</li>
+<li>Las respuestas de las API</li>
+</ul>
+<p>Por ejemplo, muy a menudo es posible explotar manejadores que devuelven detalles sobre un objeto para obtener pistas sobre los campos asociados.
+Supongamos, por ejemplo, un manejador que devuelve el perfil del usuario (p. ej., <code>GET /profile</code>); este puede incluir otros atributos relacionados con el usuario (en este ejemplo, el atributo <code>isAdmin</code> parece particularmente interesante).</p>
+<pre><code class="language-json">{&quot;_id&quot;:12345,&quot;username&quot;:&quot;bob&quot;,&quot;age&quot;:38,&quot;email&quot;:&quot;bob@domain.test&quot;,&quot;isAdmin&quot;:false}
+</code></pre>
+<p>Luego se intenta explotar los manejadores que permiten la modificación o creación de usuarios, añadiendo el atributo <code>isAdmin</code> configurado en <code>true</code>.</p>
+<p>Otro enfoque es usar listas de palabras (wordlists) para intentar enumerar todos los atributos potenciales. La enumeración puede entonces automatizarse (p. ej., mediante wfuzz, Burp Intruder, el fuzzer de ZAP, etc.). La herramienta sqlmap incluye una lista de palabras <a href="https://github.com/sqlmapproject/sqlmap/blob/master/data/txt/common-columns.txt" target="_blank" rel="noopener">common-columns.txt</a> que puede ser útil para identificar posibles atributos sensibles.
+Un pequeño ejemplo de nombres de atributos interesantes comunes son los siguientes:</p>
+<ul>
+<li><code>is_admin</code></li>
+<li><code>is_administrator</code></li>
+<li><code>isAdmin</code></li>
+<li><code>isAdministrator</code></li>
+<li><code>admin</code></li>
+<li><code>administrator</code></li>
+<li><code>role</code></li>
+</ul>
+<p>Cuando hay varios roles disponibles, se debe intentar comparar las peticiones realizadas por distintos niveles de usuario (prestando particular atención a los roles con privilegios). Por ejemplo, si se incluyen parámetros adicionales en las peticiones realizadas por un usuario administrativo, se deben probar esos parámetros como usuario con pocos privilegios o anónimo.</p>
+<h4 id="check-impact">Comprobar el impacto</h4>
+<p>El impacto de una asignación masiva puede variar según el contexto; por lo tanto, para cada entrada de prueba intentada en la fase anterior, se debe analizar el resultado y determinar si representa una vulnerabilidad con un impacto realista en la seguridad de la aplicación web.
+Por ejemplo, la modificación del <code>id</code> de un objeto puede conducir a denegación de servicio de la aplicación o a escalada de privilegios. Otro ejemplo está relacionado con la posibilidad de modificar el rol/estado del usuario (p. ej., <code>role</code> o <code>isAdmin</code>), lo que lleva a una escalada vertical de privilegios.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Cuando el análisis se realiza con un enfoque de pruebas de caja gris, es posible seguir la misma metodología para verificar el problema. Sin embargo, el mayor conocimiento de la aplicación permite identificar con más facilidad los frameworks y manejadores sujetos a la vulnerabilidad de mass assignment.
+En particular, cuando el código fuente está disponible, es posible buscar los vectores de entrada con más facilidad y precisión. Durante una revisión del código fuente, se utilizan herramientas simples (como el comando grep) para buscar uno o más patrones comunes dentro del código de la aplicación.
+El acceso al esquema de la base de datos o al código fuente también permite identificar fácilmente los campos sensibles.</p>
+<h4 id="java">Java</h4>
+<p>Spring MVC permite enlazar automáticamente la entrada del usuario a un objeto. Se identifican los controladores que manejan peticiones que cambian el estado (p. ej., se buscan las apariciones de <code>@RequestMapping</code>) y luego se verifica si existen controles (tanto en el controlador como en los modelos involucrados). Las limitaciones a la explotación de la asignación masiva pueden presentarse, por ejemplo, en la forma de:</p>
+<ul>
+<li>lista de campos enlazables mediante el método <code>setAllowedFields</code> de la clase <code>DataBinder</code> (p. ej., <code>binder.setAllowedFields([&quot;username&quot;,&quot;password&quot;,&quot;email&quot;])</code>)</li>
+<li>lista de campos no enlazables mediante el método <code>setDisallowedFields</code> de la clase <code>DataBinder</code> (p. ej., <code>binder.setDisallowedFields([&quot;isAdmin&quot;])</code>)</li>
+</ul>
+<p>También es aconsejable prestar atención al uso de la anotación <code>@ModelAttribute</code>, que permite especificar un nombre/clave diferente.</p>
+<h4 id="php">PHP</h4>
+<p>Laravel Eloquent ORM proporciona un método <code>create</code> que permite la asignación automática de atributos. Sin embargo, las últimas versiones de Eloquent ORM ofrecen protección por defecto contra vulnerabilidades de asignación masiva, requiriendo especificar explícitamente los atributos permitidos que pueden asignarse automáticamente, mediante el arreglo <code>$fillable</code>, o los atributos que deben protegerse (no enlazables), mediante el arreglo <code>$guarded</code>. Por lo tanto, analizando los modelos (clases que extienden la clase <code>Model</code>) es posible identificar qué atributos están permitidos o denegados y, por consiguiente, señalar posibles vulnerabilidades.</p>
+<h4 id="net">.NET</h4>
+<p>El enlace de modelos (model binding) en ASP.NET enlaza automáticamente las entradas del usuario a las propiedades de un objeto. Esto también funciona con tipos complejos y convertirá automáticamente los datos de entrada a las propiedades si los nombres de las propiedades coinciden con la entrada.
+Se identifican los controladores y luego se verifica si existen controles (tanto dentro del controlador como en los modelos involucrados). Las limitaciones a la explotación de la asignación masiva pueden presentarse, por ejemplo, en la forma de:</p>
+<ul>
+<li>campos declarados como <code>ReadOnly</code></li>
+<li>lista de campos enlazables mediante el atributo <code>Bind</code> (p. ej., <code>[Bind(Include = &quot;FirstName, LastName&quot;)] Student std</code>), mediante <code>includeProperties</code> (p. ej., <code>includeProperties: new[] { &quot;FirstName, LastName&quot; }</code>) o a través de <code>TryUpdateModel</code></li>
+<li>lista de campos no enlazables mediante el atributo <code>Bind</code> (p. ej., <code>[Bind(Exclude = &quot;Status&quot;)] Student std</code>) o mediante <code>excludeProperties</code> (p. ej., <code>excludeProperties: new[] { &quot;Status&quot; }</code>)</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Utilice las funcionalidades integradas, proporcionadas por los frameworks, para definir los campos enlazables y no enlazables. Es preferible un enfoque basado en campos permitidos (enlazables), en el que solo se definan explícitamente las propiedades que el usuario debe poder actualizar.
+Un enfoque arquitectónico para prevenir el problema es utilizar el patrón <em>Data Transfer Object</em> (DTO) para evitar el enlace directo. El DTO debe incluir únicamente los campos que están destinados a ser editables por el usuario.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://github.com/OWASP/API-Security/blob/master/editions/2019/en/0xa6-mass-assignment.md" target="_blank" rel="noopener">OWASP: API Security</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP: Cheat Sheet Series</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/915.html" target="_blank" rel="noopener">CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes</a></li>
+</ul>

@@ -1,0 +1,232 @@
+<h1 id="identify-application-entry-points">Identificación de los puntos de entrada de la aplicación</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Enumerar la aplicación y su superficie de ataque es un paso previo clave antes de poder realizar cualquier prueba exhaustiva, ya que permite al evaluador identificar las áreas probablemente débiles. Esta sección busca ayudar a identificar y mapear las áreas de la aplicación que deben investigarse una vez completadas la enumeración y el mapeo.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar posibles puntos de entrada y de inyección mediante el análisis de peticiones y respuestas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Antes de comenzar cualquier prueba, el evaluador siempre debe tener una buena comprensión de la aplicación y de cómo se comunican con ella el usuario y el navegador. Al recorrer la aplicación, el evaluador debe prestar atención a todas las peticiones HTTP, así como a cada parámetro y campo de formulario que se pasa a la aplicación. Debe prestar especial atención a cuándo se usan peticiones GET y cuándo se usan peticiones POST para pasar parámetros a la aplicación. Además, también debe prestar atención a cuándo se usan otros métodos para servicios RESTful.</p>
+<p>Para ver los parámetros enviados en el cuerpo de peticiones como POST, el evaluador puede querer usar una herramienta como un proxy de interceptación (consulta <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/06-Identify_Application_Entry_Points@tools">herramientas</a>). Dentro de la petición POST, el evaluador también debe tomar nota especial de cualquier campo de formulario oculto que se esté pasando a la aplicación, ya que estos suelen contener información sensible, como información de estado, cantidad de artículos, precio de los artículos, etc., que el desarrollador nunca pretendió que nadie viera o cambiara.</p>
+<p>El uso de un proxy de interceptación y de una aplicación para tomar notas (por ejemplo, un software de hojas de cálculo) en esta etapa de las pruebas es popular entre los evaluadores. El proxy llevará el registro de cada petición y respuesta entre el evaluador y la aplicación mientras la explora. Además, en este punto los evaluadores suelen interceptar cada petición y respuesta para poder ver exactamente cada cabecera, parámetro, etc. que se pasa a la aplicación y lo que se devuelve. Esto puede resultar bastante tedioso a veces, especialmente en sitios interactivos grandes (piénsese en una aplicación bancaria). Sin embargo, la experiencia enseñará qué buscar y esta fase puede optimizarse significativamente.</p>
+<p>Mientras recorre la aplicación, el evaluador debe tomar nota de cualquier parámetro interesante en la URL, cabeceras personalizadas o cuerpo de las peticiones/respuestas, y guardarlos en una hoja de cálculo. La hoja de cálculo debe incluir la página solicitada (puede ser útil añadir también el número de petición del proxy, para referencia futura), los parámetros interesantes, el tipo de petición (GET, POST, etc.), si el acceso es autenticado o no autenticado, si se usa TLS, si forma parte de un proceso de varios pasos, si se usan WebSockets y cualquier otra nota relevante. Una vez que tenga mapeada cada área de la aplicación, podrá recorrerla y probar cada una de las áreas que haya identificado y tomar notas de lo que funcionó y lo que no. El resto de esta guía identificará cómo probar cada una de estas áreas de interés, pero esta sección debe realizarse antes de que pueda comenzar cualquier prueba real.</p>
+<p>A continuación se presentan algunos puntos de interés para todas las peticiones y respuestas. Dentro de la sección de peticiones, hay que centrarse en los métodos GET y POST, ya que constituyen la mayoría de las peticiones. Hay que tener en cuenta que también pueden encontrarse otros métodos, como PUT y DELETE. A menudo, estas peticiones menos comunes, si están permitidas, pueden exponer vulnerabilidades. Hay una sección especial en esta guía dedicada a probar estos métodos HTTP.</p>
+<h3 id="requests">Peticiones</h3>
+<ul>
+<li>Identificar dónde se usan GET y dónde se usan POST.</li>
+<li>Identificar todos los parámetros usados en una petición POST (estos están en el cuerpo de la petición).</li>
+<li>Dentro de la petición POST, prestar especial atención a los parámetros ocultos. Cuando se envía un POST, todos los campos del formulario (incluidos los parámetros ocultos) se envían en el cuerpo del mensaje HTTP a la aplicación. Normalmente no se ven a menos que se use un proxy o se visualice el código fuente HTML. Alterar estos parámetros ocultos puede provocar cambios en las páginas siguientes que se cargan, en los datos que contienen y en el grado de acceso concedido.</li>
+<li>Identificar todos los parámetros usados en una petición GET (es decir, en la URL), en particular la cadena de consulta (query string, que suele aparecer después del signo ?).</li>
+<li>Identificar todos los parámetros de la cadena de consulta. Estos suelen tener formato de pares, como <code>foo=bar</code>. Hay que tener en cuenta también que muchos parámetros pueden estar en una sola cadena de consulta separados por <code>&amp;</code>, <code>\~</code>, <code>:</code> o cualquier otro carácter especial o codificación.</li>
+<li>Hay que tener presente que, al identificar múltiples parámetros en una cadena o dentro de una petición POST, algunos o todos los parámetros serán necesarios para ejecutar los ataques. El evaluador necesita identificar todos los parámetros (incluso si están codificados o cifrados) e identificar cuáles son procesados por la aplicación. Secciones posteriores de la guía cubrirán cómo probar estos parámetros. En este punto, es importante asegurarse de que cada uno de ellos esté identificado.</li>
+<li>También hay que prestar atención a cualquier cabecera adicional o de tipo personalizado que no se vea normalmente (como <code>debug: false</code>).</li>
+</ul>
+<h3 id="responses">Respuestas</h3>
+<ul>
+<li>Identificar dónde se establecen (cabecera <code>Set-Cookie</code>), modifican o añaden nuevas cookies.</li>
+<li>Identificar cualquier redirección (código de estado HTTP 3xx), códigos de estado 400 (en particular 403 Forbidden) y errores internos del servidor 500 durante respuestas normales (es decir, peticiones sin modificar).</li>
+<li>Anotar también dónde se usan cabeceras interesantes. Por ejemplo, <code>Server: BIG-IP</code> indica que el sitio tiene balanceo de carga. Por lo tanto, si un sitio tiene balanceo de carga y un servidor está mal configurado, el evaluador podría tener que hacer múltiples peticiones para acceder al servidor vulnerable, según el tipo de balanceo de carga utilizado.</li>
+</ul>
+<h3 id="owasp-attack-surface-detector">OWASP Attack Surface Detector</h3>
+<p>La herramienta Attack Surface Detector (ASD) investiga el código fuente y descubre los endpoints de una aplicación web, los parámetros que aceptan estos endpoints y el tipo de dato de esos parámetros. Esto incluye endpoints sin enlazar que un spider no podría encontrar, así como parámetros opcionales que no se usan en absoluto en el código del lado del cliente. También tiene la capacidad de calcular los cambios en la superficie de ataque entre dos versiones de una aplicación.</p>
+<p>Attack Surface Detector está disponible como plugin tanto para ZAP como para Burp Suite, y también hay una herramienta de línea de comandos. La herramienta de línea de comandos exporta la superficie de ataque como una salida JSON, que luego puede ser utilizada por el plugin de ZAP y Burp Suite. Esto es útil en los casos en que el código fuente no se proporciona directamente al evaluador de penetración. Por ejemplo, el evaluador de penetración puede obtener el archivo de salida json de un cliente que no desea proporcionar el código fuente en sí.</p>
+<h4 id="how-to-use">Cómo usarlo</h4>
+<p>El archivo jar de la CLI está disponible para su descarga en <a href="https://github.com/secdec/attack-surface-detector-cli/releases" target="_blank" rel="noopener">https://github.com/secdec/attack-surface-detector-cli/releases</a>.</p>
+<p>Puedes ejecutar el siguiente comando para que ASD identifique los endpoints a partir del código fuente de la aplicación web objetivo.</p>
+<p><code>java -jar attack-surface-detector-cli-1.3.5.jar &lt;source-code-path&gt; [flags]</code></p>
+<p>Este es un ejemplo de ejecución del comando contra <a href="https://github.com/OWASP/railsgoat" target="_blank" rel="noopener">OWASP RailsGoat</a>.</p>
+<pre><code class="language-text">$ java -jar attack-surface-detector-cli-1.3.5.jar railsgoat/
+Beginning endpoint detection for &#39;&lt;...&gt;/railsgoat&#39; with 1 framework types
+Using framework=RAILS
+[0] GET: /login (0 variants): PARAMETERS={url=name=url, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/sessions_contro
+ller.rb (lines &#39;6&#39;-&#39;9&#39;)
+[1] GET: /logout (0 variants): PARAMETERS={}; FILE=/app/controllers/sessions_controller.rb (lines &#39;33&#39;-&#39;37&#39;)
+[2] POST: /forgot_password (0 variants): PARAMETERS={email=name=email, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/
+password_resets_controller.rb (lines &#39;29&#39;-&#39;38&#39;)
+[3] GET: /password_resets (0 variants): PARAMETERS={token=name=token, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/p
+assword_resets_controller.rb (lines &#39;19&#39;-&#39;27&#39;)
+[4] POST: /password_resets (0 variants): PARAMETERS={password=name=password, paramType=QUERY_STRING, dataType=STRING, user=name=user, paramType=QUERY_STRING, dataType=STRING, confirm_password=name=confirm_password, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/password_resets_controller.rb (lines &#39;5&#39;-&#39;17&#39;)
+[5] GET: /sessions/new (0 variants): PARAMETERS={url=name=url, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/sessions_controller.rb (lines &#39;6&#39;-&#39;9&#39;)
+[6] POST: /sessions (0 variants): PARAMETERS={password=name=password, paramType=QUERY_STRING, dataType=STRING, user_id=name=user_id, paramType=SESSION, dataType=STRING, remember_me=name=remember_me, paramType=QUERY_STRING, dataType=STRING, url=name=url, paramType=QUERY_STRING, dataType=STRING, email=name=email, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/sessions_controller.rb (lines &#39;11&#39;-&#39;31&#39;)
+[7] DELETE: /sessions/{id} (0 variants): PARAMETERS={}; FILE=/app/controllers/sessions_controller.rb (lines &#39;33&#39;-&#39;37&#39;)
+[8] GET: /users (0 variants): PARAMETERS={}; FILE=/app/controllers/api/v1/users_controller.rb (lines &#39;9&#39;-&#39;11&#39;)
+[9] GET: /users/{id} (0 variants): PARAMETERS={}; FILE=/app/controllers/api/v1/users_controller.rb (lines &#39;13&#39;-&#39;15&#39;)
+... snipped ...
+[38] GET: /api/v1/mobile/{id} (0 variants): PARAMETERS={id=name=id, paramType=QUERY_STRING, dataType=STRING, class=name=class, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/api/v1/mobile_controller.rb (lines &#39;8&#39;-&#39;13&#39;)
+[39] GET: / (0 variants): PARAMETERS={url=name=url, paramType=QUERY_STRING, dataType=STRING}; FILE=/app/controllers/sessions_controller.rb (lines &#39;6&#39;-&#39;9&#39;)
+Generated 40 distinct endpoints with 0 variants for a total of 40 endpoints
+Successfully validated serialization for these endpoints
+0 endpoints were missing code start line
+0 endpoints were missing code end line
+0 endpoints had the same code start and end line
+Generated 36 distinct parameters
+Generated 36 total parameters
+- 36/36 have their data type
+- 0/36 have a list of accepted values
+- 36/36 have their parameter type
+--- QUERY_STRING: 35
+--- SESSION: 1
+Finished endpoint detection for &#39;&lt;...&gt;/railsgoat&#39;
+----------
+-- DONE --
+0 projects had duplicate endpoints
+Generated 40 distinct endpoints
+Generated 40 total endpoints
+Generated 36 distinct parameters
+Generated 36 total parameters
+1/1 projects had endpoints generated
+To enable logging include the -debug argument
+</code></pre>
+<p>También puedes generar un archivo de salida JSON usando el indicador <code>-json</code>, que puede ser utilizado por el plugin tanto de ZAP como de Burp Suite. Consulta los siguientes enlaces para más detalles.</p>
+<ul>
+<li><a href="https://github.com/secdec/attack-surface-detector-zap/wiki" target="_blank" rel="noopener">Página principal del plugin ASD para ZAP</a></li>
+<li><a href="https://github.com/secdec/attack-surface-detector-burp/wiki" target="_blank" rel="noopener">Página principal del plugin ASD para PortSwigger Burp</a></li>
+</ul>
+<h3 id="owasp-noir">OWASP Noir</h3>
+<p><a href="https://owasp.org/projects/noir" target="_blank" rel="noopener">OWASP Noir</a> es una herramienta de línea de comandos que encuentra los endpoints de una aplicación web analizando su código fuente. Para cada endpoint informa el método HTTP y los parámetros leídos de la cadena de consulta, el cuerpo de la petición, la ruta, las cabeceras y las cookies. Esto incluye endpoints a los que ninguna página enlaza y parámetros que el código del lado del cliente nunca envía, que un spider pasaría por alto. Noir admite muchos lenguajes y frameworks, incluidos Rails, Django, Express, Spring y Laravel. Consulta los <a href="https://owasp-noir.github.io/noir/usage/supported/language_and_frameworks/" target="_blank" rel="noopener">lenguajes y frameworks admitidos</a> para ver la lista completa.</p>
+<p>Noir escribe sus resultados en muchos <a href="https://owasp-noir.github.io/noir/usage/output_formats/" target="_blank" rel="noopener">formatos de salida</a>, incluidos texto plano, JSON, OpenAPI y comandos curl. También puede reenviar los endpoints descubiertos a través de un proxy de interceptación como ZAP o Burp Suite, de modo que aparezcan en el historial del proxy junto con el resto del tráfico capturado.</p>
+<h4 id="how-to-use-1">Cómo usarlo</h4>
+<p>Instala Noir siguiendo la <a href="https://owasp-noir.github.io/noir/get_started/installation/" target="_blank" rel="noopener">guía de instalación</a> y luego ejecuta el comando <code>scan</code> contra el directorio raíz del código fuente:</p>
+<p><code>noir scan &lt;source-code-path&gt; [flags]</code></p>
+<p>Este es un ejemplo de ejecución del comando contra <a href="https://github.com/OWASP/railsgoat" target="_blank" rel="noopener">OWASP RailsGoat</a>, la misma aplicación usada en el ejemplo anterior de Attack Surface Detector. Sin <code>--no-log</code>, Noir también imprime un registro de progreso con las tecnologías detectadas (<code>ruby_rails</code> en este caso) y los tiempos.</p>
+<pre><code class="language-text">$ noir scan railsgoat --no-log
+GET /api/v1/mobile/1?class=
+  ○ path: id
+
+GET /api/v1/mobile?class=
+
+GET /api/v1/users
+
+GET /api/v1/users/1
+
+GET /users/1/benefit_forms
+
+GET /users/1/messages
+
+GET /users/1/messages/1
+  ○ path: id
+
+DELETE /users/1/messages/1
+  ○ path: id
+
+POST /users/1/messages
+  ○ body: {&quot;creator_id&quot;:&quot;&quot;,&quot;message&quot;:&quot;&quot;,&quot;read&quot;:&quot;&quot;,&quot;receiver_id&quot;:&quot;&quot;}
+
+GET /users/1/paid_time_off
+
+GET /users/1/pay
+
+GET /users/1/pay/1
+
+DELETE /users/1/pay/1
+  ○ path: id
+
+GET /users/1/performance
+
+GET /users/1/retirement
+
+POST /schedule
+  ○ body: {&quot;schedule&quot;:&quot;&quot;,&quot;date_range1&quot;:&quot;&quot;,&quot;date_begin&quot;:&quot;&quot;,&quot;date_end&quot;:&quot;&quot;,&quot;event_desc&quot;:&quot;&quot;,&quot;event_name&quot;:&quot;&quot;,&quot;event_type&quot;:&quot;&quot;}
+
+POST /sessions
+  ○ body: 
+    ├── url
+    ├── email
+    ├── password
+    └── remember_me
+
+... snipped ...
+
+POST /admin/1/delete_user
+  ○ body: 
+    └── admin_id
+
+PATCH /admin/1/update_user
+  ○ body: 
+    ├── admin_id
+    └── user
+
+GET /admin/1/get_all_users
+
+GET /admin/1/analytics?field=&amp;ip=
+
+GET /dashboard/home?font=
+  ○ cookies: 
+    └── font
+
+GET /dashboard/change_graph?graph=
+
+GET /?url=
+
+GET /404.html
+
+GET /422.html
+
+GET /500.html
+
+GET /robots.txt
+</code></pre>
+<p>Noir identificó 56 endpoints. Cada entrada lista el método, la ruta y los parámetros agrupados por ubicación (<code>path</code>, <code>body</code>, <code>cookies</code>). Algunos de ellos son fáciles de pasar por alto al navegar, como la cookie <code>font</code> que lee <code>/dashboard/home</code>.</p>
+<p>Cambia el formato de salida con <code>-f</code> para alimentar los resultados a otras herramientas. El formato <code>curl</code> imprime una petición por endpoint, y <code>-u</code> establece la URL base:</p>
+<pre><code class="language-text">$ noir scan railsgoat --no-log -f curl -u http://localhost:3000
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/api/v1/mobile/1?class=&#39;
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/api/v1/mobile?class=&#39;
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/api/v1/users&#39;
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/api/v1/users/1&#39;
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/users/1/benefit_forms&#39;
+curl -i -X &#39;GET&#39; &#39;http://localhost:3000/users/1/messages&#39;
+... snipped ...
+</code></pre>
+<p>Para enviar cada endpoint a través de un proxy de interceptación para realizar pruebas manuales, agrega <code>--probe-via</code> con la dirección del proxy:</p>
+<pre><code class="language-bash">noir scan railsgoat -u http://localhost:3000 --probe-via http://127.0.0.1:8080
+</code></pre>
+<p>Noir también puede exportar un documento OpenAPI para importarlo en ZAP o Burp Suite. Consulta <a href="#/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance@server-side-source-code">API Reconnaissance</a> para ver un ejemplo.</p>
+<h3 id="application-entry-points">Puntos de entrada de la aplicación</h3>
+<p>A continuación se presentan dos ejemplos de cómo comprobar los puntos de entrada de una aplicación.</p>
+<h4 id="get-requests">Peticiones GET</h4>
+<p>Este ejemplo muestra una petición GET que compraría un artículo en una aplicación de compras en línea.</p>
+<pre><code class="language-http">GET /shoppingApp/buyme.asp?CUSTOMERID=100&amp;ITEM=z101a&amp;PRICE=62.50&amp;IP=x.x.x.x HTTP/1.1
+Host: x.x.x.x
+Cookie: SESSIONID=Z29vZCBqb2IgcGFkYXdhIG15IHVzZXJuYW1lIGlzIGZvbyBhbmQgcGFzc3dvcmQgaXMgYmFy
+</code></pre>
+<blockquote>
+<p>Todos los parámetros de la petición, como CUSTOMERID, ITEM, PRICE, IP y la Cookie, podrían ser simplemente parámetros codificados o parámetros usados para el estado de la sesión.</p>
+</blockquote>
+<h4 id="post-requests">Peticiones POST</h4>
+<p>Este ejemplo muestra una petición POST que iniciaría sesión en una aplicación.</p>
+<pre><code class="language-http">POST /example/authenticate.asp?service=login HTTP/1.1
+Host: x.x.x.x
+Cookie: SESSIONID=dGhpcyBpcyBhIGJhZCBhcHAgdGhhdCBzZXRzIHByZWRpY3RhYmxlIGNvb2tpZXMgYW5kIG1pbmUgaXMgMTIzNA==;CustomCookie=00my00trusted00ip00is00x.x.x.x00
+
+user=admin&amp;pass=pass123&amp;debug=true&amp;fromtrustIP=true
+</code></pre>
+<p>Se puede observar que los parámetros se envían en varias ubicaciones:</p>
+<ol>
+<li>En la cadena de consulta: <code>service</code></li>
+<li>En la cabecera Cookie: <code>SESSIONID</code>, <code>CustomCookie</code></li>
+<li>En el cuerpo de la petición: <code>user</code>, <code>pass</code>, <code>debug</code>, <code>fromtrustIP</code></li>
+</ol>
+<p>Tener una variedad de ubicaciones de inyección brinda al atacante posibilidades de encadenamiento que podrían mejorar las probabilidades de encontrar un error en el código de manejo.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://www.portswigger.net/burp/" target="_blank" rel="noopener">Burp Suite</a></li>
+<li><a href="https://www.telerik.com/fiddler" target="_blank" rel="noopener">Fiddler</a></li>
+<li><a href="https://github.com/owasp-noir/noir" target="_blank" rel="noopener">OWASP Noir</a></li>
+<li>Descubrimiento de contenido y parámetros: <a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">ffuf</a>, <a href="https://github.com/epi052/feroxbuster" target="_blank" rel="noopener">feroxbuster</a>, <a href="https://github.com/s0md3v/Arjun" target="_blank" rel="noopener">Arjun</a></li>
+<li>Crawlers: <a href="https://github.com/projectdiscovery/katana" target="_blank" rel="noopener">katana</a>, <a href="https://github.com/hakluke/hakrawler" target="_blank" rel="noopener">hakrawler</a></li>
+<li>Fuentes de URL históricas: <a href="https://github.com/lc/gau" target="_blank" rel="noopener">gau</a>, <a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">waybackurls</a>, <a href="https://github.com/xnl-h4ck3r/waymore" target="_blank" rel="noopener">waymore</a></li>
+<li>Consulta también las herramientas listadas en <a href="#/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance">API Reconnaissance</a> (Kiterunner, LinkFinder, jsluice, xnLinkFinder, Param Miner, etc.)</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://tools.ietf.org/html/rfc2616" target="_blank" rel="noopener">RFC 2616 - Hypertext Transfer Protocol - HTTP 1.1</a></li>
+<li><a href="https://owasp.org/www-project-attack-surface-detector/" target="_blank" rel="noopener">OWASP Attack Surface Detector</a></li>
+</ul>

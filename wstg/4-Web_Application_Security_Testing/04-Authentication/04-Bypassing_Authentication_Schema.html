@@ -1,0 +1,117 @@
+<h1 id="bypassing-authentication-schema">Elusión del esquema de autenticación</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>En seguridad informática, la autenticación es el proceso de intentar verificar la identidad digital del emisor de una comunicación. Un ejemplo común de este proceso es el inicio de sesión. Probar el esquema de autenticación significa entender cómo funciona el proceso de autenticación y usar esa información para eludir el mecanismo de autenticación.</p>
+<p>Aunque la mayoría de las aplicaciones requieren autenticación para acceder a información privada o ejecutar tareas, no todos los métodos de autenticación son capaces de ofrecer una seguridad adecuada. La negligencia, la ignorancia o la simple subestimación de las amenazas de seguridad suelen dar como resultado esquemas de autenticación que se pueden eludir simplemente saltándose la página de inicio de sesión y llamando directamente a una página interna que se supone solo debería ser accesible después de haber realizado la autenticación.</p>
+<p>Además, a menudo es posible eludir las medidas de autenticación manipulando las peticiones y engañando a la aplicación para que piense que el usuario ya está autenticado. Esto puede lograrse modificando el parámetro de la URL, manipulando el formulario o falsificando sesiones.</p>
+<p>Los problemas relacionados con el esquema de autenticación pueden encontrarse en diferentes etapas del ciclo de vida de desarrollo de software (SDLC), como las fases de diseño, desarrollo e implementación:</p>
+<ul>
+<li>En la fase de diseño, los errores pueden incluir una definición incorrecta de las secciones de la aplicación que se deben proteger, la decisión de no aplicar protocolos de cifrado robustos para asegurar la transmisión de las credenciales, y muchos más.</li>
+<li>En la fase de desarrollo, los errores pueden incluir la implementación incorrecta de la funcionalidad de validación de entrada o no seguir las mejores prácticas de seguridad para el lenguaje específico.</li>
+<li>En la fase de implementación (despliegue) de la aplicación, puede haber problemas durante la puesta en marcha (actividades de instalación y configuración) debido a la falta de las habilidades técnicas necesarias o a la falta de buena documentación.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Asegurar que la autenticación se aplique en todos los servicios que la requieren.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Existen varios métodos para eludir el esquema de autenticación utilizado por una aplicación web:</p>
+<ul>
+<li>Modificación de parámetros</li>
+<li>Predicción del ID de sesión</li>
+<li>Inyección SQL</li>
+</ul>
+<h3 id="parameter-modification">Modificación de parámetros</h3>
+<p>Otro problema relacionado con el diseño de la autenticación se da cuando la aplicación verifica un inicio de sesión exitoso con base en parámetros de valor fijo. Un usuario podría modificar estos parámetros para obtener acceso a las áreas protegidas sin proporcionar credenciales válidas. En el ejemplo siguiente, el parámetro &quot;authenticated&quot; se cambia a un valor de &quot;yes&quot;, lo que permite al usuario obtener acceso. En este ejemplo, el parámetro está en la URL, pero también podría usarse un proxy para modificar el parámetro, especialmente cuando los parámetros se envían como elementos de formulario en una petición POST o cuando se almacenan en una cookie.</p>
+<pre><code class="language-html">https://www.site.com/page.asp?authenticated=no
+
+raven@blackbox /home $nc www.site.com 80
+GET /page.asp?authenticated=yes HTTP/1.0
+
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2006 10:22:44 GMT
+Server: Apache
+Connection: close
+Content-Type: text/html; charset=iso-8859-1
+
+&lt;!DOCTYPE HTML PUBLIC &quot;-//IETF//DTD HTML 2.0//EN&quot;&gt;
+&lt;HTML&gt;&lt;HEAD&gt;
+&lt;/HEAD&gt;&lt;BODY&gt;
+&lt;H1&gt;You Are Authenticated&lt;/H1&gt;
+&lt;/BODY&gt;&lt;/HTML&gt;
+</code></pre>
+<p><img src="wstg/4-Web_Application_Security_Testing/04-Authentication/images/04-basm-parammod.jpg" alt="Petición con parámetro modificado" loading="lazy"><br><em>Figura 4.4.4-1: Petición con parámetro modificado</em></p>
+<h3 id="session-id-prediction">Predicción del ID de sesión</h3>
+<p>Muchas aplicaciones web gestionan la autenticación mediante identificadores de sesión (session IDs). Por lo tanto, si la generación del ID de sesión es predecible, un usuario malicioso podría encontrar un ID de sesión válido y obtener acceso no autorizado a la aplicación, suplantando a un usuario previamente autenticado.</p>
+<p>En la siguiente figura, los valores dentro de las cookies aumentan linealmente, por lo que podría ser fácil para un atacante adivinar un ID de sesión válido.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/04-Authentication/images/04-basm-sessid.jpg" alt="Valores de la cookie a lo largo del tiempo" loading="lazy"><br><em>Figura 4.4.4-2: Valores de la cookie a lo largo del tiempo</em></p>
+<p>En la siguiente figura, los valores dentro de las cookies cambian solo parcialmente, por lo que es posible restringir un ataque de fuerza bruta a los campos definidos que se muestran a continuación.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/04-Authentication/images/04-basm-sessid2.jpg" alt="Valores de la cookie parcialmente modificados" loading="lazy"><br><em>Figura 4.4.4-3: Valores de la cookie parcialmente modificados</em></p>
+<h3 id="sql-injection-html-form-authentication">Inyección SQL (autenticación mediante formulario HTML)</h3>
+<p>La Inyección SQL es una técnica de ataque ampliamente conocida. Esta sección no describirá la técnica en detalle, ya que hay varias secciones de esta guía que explican técnicas de inyección más allá del alcance de esta sección.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/04-Authentication/images/04-basm-sqlinj.jpg" alt="Inyección SQL" loading="lazy"><br><em>Figura 4.4.4-4: Inyección SQL</em></p>
+<p>La siguiente figura muestra que, con un simple ataque de Inyección SQL, a veces es posible eludir el formulario de autenticación.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/04-Authentication/images/04-basm-sqlinj2.gif" alt="Ataque simple de Inyección SQL" loading="lazy"><br><em>Figura 4.4.4-5: Ataque simple de Inyección SQL</em></p>
+<h3 id="php-loose-comparison">Comparación laxa de PHP</h3>
+<p>Si un atacante ha logrado obtener el código fuente de la aplicación explotando una vulnerabilidad descubierta previamente (p. ej., directory traversal) o desde un repositorio web (aplicaciones de código abierto), podría ser posible realizar ataques refinados contra la implementación del proceso de autenticación.</p>
+<p>En el siguiente ejemplo (PHPBB 2.0.12 - Vulnerabilidad de elusión de autenticación), en la línea 2 la función <code>unserialize()</code> analiza una cookie proporcionada por el usuario y establece valores dentro del arreglo <code>$sessiondata</code>. En la línea 7, el hash MD5 de la contraseña del usuario almacenado en la base de datos del backend (<code>$auto_login_key</code>) se compara con el proporcionado por el usuario (<code>$sessiondata[&#39;autologinid&#39;]</code>).</p>
+<pre><code class="language-php">1. if (isset($HTTP_COOKIE_VARS[$cookiename . &#39;_sid&#39;])) {
+2.     $sessiondata = isset($HTTP_COOKIE_VARS[$cookiename . &#39;_data&#39;]) ? unserialize(stripslashes($HTTP_COOKIE_VARS[$cookiename . &#39;_data&#39;])) : array();
+3.     $sessionmethod = SESSION_METHOD_COOKIE;
+4. }
+5. $auto_login_key = $userdata[&#39;user_password&#39;];
+6. // We have to login automagically
+7. if( $sessiondata[&#39;autologinid&#39;] == $auto_login_key )
+8. {
+9.     // autologinid matches password
+10.     $login = 1;
+11.     $enable_autologin = 1;
+12. }
+</code></pre>
+<p>En PHP, una comparación entre un valor de cadena y un valor booleano <code>true</code> siempre es <code>true</code> (porque la cadena contiene un valor), por lo que al proporcionar la siguiente cadena a la función <code>unserialize()</code>, es posible eludir el control de autenticación e iniciar sesión como administrador, cuyo <code>userid</code> es 2:</p>
+<pre><code class="language-php">a:2:{s:11:&quot;autologinid&quot;;b:1;s:6:&quot;userid&quot;;s:1:&quot;2&quot;;}  // original value: a:2:{s:11:&quot;autologinid&quot;;s:32:&quot;8b8e9715d12e4ca12c4c3eb4865aaf6a&quot;;s:6:&quot;userid&quot;;s:4:&quot;1337&quot;;}
+</code></pre>
+<p>Desglosemos lo que hicimos en esta cadena:</p>
+<ol>
+<li><code>autologinid</code> es ahora un booleano establecido en <code>true</code>: esto se logra reemplazando el valor MD5 del hash de la contraseña (<code>s:32:&quot;8b8e9715d12e4ca12c4c3eb4865aaf6a&quot;</code>) por <code>b:1</code></li>
+<li><code>userid</code> ahora está establecido con el ID del administrador: esto se ve en la última parte de la cadena, donde reemplazamos nuestro ID de usuario normal (<code>s:4:&quot;1337&quot;</code>) por <code>s:1:&quot;2&quot;</code></li>
+</ol>
+<h3 id="php-magic-hashes">Hashes mágicos de PHP</h3>
+<p>Un problema similar puede ocurrir en PHP cuando los hashes se comparan de forma laxa y terminan evaluándose como números.</p>
+<p>PHP admite el uso de <a href="https://en.wikipedia.org/wiki/Scientific_notation" target="_blank" rel="noopener">notación científica</a> para los números, por lo que el número <code>2e4</code> se trata como &quot;dos por diez elevado a la cuarta potencia&quot;, que equivale a 20,000. De manera similar, un número como <code>0e4</code> sería &quot;cero por diez elevado a la cuarta potencia&quot;, que equivale a cero. Como cero multiplicado por cualquier cosa es cero, una comparación como <code>0e2 == 0e3</code> se evaluaría como verdadera, porque ambos lados equivalen a cero.</p>
+<p>Esto puede ser explotable cuando se comparan dos hashes de contraseñas y ambos tienen la forma de una cadena de ceros, la letra &quot;e&quot; y luego una cadena de números. Considérese el siguiente código:</p>
+<pre><code class="language-php">&lt;?php
+{
+    if (md5(&#39;240610708&#39;) == md5(&#39;QLTHNDT&#39;)) {
+        print(&quot;Passwords match&quot;);
+    } else {
+        print(&quot;Passwords are different&quot;);
+    }                                                                           
+}
+</code></pre>
+<p>Las dos contraseñas son claramente distintas, pero como ambas producen hashes que equivalen a cero en notación científica (&quot;0e462097431906509019562988736854&quot; y &quot;0e405967825401955372549139051580&quot; respectivamente), la comparación devolverá verdadero y el usuario iniciará sesión.</p>
+<p>Para probar esto, primero hay que identificar el tipo de hash utilizado por la aplicación. Luego se puede establecer en una cuenta de usuario una contraseña que produzca este tipo de hash y después intentar iniciar sesión con una contraseña diferente que produzca un hash distinto que también se evalúe como cero. Las cadenas para varios hashes de contraseñas están disponibles en el repositorio de GitHub <a href="https://github.com/spaze/hashes" target="_blank" rel="noopener">spaze/hashes</a>.</p>
+<p>Si esto tiene éxito, no solo implica que la aplicación compara los hashes de las contraseñas de forma insegura, sino también que no utiliza salt en las contraseñas y, muy probablemente, que emplea un algoritmo de hash heredado.</p>
+<h3 id="passwords-of-the-same-length-working">Funcionan contraseñas de la misma longitud</h3>
+<p>Ocasionalmente las aplicaciones permiten a los usuarios iniciar sesión ingresando cualquier contraseña que tenga la longitud correcta de la contraseña real. Este es un problema bastante inusual y sugiere fallas importantes en la forma en que se almacenan y procesan las contraseñas.</p>
+<p>Una posible causa de este problema son los problemas de codificación de caracteres entre distintas partes de la aplicación, ya que los caracteres desconocidos o inválidos suelen representarse con un carácter <code>?</code>, que algunos lenguajes como SQL tratan como un comodín de un solo carácter. Así, una comparación de una cadena como <code>password</code> y <code>????????</code> puede devolver verdadero si se interpretan los comodines, como en una comparación <code>LIKE</code> de SQL.</p>
+<blockquote>
+<p>Nota: Esto también implica que las contraseñas se almacenan en texto plano o con cifrado reversible.</p>
+</blockquote>
+<p>La prueba es sencilla: intentar iniciar sesión en una cuenta con una contraseña incorrecta, pero de la misma longitud que una válida.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://owasp.org/www-project-webgoat/" target="_blank" rel="noopener">WebGoat</a></li>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="http://blog.teusink.net/2008/12/classic-bug-phpbb-2012-authentication.html" target="_blank" rel="noopener">Niels Teusink: phpBB 2.0.12 authentication bypass</a></li>
+<li><a href="https://web.archive.org/web/20250711045439/https://www.cgisecurity.com/lib/SessionIDs.pdf" target="_blank" rel="noopener">David Endler: &quot;Session ID Brute Force Exploitation and Prediction&quot;</a></li>
+</ul>

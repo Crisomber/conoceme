@@ -1,0 +1,171 @@
+<h1 id="application-platform-configuration">Configuración de la plataforma de aplicaciones</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La configuración adecuada de cada uno de los elementos que componen la arquitectura de una aplicación es importante para evitar errores que puedan comprometer la seguridad de toda la arquitectura.</p>
+<p>Revisar y probar las configuraciones son tareas críticas al crear y mantener una arquitectura. Esto se debe a que muchos sistemas vienen con configuraciones genéricas, que pueden no ajustarse bien a las tareas que deben realizar en los sitios específicos donde se instalan.</p>
+<p>Si bien la instalación típica de un servidor web y de aplicaciones contiene mucha funcionalidad (como aplicaciones de ejemplo, documentación y páginas de prueba), lo que no sea esencial debe eliminarse antes del despliegue para evitar la explotación posterior a la instalación.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Asegurar que los archivos predeterminados, de ejemplo y conocidos se hayan eliminado de la plataforma desplegada, de la imagen de contenedor o del paquete serverless.</li>
+<li>Validar que no se haya dejado habilitado en producción ningún código de depuración, endpoint de depuración, modo de depuración ni módulo/dependencia sin uso.</li>
+<li>Revisar los mecanismos de registro (logging) establecidos para la aplicación, incluidos los datos sensibles que pueden capturarse y quién o qué puede acceder a ellos o conservarlos.</li>
+<li>Confirmar que se aplican los ajustes de endurecimiento para producción específicos de cada framework, contenedor y entorno serverless, en lugar de dejarlos en sus valores predeterminados inseguros.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="sample-and-known-files-and-directories">Archivos y directorios de ejemplo y conocidos</h4>
+<p>En una instalación predeterminada, muchos servidores web, servidores de aplicaciones y frameworks proporcionan aplicaciones de ejemplo, andamiaje (scaffolding) y páginas de prueba para beneficio del desarrollador, de modo que pueda confirmar que el servidor funciona correctamente justo después de la instalación o de <code>init</code>. Históricamente, esta clase de problema estuvo ejemplificada por casos como CVE-1999-0449 (denegación de servicio en IIS cuando se había instalado el sitio de ejemplo Exair), CAN-2002-1744 (vulnerabilidad de recorrido de directorios en CodeBrws.asp en Microsoft IIS 5.0) o CAN-2003-1172 (recorrido de directorios en el ejemplo view-source de Cocoon de Apache). El problema de fondo (contenido de ejemplo o de andamiaje sin eliminar que llega a producción) no ha cambiado hoy, solo los objetivos:</p>
+<ul>
+<li>Andamiaje de frameworks que se deja en su lugar: páginas de bienvenida predeterminadas de Django/Rails/Laravel, páginas de error/whitelabel predeterminadas de Spring Boot, páginas de inicio predeterminadas de create-react-app/Next.js/Vite, o un <code>index.html</code> sin modificar de una plantilla inicial. Cada una puede filtrar el framework y la versión exactos en uso y, a veces, rutas de andamiaje sobrantes.</li>
+<li>Documentación/consolas de API autogeneradas que quedan accesibles en producción: Swagger UI/OpenAPI (<code>/swagger-ui</code>, <code>/swagger.json</code>, <code>/v2/api-docs</code>), GraphQL Playground/GraphiQL o gRPC reflection. Con frecuencia exponen el esquema completo, incluidas operaciones no documentadas o exclusivas de administración, y algunas permiten la ejecución directa de peticiones (&quot;try it out&quot;) sin comprobaciones de autorización adicionales.</li>
+<li>Clases de archivos de ejemplo heredados: <code>phpinfo.php</code>, <code>test.php</code>, <code>info.php</code>, scripts de instalación/configuración predeterminados de CMS (p. ej., <code>wp-admin/install.php</code>, <code>installation/</code> de Joomla) que siguen accesibles después de la puesta en producción.</li>
+</ul>
+<p>Los escáneres CGI/web con una base de datos de archivos y directorios de ejemplo conocidos son una forma rápida de comprobar esto; el descubrimiento automatizado debe complementarse con una revisión manual del sitio para detectar el andamiaje específico de cada framework que los escáneres genéricos no identifican.</p>
+<h4 id="debug-endpoints-and-debug-modes">Endpoints y modos de depuración</h4>
+<p>La mayoría de los frameworks modernos incluyen un modo de depuración/desarrollo que es explícitamente inseguro para producción, ya que está diseñado para dar al desarrollador la máxima visibilidad (trazas de pila completas, ejecución de código en el navegador, volcados de variables de entorno) a costa de exponer exactamente la misma información a un atacante si se deja habilitado:</p>
+<ul>
+<li>Django: <code>DEBUG=True</code> muestra trazas de pila completas, los valores de las variables locales y la lista de aplicaciones/ajustes instalados ante cualquier excepción no controlada. Hay que provocar un error (p. ej., solicitar una ruta inexistente o enviar una entrada mal formada) y comprobar si la respuesta es una página de depuración de Django en lugar de un 404/500 genérico.</li>
+<li>Flask/Werkzeug: el depurador de Werkzeug, si está habilitado (<code>app.run(debug=True)</code> o <code>FLASK_DEBUG=1</code>), expone una consola de Python en el navegador ante excepciones no controladas. Aunque nominalmente está protegido con un PIN, en versiones antiguas de Werkzeug el PIN a menudo puede derivarse de información presente también en la página de error o de valores predecibles del propio host. Cualquier depurador de Werkzeug accesible en producción debe tratarse como un hallazgo crítico (ejecución remota de código), no solo como una fuga de información.</li>
+<li>Spring Boot Actuator: endpoints como <code>/actuator/env</code>, <code>/actuator/heapdump</code>, <code>/actuator/httptrace</code> y <code>/actuator/mappings</code> pueden exponer variables de entorno/secretos, un volcado completo del heap (que puede contener credenciales y datos de sesión) y el enrutamiento interno. Hay que comprobar si los endpoints de Actuator son accesibles en producción y, de serlo, si <code>management.endpoints.web.exposure.include</code> se ha limitado desde un valor predeterminado excesivamente amplio.</li>
+<li>Rails: <code>config.consider_all_requests_local = true</code> (valor predeterminado en desarrollo) muestra páginas de error detalladas con fragmentos de código fuente y datos de la petición/sesión; hay que confirmar que sea <code>false</code> en la configuración del entorno de producción.</li>
+<li>Express/Node.js: manejadores de errores predeterminados que devuelven <code>err.stack</code> al cliente, o dejar montado en una compilación de producción el middleware de desarrollo integrado de un framework (p. ej., el middleware del servidor de desarrollo de un bundler).</li>
+<li>Next.js/React y otras herramientas de compilación de SPA: compilaciones de producción que aún incluyen source maps de JavaScript (archivos <code>.map</code>) o dejan accesible un servidor de desarrollo; ambos pueden reconstruir el código fuente original a partir de bundles minificados.</li>
+<li>Introspección de GraphQL: incluso sin una interfaz de Playground, si en producción se responde la consulta de introspección (<code>{ __schema { types { name } } }</code>), se revela el esquema completo, incluidos campos/mutaciones no expuestos en la superficie de API documentada.</li>
+</ul>
+<p>Como prueba general: hay que provocar deliberadamente un error de la aplicación (entrada mal formada, parámetro faltante, excepción forzada) en cada componente/framework distinto en uso, y confirmar que la respuesta sea un error genérico que no revele información, en lugar de una página de depuración del framework.</p>
+<h4 id="comment-review">Revisión de comentarios</h4>
+<p>Es muy común que los programadores añadan comentarios al desarrollar aplicaciones web de gran tamaño. Sin embargo, los comentarios incluidos en línea en el código HTML pueden revelar información interna que no debería estar disponible para un atacante. A veces, una parte del código fuente se deja comentada cuando una funcionalidad ya no es necesaria, pero ese comentario se filtra sin querer a las páginas HTML devueltas a los usuarios.</p>
+<p>La revisión de comentarios debe hacerse para determinar si se está filtrando información a través de ellos. Esta revisión solo puede hacerse de forma exhaustiva mediante un análisis del contenido estático y dinámico del servidor web y mediante búsquedas en archivos. Puede ser útil navegar por el sitio de forma automática o guiada y almacenar todo el contenido obtenido. Luego se puede buscar en este contenido para analizar los comentarios HTML disponibles en el código.</p>
+<h4 id="system-configuration">Configuración del sistema</h4>
+<p>Pueden utilizarse diversas herramientas, documentos o listas de verificación para dar a los profesionales de TI y de seguridad una evaluación detallada de la conformidad de los sistemas objetivo con distintas líneas base o benchmarks de configuración. Estas herramientas incluyen, entre otras, las siguientes:</p>
+<ul>
+<li><a href="https://learn.cisecurity.org/cis-cat-lite" target="_blank" rel="noopener">CIS-CAT Lite</a></li>
+<li><a href="https://github.com/microsoft/AttackSurfaceAnalyzer" target="_blank" rel="noopener">Microsoft&#39;s Attack Surface Analyzer</a></li>
+<li><a href="https://ncp.nist.gov/repository" target="_blank" rel="noopener">NIST&#39;s National Checklist Program</a></li>
+</ul>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<h4 id="configuration-review">Revisión de la configuración</h4>
+<p>La configuración del servidor web o del servidor de aplicaciones cumple un papel importante en la protección del contenido del sitio y debe revisarse cuidadosamente para detectar errores de configuración comunes. Obviamente, la configuración recomendada varía según la política del sitio y la funcionalidad que debe proporcionar el software del servidor. En la mayoría de los casos, sin embargo, deben seguirse las guías de configuración (proporcionadas por el proveedor del software o por terceros) para determinar si el servidor se ha asegurado correctamente.</p>
+<p>Es imposible decir de forma genérica cómo debe configurarse un servidor; no obstante, deben tenerse en cuenta algunas pautas comunes:</p>
+<ul>
+<li>Habilitar únicamente los módulos del servidor (extensiones ISAPI en el caso de IIS) que la aplicación necesita. Esto reduce la superficie de ataque, ya que el servidor se reduce en tamaño y complejidad al deshabilitar módulos de software. También evita que las vulnerabilidades que puedan aparecer en el software del proveedor afecten al sitio si solo están presentes en módulos que ya se han deshabilitado. El mismo principio se aplica a las pilas modernas de middleware/módulos: hay que revisar los módulos del servidor web (módulos de Apache/Nginx, módulos de IIS), el middleware del framework de aplicación y las listas de paquetes/dependencias instalados (<code>npm ls</code>, <code>pip list</code>, etc.) en busca de cualquier elemento incluido por una plantilla predeterminada pero que no se use realmente; una dependencia sin uso sigue siendo superficie de ataque y una carga de parcheo aunque el código de la aplicación nunca la invoque.</li>
+<li>Manejar los errores del servidor (40x o 50x) con páginas personalizadas en lugar de las páginas predeterminadas del servidor web. En concreto, hay que asegurarse de que ningún error de la aplicación se devuelva al usuario final y de que no se filtre código a través de estos errores, ya que ayudaría a un atacante. De hecho, es muy común olvidar este punto, porque los desarrolladores sí necesitan esta información en los entornos de preproducción.</li>
+<li>Asegurarse de que el software del servidor se ejecute con privilegios mínimos en el sistema operativo. Esto evita que un error en el software del servidor comprometa directamente todo el sistema, aunque un atacante podría escalar privilegios una vez que ejecute código como el servidor web.</li>
+<li>Asegurarse de que el software del servidor registre correctamente tanto los accesos legítimos como los errores.</li>
+<li>Asegurarse de que el servidor esté configurado para manejar adecuadamente las sobrecargas y evitar ataques de denegación de servicio. Garantizar que el servidor se haya ajustado correctamente en cuanto a rendimiento.</li>
+<li>No conceder nunca a identidades no administrativas (con la excepción de <code>NT SERVICE\WMSvc</code>) acceso a applicationHost.config, redirection.config y administration.config (ni de lectura ni de escritura).</li>
+<li>No compartir nunca en la red los archivos applicationHost.config, redirection.config y administration.config.</li>
+<li>No almacenar información sensible en archivos de configuración legibles.</li>
+<li>Cifrar los datos de configuración sensibles cuando sea necesario.</li>
+<li>Restringir el acceso a la configuración compartida y protegerla de manera apropiada.</li>
+</ul>
+<h4 id="logging">Registro (logging)</h4>
+<p>El registro es una parte importante de la seguridad de las aplicaciones. Apoya la monitorización, la respuesta a incidentes y las investigaciones. Hay que revisar tanto el registro de la plataforma como el de la aplicación para determinar si se registran los eventos relevantes para la seguridad, si los registros son útiles y si el proceso de registro introduce riesgos adicionales.</p>
+<p>Durante la revisión, se debe verificar lo siguiente:</p>
+<ul>
+<li>Se registran los eventos relevantes para la seguridad (autenticación, fallos de autorización, acciones administrativas, fallos de validación de entrada).</li>
+<li>Las entradas del log contienen suficiente contexto para apoyar una investigación.</li>
+<li>Datos sensibles en los logs: comprobar que los logs no capturen contraseñas, tokens/claves de API, identificadores de sesión, números completos de tarjetas de pago ni otros datos personales regulados. Una fuente sorprendentemente común de esto es el registro detallado o a nivel de depuración que se deja habilitado en producción (p. ej., un framework que registra los cuerpos completos de petición/respuesta, o una biblioteca que registra objetos de excepción que incluyen credenciales pasadas como argumentos), y las integraciones de seguimiento de errores/APM de terceros que, por defecto, envían fuera del host datos sin procesar de las peticiones (cabeceras, cuerpos).</li>
+<li>Los datos registrados se manejan de forma segura antes de almacenarse y mostrarse (p. ej., las entradas del log no se muestran posteriormente sin escapar en una interfaz visor de logs, lo que puede habilitar XSS almacenado mediante inyección en logs).</li>
+<li>Acceso a los logs: restringido al personal/servicios autorizados. Hay que comprobar tanto los archivos/flujos de logs en sí (permisos de archivos, véase <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions">Permisos de archivos</a>) como cualquier plataforma de registro centralizado (SIEM, servicio de logging en la nube) en busca de acceso de lectura excesivamente amplio o de falta de aislamiento por inquilino en sistemas multiinquilino.</li>
+<li>Retención: confirmar que existe y se aplica un periodo de retención definido (tanto &quot;logs conservados durante muy poco tiempo para investigar un incidente&quot; como &quot;logs conservados indefinidamente, convirtiéndose en un repositorio creciente de datos sensibles&quot; son hallazgos que vale la pena reportar).</li>
+<li>Los logs están protegidos contra manipulación (almacenamiento de solo anexado/escritura única o controles de integridad equivalentes cuando sea viable).</li>
+<li>Los fallos del registro no exponen información de depuración sensible al usuario final (un fallo del subsistema de registro no debería recurrir a mostrar el error no registrado directamente en la respuesta).</li>
+<li>Los logs pueden centralizarse o correlacionarse en entornos distribuidos (los contenedores, las funciones serverless y los nodos con balanceo de carga necesitan, cada uno, una forma coherente de correlacionar una misma petición/traza entre componentes; hay que verificar que esto exista, en lugar de que cada componente registre de forma aislada sin un ID de petición/traza compartido).</li>
+</ul>
+<p>Las pruebas deben confirmar que los logs son utilizables, coherentes y apoyan eficazmente las actividades de detección y respuesta, sin convertirse ellos mismos en una fuente de exposición de datos sensibles.</p>
+<h4 id="container-images">Imágenes de contenedor</h4>
+<p>Cuando la aplicación se despliega como una imagen de contenedor, el mismo principio de &quot;eliminar lo que no se necesita&quot; del endurecimiento tradicional de servidores se aplica a lo que se incorpora en la imagen. La mayoría de estas comprobaciones requieren la imagen misma (caja gris); las excepciones se indican. Para los campos de <code>securityContext</code> de tiempo de ejecución relacionados (<code>runAsNonRoot</code>, <code>readOnlyRootFilesystem</code>, capabilities, <code>seccompProfile</code>, namespaces del host), véase la <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions@securitycontext-and-container-hardening-checklist">Lista de verificación de SecurityContext y endurecimiento de contenedores</a> en <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions">Permisos de archivos</a>.</p>
+<ul>
+<li>Revisar el <code>Dockerfile</code>/la construcción de la imagen en busca de archivos predeterminados/de ejemplo sobrantes, secretos en tiempo de compilación (claves de API o credenciales pasadas como argumentos de compilación y dejadas en una capa intermedia aunque se hayan eliminado de la capa final) y herramientas de compilación innecesarias (compiladores, cachés de gestores de paquetes, shells) que una compilación multietapa debería haber dejado en la etapa de compilación. Caja gris: ejecutar <code>docker history --no-trunc &lt;image&gt;</code> o una herramienta de inspección de capas (p. ej., <code>dive</code>) contra la imagen real; un hallazgo requiere que el secreto o la herramienta sean visibles en una capa retenida, no solo que se sospechen a partir del código fuente del <code>Dockerfile</code>.</li>
+<li>Preferir imágenes base mínimas (slim/distroless/basadas en scratch) para la capa final de ejecución. Caja gris: comparar la imagen base indicada en la etapa final del <code>Dockerfile</code> con la lista real de paquetes instalados en la imagen (<code>docker run --rm &lt;image&gt; sh -c &quot;...&quot;</code> donde exista un shell, o inspección de capas donde no).</li>
+<li>Confirmar que las variables de entorno del modo de depuración/desarrollo no estén establecidas como valores predeterminados de la imagen (p. ej., <code>ENV FLASK_DEBUG=1</code>, <code>ENV NODE_ENV=development</code>). Caja negra: provocar un error de la aplicación contra el contenedor en ejecución y comprobar si aparece una página de depuración/traza de pila (la misma prueba que en <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/02-Application_Platform_Configuration@debug-endpoints-and-debug-modes">Endpoints y modos de depuración</a> más arriba); esta es la evidencia de que el valor predeterminado realmente surtió efecto en tiempo de ejecución, ya que una sobrescritura en la capa de orquestación podría haber corregido un valor predeterminado inseguro de la imagen. Caja gris: confirmar mediante <code>docker inspect --format &#39;{{.Config.Env}}&#39; &lt;image&gt;</code> que el valor predeterminado a nivel de imagen es seguro por sí mismo, independientemente de cualquier sobrescritura.</li>
+<li>Confirmar que el contenedor no se ejecute como root por defecto y que la imagen no incorpore <code>.git</code>, <code>.env</code> ni otros archivos sensibles copiados mediante un <code>COPY . .</code> amplio sin un <code>.dockerignore</code> correspondiente. Caja gris: <code>docker inspect --format &#39;{{.Config.User}}&#39; &lt;image&gt;</code> (vacío o <code>0</code> significa root) y una inspección de capas/sistema de archivos en busca de los archivos no deseados.</li>
+</ul>
+<p>Ejemplo de hallazgo: <code>docker history --no-trunc</code> sobre una imagen publicada muestra una capa de compilación con <code>RUN echo $DB_PASSWORD &gt; /tmp/debug.log</code>, lo que filtra la contraseña de la base de datos de producción a cualquiera que pueda descargar la imagen, aunque la capa final ya no contenga el archivo. La evidencia es el valor visible en el historial de esa capa, no simplemente que un <code>Dockerfile</code> use un argumento de compilación con un nombre similar.</p>
+<h4 id="serverless-runtimes">Entornos de ejecución serverless</h4>
+<p>Las funciones serverless (AWS Lambda, Azure Functions, Google Cloud Functions/Cloud Run functions) cambian el lugar donde aparecen los errores de configuración, pero se aplican las mismas categorías de configuración incorrecta. Las consolas y CLI de los proveedores difieren (AWS, Azure y GCP exponen esta configuración de forma distinta); hay que adaptar el comando o la ruta de la consola al proveedor real en el alcance, en lugar de asumir que uno es universal.</p>
+<ul>
+<li>Código predeterminado/de ejemplo: confirmar que el código de andamiaje generado por <code>sam init</code>/<code>serverless create</code>/plantillas equivalentes (manejadores de ejemplo, payloads de eventos de ejemplo) se haya eliminado en lugar de desplegarse junto con la función real. Caja negra: invocar cualquier ruta/path de manejador de ejemplo descubierto y confirmar que devuelve datos de la aplicación o un error, y no la salida de marcador de posición del andamiaje.</li>
+<li>Registro detallado/de depuración y respuestas de error: muchos frameworks serverless registran el payload completo del evento o devuelven una traza de pila completa en la respuesta HTTP por defecto en modo local/de desarrollo. Caja negra: provocar un error de la aplicación mediante el punto de entrada público de la función y comprobar si la respuesta HTTP contiene una traza de pila. Caja gris: revisar los logs de la función (p. ej., CloudWatch Logs) en busca de cuerpos completos de petición/respuesta capturados, según la guía anterior sobre datos sensibles en los logs.</li>
+<li>Permisos IAM/del rol de ejecución excesivamente amplios: el rol de ejecución de una función debe limitarse únicamente a los recursos/acciones que necesita. Caja gris solamente en la mayoría de los trabajos: leer la política adjunta al rol de ejecución (p. ej., <code>aws iam get-role-policy</code>) y comparar las acciones/recursos concedidos con lo que el código de la función realmente invoca. Cuando se confirma de forma independiente un error de ejecución de código o de inyección en la función, la evidencia de caja negra (leer/escribir con éxito un recurso que el alcance previsto no debería permitir) eleva esto de una observación de configuración a un hallazgo demostrado.</li>
+<li>Variables de entorno para secretos: confirmar que los secretos se obtienen de un gestor de secretos/almacén de parámetros en tiempo de ejecución, en lugar de almacenarse en texto plano en la configuración de la función. Caja gris: leer las variables de entorno configuradas de la función mediante la consola/CLI del proveedor y comprobar si los valores parecen secretos en bruto o una referencia (ARN/ID de recurso) a una entrada de un gestor de secretos.</li>
+<li>Consolas de prueba/invocación: confirmar que la función nativa de &quot;invocación de prueba&quot; de la consola esté protegida por el mismo control de acceso que la propia consola/cuenta, y que no se haya dejado ningún endpoint HTTP de prueba complementario invocable públicamente. Caja negra: intentar alcanzar directamente cualquier ruta HTTP de prueba/invocación descubierta.</li>
+</ul>
+<p>Ejemplo de hallazgo: al rol de ejecución de una función se le concede <code>s3:*</code> sobre todos los buckets en lugar de <code>s3:GetObject</code> sobre uno solo (confirmado en caja gris mediante la política IAM del rol), y un error de recorrido de rutas encontrado de forma independiente en el propio código de la función (confirmado en caja negra) se usa para leer/escribir en un bucket no relacionado, lo que demuestra que un error acotado se convirtió en una vulnerabilidad de lectura/escritura de S3 a nivel de toda la cuenta debido al rol con un alcance excesivo.</p>
+<h4 id="framework-specific-production-hardening">Endurecimiento para producción específico de cada framework</h4>
+<p>Hay que confirmar que cada framework en uso tenga aplicados los ajustes de endurecimiento para producción documentados, y no solo sus valores predeterminados. La tabla siguiente da un ajuste representativo por framework como sondeo inicial, no como una prueba completa de endurecimiento ni como una lista de verificación que basta con cumplir: el nombre exacto, el valor predeterminado e incluso la disponibilidad de un ajuste pueden cambiar entre versiones mayores del mismo framework, y un despliegue aún puede ser inseguro con todos los ajustes listados &quot;correctos&quot; si se pasó por alto algo más de la lista de verificación del mismo framework.</p>
+<div class="tabla"><table><thead><tr>
+<th>Framework</th>
+<th>Ajuste representativo que se debe sondear</th>
+</tr>
+</thead><tbody><tr>
+<td>Django</td>
+<td><code>DEBUG = False</code>, <code>ALLOWED_HOSTS</code> restringido a los nombres de host reales</td>
+</tr>
+<tr>
+<td>Flask</td>
+<td><code>FLASK_DEBUG=0</code> / <code>debug=False</code>, <code>app.config[&#39;ENV&#39;] = &#39;production&#39;</code></td>
+</tr>
+<tr>
+<td>Ruby on Rails</td>
+<td><code>RAILS_ENV=production</code>, <code>config.consider_all_requests_local = false</code></td>
+</tr>
+<tr>
+<td>Spring Boot</td>
+<td><code>management.endpoints.web.exposure.include</code> restringido a lo necesario; <code>server.error.include-stacktrace=never</code></td>
+</tr>
+<tr>
+<td>Express/Node.js</td>
+<td><code>NODE_ENV=production</code> (muchas bibliotecas de middleware cambian su comportamiento, incluida la verbosidad de los errores, según este valor)</td>
+</tr>
+<tr>
+<td>Next.js/otros frameworks de SPA</td>
+<td>se sirve la compilación de producción (no el servidor de desarrollo), con los source maps excluidos o con acceso restringido</td>
+</tr>
+</tbody></table></div>
+<p>Para cada framework en el alcance:</p>
+<ul>
+<li>Tratar la entrada de la tabla como una comprobación representativa para orientar la prueba, no como prueba de que el despliegue está endurecido; hay que recorrer la lista de verificación oficial vigente de despliegue en producción de ese framework (enlazada en Referencias) para obtener el conjunto completo.</li>
+<li>Verificar la configuración efectiva en tiempo de ejecución, no solo el archivo de configuración fuente: una variable de entorno, un indicador de línea de comandos o una sobrescritura en la capa de orquestación (variables de entorno del contenedor, ConfigMap/Secret de Kubernetes, ajuste del panel de una PaaS) puede cambiar el valor realmente vigente en tiempo de ejecución aunque el archivo versionado parezca correcto. Siempre que sea viable, hay que confirmarlo mediante el comportamiento de la aplicación en ejecución (p. ej., ¿emite una página de depuración ante un error? ¿expone el endpoint?), en lugar de solo mediante la revisión estática de archivos.</li>
+<li>No inferir que un ajuste correcto implica que el framework esté endurecido en otros aspectos; pueden seguir faltando ajustes no relacionados de la misma lista de verificación.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li>Apache<ul>
+<li><a href="https://httpd.apache.org/docs/current/" target="_blank" rel="noopener">Apache HTTP Server Documentation</a></li>
+<li><a href="https://httpd.apache.org/docs/current/misc/perf-tuning.html" target="_blank" rel="noopener">Performance Tuning</a></li>
+</ul>
+</li>
+<li>Microsoft IIS<ul>
+<li><a href="https://learn.microsoft.com/en-us/training/modules/secure-harden-internet-information-services/" target="_blank" rel="noopener">Secure and Harden Internet Information Services</a></li>
+<li><a href="https://www.cisecurity.org/benchmark/microsoft_iis/" target="_blank" rel="noopener">CIS Microsoft IIS Benchmarks</a></li>
+</ul>
+</li>
+<li>General<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html" target="_blank" rel="noopener">Logging Cheat Sheet</a>, OWASP</li>
+<li><a href="https://csrc.nist.gov/publications/detail/sp/800-92/final" target="_blank" rel="noopener">SP 800-92</a> Guide to Computer Security Log Management, NIST</li>
+<li><a href="https://www.pcisecuritystandards.org/document_library" target="_blank" rel="noopener">PCI DSS</a> Requirement 10, PCI Security Standards Council</li>
+<li><a href="https://www.sei.cmu.edu/library/securing-public-web-servers/" target="_blank" rel="noopener">CERT Security Improvement Modules: Securing Public Web Servers</a></li>
+</ul>
+</li>
+<li>Contenedores y serverless<ul>
+<li><a href="https://www.cisecurity.org/benchmark/docker" target="_blank" rel="noopener">CIS Docker Benchmark</a></li>
+<li><a href="https://owasp.org/www-project-serverless-top-10/" target="_blank" rel="noopener">OWASP Serverless Top 10</a></li>
+<li><a href="https://docs.aws.amazon.com/lambda/latest/dg/lambda-security.html" target="_blank" rel="noopener">AWS Lambda Security Best Practices</a></li>
+</ul>
+</li>
+<li>Endurecimiento de frameworks para producción<ul>
+<li><a href="https://docs.djangoproject.com/en/stable/howto/deployment/checklist/" target="_blank" rel="noopener">Django Deployment Checklist</a></li>
+<li><a href="https://flask.palletsprojects.com/en/stable/deploying/" target="_blank" rel="noopener">Flask Deployment Options</a></li>
+<li><a href="https://guides.rubyonrails.org/security.html" target="_blank" rel="noopener">Ruby on Rails Security Guide</a></li>
+<li><a href="https://docs.spring.io/spring-boot/reference/actuator/index.html" target="_blank" rel="noopener">Spring Boot Actuator - Production Ready Features</a></li>
+</ul>
+</li>
+</ul>

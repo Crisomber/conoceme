@@ -1,0 +1,59 @@
+<h1 id="role-definitions">Definición de roles</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-IDNT-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las aplicaciones tienen varios tipos de funcionalidades y servicios, y estos requieren permisos de acceso según las necesidades del usuario. Ese usuario podría ser:</p>
+<ul>
+<li>Un administrador, que gestiona las funcionalidades de la aplicación.</li>
+<li>Un auditor, que revisa las transacciones de la aplicación y entrega un informe detallado.</li>
+<li>Un ingeniero de soporte, que ayuda a los clientes a depurar y resolver problemas en sus cuentas.</li>
+<li>Un cliente, que interactúa con la aplicación y se beneficia de sus servicios.</li>
+</ul>
+<p>Para atender estos usos y cualquier otro caso de uso de la aplicación, se establecen definiciones de roles (más comúnmente conocidas como <a href="https://en.wikipedia.org/wiki/Role-based_access_control" target="_blank" rel="noopener">RBAC</a>). Con base en estos roles, el usuario puede realizar la tarea requerida.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar y documentar los roles utilizados por la aplicación.</li>
+<li>Intentar cambiar a otro rol, modificarlo o acceder a él.</li>
+<li>Revisar la granularidad de los roles y las necesidades que justifican los permisos otorgados.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="roles-identification">Identificación de roles</h3>
+<p>El evaluador debe comenzar identificando los roles de la aplicación que se van a probar mediante cualquiera de los siguientes métodos:</p>
+<ul>
+<li>Documentación de la aplicación.</li>
+<li>Orientación de los desarrolladores o administradores de la aplicación.</li>
+<li>Comentarios de la aplicación.</li>
+<li>Fuzzing de posibles roles:<ul>
+<li>Variable en una cookie (<em>p. ej.</em> <code>role=admin</code>, <code>isAdmin=True</code>)</li>
+<li>Variable de la cuenta (<em>p. ej.</em> <code>Role: manager</code>)</li>
+<li>Directorios o archivos ocultos (<em>p. ej.</em> <code>/admin</code>, <code>/mod</code>, <code>/backups</code>)</li>
+<li>Cambio a usuarios bien conocidos (<em>p. ej.</em> <code>admin</code>, <code>backups</code>, etc.)</li>
+</ul>
+</li>
+</ul>
+<h3 id="switching-to-available-roles">Cambio a los roles disponibles</h3>
+<p>Después de identificar los posibles vectores de ataque, el evaluador debe probar y validar que puede acceder a los roles disponibles.</p>
+<blockquote>
+<p>Nota: Algunas aplicaciones definen los roles del usuario al crearlo, mediante comprobaciones y políticas rigurosas, o garantizan que el rol del usuario esté debidamente protegido mediante una firma creada por el backend. El hecho de que existan roles no significa que sean una vulnerabilidad.</p>
+</blockquote>
+<h3 id="review-roles-permissions">Revisión de los permisos de los roles</h3>
+<p>Tras obtener acceso a los roles del sistema, el evaluador debe comprender los permisos que se otorgan a cada rol.</p>
+<p>Por ejemplo, un ingeniero de soporte generalmente no debería poder realizar funcionalidades administrativas, gestionar los respaldos ni efectuar transacciones en lugar de un usuario.</p>
+<p>Los usuarios tampoco deberían poder realizar acciones que aumenten sus propios privilegios (como agregarse a sí mismos a un rol con más privilegios), salvo en circunstancias muy específicas.</p>
+<p>Un administrador no debería tener poderes totales sobre el sistema. La funcionalidad administrativa sensible debería aprovechar el principio de maker-checker o utilizar MFA para garantizar que el administrador es quien realiza la transacción. Un claro ejemplo de esto fue el <a href="https://blog.x.com/en_us/topics/company/2020/an-update-on-our-security-incident" target="_blank" rel="noopener">incidente de Twitter en 2020</a>.</p>
+<h2 id="tools">Herramientas</h2>
+<p>Las pruebas mencionadas pueden realizarse sin ninguna herramienta, aparte de la que se utilice para acceder al sistema.</p>
+<p>Para facilitar el trabajo y documentarlo mejor, se pueden utilizar:</p>
+<ul>
+<li><a href="https://github.com/Quitten/Autorize" target="_blank" rel="noopener">Extensión Autorize de Burp</a></li>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/access-control-testing/" target="_blank" rel="noopener">Complemento Access Control Testing de ZAP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://csrc.nist.gov/projects/role-based-access-control#rbac-standard" target="_blank" rel="noopener">Role engineering and RBAC standards</a></li>
+</ul>

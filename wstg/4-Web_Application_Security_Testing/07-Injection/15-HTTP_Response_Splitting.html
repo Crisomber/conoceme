@@ -1,0 +1,83 @@
+<h1 id="http-response-splitting">División de respuestas HTTP (HTTP Response Splitting)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-15</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>HTTP Response Splitting es una vulnerabilidad que se produce cuando una aplicación incorpora entradas del usuario sin sanear en las cabeceras de respuesta HTTP, lo que permite a un atacante inyectar caracteres de retorno de carro (Carriage Return, CR) y salto de línea (Line Feed, LF). Como resultado, una sola respuesta HTTP puede ser interpretada como varias respuestas distintas por clientes o sistemas intermediarios.</p>
+<p>La explotación exitosa de HTTP Response Splitting puede conducir a diversos impactos, incluidos envenenamiento de caché web (web cache poisoning), Cross-Site Scripting (XSS), suplantación de contenido (content spoofing), fijación de sesión (session fixation) u otros ataques del lado del cliente, dependiendo de cómo se procese la respuesta inyectada.</p>
+<p>Esta sección se centra exclusivamente en identificar y probar vulnerabilidades de HTTP Response Splitting en la capa de aplicación. HTTP Request Smuggling, que se basa en inconsistencias de análisis entre múltiples agentes HTTP, se trata en un capítulo aparte.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar la entrada controlada por el usuario que se refleja en las cabeceras de respuesta HTTP.</li>
+<li>Evaluar si es posible inyectar caracteres CR (<code>\r</code>) y LF (<code>\n</code>) en las cabeceras de respuesta.</li>
+<li>Determinar el impacto potencial de ataques exitosos de HTTP Response Splitting, como el envenenamiento de caché o la explotación del lado del cliente.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Algunas aplicaciones web utilizan entradas proporcionadas por el usuario para generar los valores de ciertas cabeceras de respuesta HTTP. Un ejemplo común es la lógica de redirección, donde la URL de destino se deriva de un parámetro de la petición.</p>
+<p>Por ejemplo, supongamos que se pide al usuario elegir entre una interfaz estándar o una avanzada. La opción seleccionada se pasa como parámetro y se refleja en una cabecera de respuesta de redirección.</p>
+<p>Si el parámetro <code>interface</code> tiene el valor <code>advanced</code>, la aplicación puede responder con:</p>
+<pre><code class="language-http">HTTP/1.1 302 Moved Temporarily
+Date: Sun, 03 Dec 2005 16:22:19 GMT
+Location: https://victim.com/main.jsp?interface=advanced
+</code></pre>
+<p>Cuando el navegador recibe esta respuesta, sigue la URL especificada en la cabecera <code>Location</code>. Sin embargo, si la aplicación no valida ni sanea adecuadamente la entrada del usuario, un atacante puede inyectar la secuencia <code>%0d%0a</code>, que representa los caracteres CRLF utilizados para separar las líneas de cabecera HTTP.</p>
+<p>Al inyectar secuencias CRLF, un evaluador puede hacer que la respuesta sea interpretada como dos respuestas HTTP separadas por clientes o sistemas intermediarios descendentes, como las cachés web. Este comportamiento puede explotarse para envenenar cachés o entregar contenido malicioso a los usuarios.</p>
+<p>Por ejemplo, el evaluador proporciona el siguiente valor para el parámetro <code>interface</code>:</p>
+<p><code>advanced%0d%0aContent-Length:%200%0d%0a%0d%0aHTTP/1.1%20200%20OK%0d%0aContent-Type:%20text/html%0d%0aContent-Length:%2035%0d%0a%0d%0a&lt;html&gt;Sorry,%20System%20Down&lt;/html&gt;</code></p>
+<p>La respuesta resultante de la aplicación vulnerable puede ser:</p>
+<pre><code class="language-http">HTTP/1.1 302 Moved Temporarily
+Date: Sun, 03 Dec 2005 16:22:19 GMT
+Location: https://victim.com/main.jsp?interface=advanced
+Content-Length: 0
+
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 35
+
+&lt;html&gt;Sorry,%20System%20Down&lt;/html&gt;
+</code></pre>
+<p>Una caché web que procese esta respuesta puede interpretarla como dos respuestas distintas. Si el atacante emite inmediatamente una petición posterior para <code>/index.html</code>, la caché puede asociar esa petición con la segunda respuesta y almacenarla. Como resultado, todos los usuarios posteriores que accedan a <code>victim.com/index.html</code> a través de esa caché pueden recibir el contenido controlado por el atacante.</p>
+<p>Alternativamente, el atacante puede inyectar un payload JavaScript para realizar un ataque de Cross-Site Scripting contra los usuarios servidos por la caché envenenada. Aunque la vulnerabilidad reside en la aplicación, los objetivos principales son sus usuarios.</p>
+<p>Para identificar este problema, los evaluadores deben localizar toda la entrada controlada por el usuario que influya en las cabeceras de respuesta HTTP y verificar si es posible inyectar secuencias CRLF.</p>
+<p>Las cabeceras de respuesta más comúnmente asociadas con HTTP Response Splitting incluyen:</p>
+<ul>
+<li><code>Location</code></li>
+<li><code>Set-Cookie</code></li>
+</ul>
+<p>La explotación exitosa en escenarios reales puede requerir considerar cuidadosamente factores adicionales:</p>
+<ul>
+<li>Es posible que el evaluador deba elaborar cabeceras de respuesta adecuadas para el almacenamiento en caché (p. ej., <code>Last-Modified</code> establecido en una fecha futura) y potencialmente invalidar entradas de caché existentes mediante cabeceras como <code>Pragma: no-cache</code>.</li>
+<li>Las aplicaciones pueden filtrar los caracteres CRLF pero permitir codificaciones o representaciones alternativas de caracteres, que a veces pueden aprovecharse para eludir la validación de entrada.</li>
+<li>Algunas plataformas codifican en URL partes de las cabeceras de respuesta (como la ruta en la cabecera <code>Location</code>) pero dejan sin codificar la cadena de consulta (query string), lo que permite la inyección a través de componentes específicos de la URL.</li>
+</ul>
+<p>Para una discusión más profunda de esta clase de ataque y de escenarios de explotación adicionales, consulte los documentos técnicos (whitepapers) listados en la sección de Referencias.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>En un escenario de pruebas de caja gris, el conocimiento de la arquitectura de la aplicación y del comportamiento del servidor mejora la fiabilidad de la explotación.</p>
+<p>Diferentes servidores o intermediarios pueden determinar los límites de los mensajes de manera distinta (p. ej., usando búferes de tamaño fijo), lo que requiere desplazamientos (offsets) o relleno (padding) precisos. Cuando los parámetros vulnerables se transmiten mediante GET, los límites de longitud de la URL pueden truncar los payloads. Los evaluadores deben identificar puntos de inyección o métodos de petición alternativos, como POST, para obtener un mejor control sobre la longitud y la posición del payload.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Asegúrese de que la entrada proporcionada por el usuario nunca se coloque en cabeceras HTTP sin una validación y un saneamiento estrictos.</p>
+<ul>
+<li><strong>Validación de entrada:</strong> rechace o elimine la entrada que contenga caracteres de retorno de carro (<code>\r</code>, <code>%0d</code>) o de salto de línea (<code>\n</code>, <code>%0a</code>) antes de que se utilice en cabeceras HTTP.</li>
+<li><strong>Codificación URL:</strong> si la entrada forma parte de una URL (p. ej., en una cabecera <code>Location</code>), asegúrese de que esté correctamente codificada en URL para evitar que los caracteres de control se interpreten como delimitadores.</li>
+<li><strong>Uso de frameworks seguros:</strong> utilice las funciones integradas del framework para establecer cabeceras (p. ej., <code>setHeader()</code>, <code>addHeader()</code>) en lugar de construir manualmente cadenas de respuesta HTTP en bruto. Los entornos modernos normalmente bloquean la inyección de cabeceras por defecto.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+<li><a href="https://github.com/dwisiswant0/crlfuzz" target="_blank" rel="noopener">CRLFuzz</a> - Una herramienta diseñada específicamente para escanear vulnerabilidades CRLF.</li>
+<li><a href="https://github.com/projectdiscovery/nuclei" target="_blank" rel="noopener">Nuclei</a> - Puede utilizarse con plantillas específicas para detectar patrones de inyección CRLF.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://packetstormsecurity.com/files/32815/Divide-and-Conquer-HTTP-Response-Splitting-Whitepaper.html" target="_blank" rel="noopener">Amit Klein, &quot;Divide and Conquer: HTTP Response Splitting, Web Cache Poisoning Attacks, and Related Topics&quot;</a></li>
+<li><a href="https://www.slideserve.com/alicia/http-message-splitting-smuggling-and-other-animals-powerpoint-ppt-presentation" target="_blank" rel="noopener">Amit Klein: &quot;HTTP Message Splitting, Smuggling and Other Animals&quot;</a></li>
+<li><a href="https://web.archive.org/web/20210614052317/https://www.securityfocus.com/archive/1/411418" target="_blank" rel="noopener">Amit Klein: &quot;HTTP Request Smuggling - ERRATA (the IIS 48K buffer phenomenon)&quot;</a></li>
+<li><a href="https://web.archive.org/web/20210126213458/https://www.securityfocus.com/archive/1/425593" target="_blank" rel="noopener">Amit Klein: &quot;HTTP Response Smuggling&quot;</a></li>
+<li><a href="https://web.archive.org/web/20210816212852/https://www.cgisecurity.com/lib/http-request-smuggling.pdf" target="_blank" rel="noopener">Chaim Linhart, Amit Klein, Ronen Heled, Steve Orrin: &quot;HTTP Request Smuggling&quot;</a></li>
+</ul>

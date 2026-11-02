@@ -1,0 +1,185 @@
+<h1 id="bypassing-authorization-schema">Evasión del esquema de autorización</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHZ-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Este caso de prueba se centra en identificar debilidades de autorización en las que un
+usuario autenticado puede acceder a recursos o realizar acciones más allá de los permisos que
+tiene asignados, incluida la escalada de privilegios horizontal y vertical.</p>
+<p>Aunque algunas comprobaciones pueden incluir escenarios como el acceso directo a recursos protegidos
+sin una sesión activa o después de cerrar sesión, el propósito principal de esta prueba es
+validar que los controles de autorización se aplican correctamente a los usuarios autenticados
+y a los roles.</p>
+<p>Los escenarios detallados sin autenticación y posteriores a la autenticación se cubren en la
+sección Cómo probar.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar si es posible el acceso no autenticado, horizontal o vertical.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<ul>
+<li>Acceder a recursos y realizar operaciones sin iniciar sesión. - Petición directa de páginas (<a href="https://owasp.org/www-community/attacks/Forced_browsing" target="_blank" rel="noopener">forced browsing</a>)</li>
+<li>Acceder a recursos y realizar operaciones de forma horizontal.</li>
+<li>Acceder a recursos y realizar operaciones de forma vertical.</li>
+</ul>
+<h3 id="basic-unauthenticated-access">Acceso básico sin autenticación</h3>
+<h4 id="using-a-browser-manually">Uso manual de un navegador</h4>
+<p>Cuando una aplicación web no aplica correctamente los mecanismos de control de acceso, los recursos sensibles quedan expuestos y los usuarios no autenticados pueden verlos. Por ejemplo, si un usuario solicita directamente una página distinta mediante forced browsing, esa página podría no comprobar la autorización del usuario anónimo antes de conceder el acceso. Para probar con este método, se debe intentar acceder directamente a una página protegida a través de la barra de direcciones del navegador.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/05-Authorization/images/05-basm-directreq.jpg" alt="Petición directa a una página protegida" loading="lazy"><br><em>Figura 4.5.2-1: Petición directa a una página protegida</em></p>
+<h4 id="using-automation">Uso de automatización</h4>
+<p>Este proceso puede automatizarse si se dispone de una lista de todos los endpoints, con herramientas como ffuf, gobuster, ZAP y Burp Suite Intruder.</p>
+<p>En ZAP, el uso de un complemento de <a href="https://www.zaproxy.org/docs/desktop/addons/access-control-testing/" target="_blank" rel="noopener">Access Control Testing</a> permite a los evaluadores determinar qué partes de la aplicación están disponibles para usuarios anónimos e identificar posibles problemas de control de acceso.</p>
+<p>En Burp Suite, herramientas integradas como Intruder y varios plugins, entre ellos Autorize, ayudan al evaluador a automatizar las pruebas de autorización.</p>
+<h3 id="horizontal-bypass">Evasión horizontal</h3>
+<p>Para cada función, rol específico o petición que ejecuta la aplicación, es necesario verificar:</p>
+<ul>
+<li>¿Es posible acceder a recursos que deberían ser accesibles a un usuario con una identidad diferente pero con el mismo rol o privilegio?</li>
+<li>¿Es posible operar funciones sobre recursos que deberían ser accesibles a un usuario con una identidad diferente?</li>
+</ul>
+<p>Para cada rol:</p>
+<ol>
+<li>Registrar o generar dos usuarios con privilegios idénticos.</li>
+<li>Establecer y mantener activas dos sesiones distintas (una para cada usuario).</li>
+<li>Para cada petición, cambiar los parámetros relevantes y el identificador de sesión del token uno al token dos, y diagnosticar las respuestas de cada token.</li>
+<li>Se considerará que una aplicación es vulnerable si las respuestas son iguales, contienen los mismos datos privados o indican una operación exitosa sobre el recurso o los datos de otros usuarios.</li>
+</ol>
+<p>Por ejemplo, supóngase que la función <code>viewSettings</code> forma parte del menú de cuenta de todos los usuarios de la aplicación con el mismo rol, y que es posible acceder a ella solicitando la siguiente URL: <code>https://www.example.com/account/viewSettings</code>. Entonces, al invocar la función <code>viewSettings</code> se genera la siguiente petición HTTP:</p>
+<pre><code class="language-http">POST /account/viewSettings HTTP/1.1
+Host: www.example.com
+[other HTTP headers]
+Cookie: SessionID=USER_SESSION
+
+username=example_user
+</code></pre>
+<p>Respuesta válida y legítima:</p>
+<pre><code class="language-html">HTTP1.1 200 OK
+[other HTTP headers]
+
+{
+  &quot;username&quot;: &quot;example_user&quot;,
+  &quot;email&quot;: &quot;example@email.com&quot;,
+  &quot;address&quot;: &quot;Example Address&quot;
+}
+</code></pre>
+<p>El atacante puede intentar ejecutar esa petición con el mismo parámetro <code>username</code>, pero con un usuario distinto:</p>
+<pre><code class="language-html">POST /account/viewSettings HTTP/1.1
+Host: www.example.com
+[other HTTP headers]
+Cookie: SessionID=ATTACKER_SESSION
+
+username=victim_user
+</code></pre>
+<p>Si la respuesta al atacante contiene los datos de <code>victim_user</code>, entonces la aplicación es vulnerable a ataques de movimiento lateral, en los que un usuario puede leer o escribir los datos de otro usuario.</p>
+<p>Se pueden automatizar los pasos 3 y 4. La pestaña Authorize de Gori reproduce una petición capturada bajo varias identidades y compara cada respuesta con una línea base. Una identidad es un conjunto con nombre de cambios de cabeceras: se conserva la sesión capturada de la víctima, se sustituye por el token de un segundo usuario o se eliminan las cabeceras de sesión para un cliente anónimo.</p>
+<p><code>gori run authorize</code> realiza la misma reproducción para uso en scripts, tomando las identidades de un archivo:</p>
+<pre><code class="language-json">[
+  { &quot;name&quot;: &quot;victim (baseline)&quot;, &quot;baseline&quot;: true },
+  { &quot;name&quot;: &quot;other-user&quot;, &quot;set&quot;: [{ &quot;name&quot;: &quot;Authorization&quot;, &quot;value&quot;: &quot;Bearer &lt;other-user-jwt&gt;&quot; }] },
+  { &quot;name&quot;: &quot;anonymous&quot;, &quot;remove&quot;: [&quot;Authorization&quot;] }
+]
+</code></pre>
+<p>Ejecutándolo contra una petición a la cesta de compras de un usuario en OWASP Juice Shop:</p>
+<pre><code class="language-text">$ gori run authorize --query &quot;path:/rest/basket/6&quot; --identities identities.json
+authorizing 1 request × 3 identities (victim (baseline), other-user, anonymous) = 3 requests
+[!] BYPASS    #1     GET    http://localhost:3000/rest/basket/6  · 1 of 2 identities matched the baseline
+      victim (baseline)   baseline  200  154B     -
+      other-user          same      200  154B     Δ status 200 · size same · time -11 ms
+      anonymous           different 401  984B     Δ status 200 → 401 · size +830 B · time -22 ms
+done · 1 request replayed · 3 sends · 1 possible bypass
+</code></pre>
+<p>A la identidad <code>other-user</code> se le entrega la misma respuesta <code>200</code> que a la víctima, por lo que el endpoint no comprueba que la cesta pertenezca a quien la solicita. La identidad <code>anonymous</code> es rechazada correctamente con <code>401</code>.</p>
+<h3 id="access-to-administrative-functions">Acceso a funciones administrativas</h3>
+<p>Por ejemplo, supóngase que la función <code>addUser</code> forma parte del menú administrativo de la aplicación, y que es posible acceder a ella solicitando la siguiente URL <code>https://www.example.com/admin/addUser</code>.</p>
+<p>Entonces, al invocar la función <code>addUser</code> se genera la siguiente petición HTTP:</p>
+<pre><code class="language-http">POST /admin/addUser HTTP/1.1
+Host: www.example.com
+[...]
+
+userID=fakeuser&amp;role=3&amp;group=grp001
+</code></pre>
+<p>Otras preguntas o consideraciones irían en la siguiente dirección:</p>
+<ul>
+<li>¿Qué sucede si un usuario no administrativo intenta ejecutar esa petición?</li>
+<li>¿Se creará el usuario?</li>
+<li>De ser así, ¿puede el nuevo usuario utilizar sus privilegios?</li>
+</ul>
+<h3 id="access-to-resources-assigned-to-a-different-role">Acceso a recursos asignados a un rol diferente</h3>
+<p>Diversas aplicaciones establecen controles de recursos basados en los roles de usuario. Tomemos como ejemplo currículums o CV (curriculum vitae) cargados en un formulario de empleo hacia un bucket de S3.</p>
+<p>Como usuario normal, se debe intentar acceder a la ubicación de esos archivos. Si es posible recuperarlos, modificarlos o eliminarlos, entonces la aplicación es vulnerable.</p>
+<h3 id="special-request-header-handling">Manejo especial de cabeceras de petición</h3>
+<p>Algunas aplicaciones admiten cabeceras no estándar como <code>X-Original-URL</code> o <code>X-Rewrite-URL</code> para permitir que la URL de destino de las peticiones sea reemplazada por la especificada en el valor de la cabecera.</p>
+<p>Este comportamiento puede aprovecharse cuando la aplicación se encuentra detrás de un componente que aplica restricciones de control de acceso basadas en la URL de la petición.</p>
+<p>Este tipo de restricción de control de acceso basada en la URL de la petición puede ser, por ejemplo, bloquear el acceso desde internet a una consola de administración expuesta en <code>/console</code> o <code>/admin</code>.</p>
+<p>Para detectar la compatibilidad con la cabecera <code>X-Original-URL</code> o <code>X-Rewrite-URL</code>, se pueden aplicar los siguientes pasos.</p>
+<h4 id="1-send-a-normal-request-without-any-x-original-url-or-x-rewrite-url-header">1. Enviar una petición normal sin ninguna cabecera X-Original-Url o X-Rewrite-Url</h4>
+<pre><code class="language-http">GET / HTTP/1.1
+Host: www.example.com
+[...]
+</code></pre>
+<h4 id="2-send-a-request-with-an-x-original-url-header-pointing-to-a-non-existing-resource">2. Enviar una petición con una cabecera X-Original-Url que apunte a un recurso inexistente</h4>
+<pre><code class="language-html">GET / HTTP/1.1
+Host: www.example.com
+X-Original-URL: /donotexist1
+[...]
+</code></pre>
+<h4 id="3-send-a-request-with-an-x-rewrite-url-header-pointing-to-a-non-existing-resource">3. Enviar una petición con una cabecera X-Rewrite-Url que apunte a un recurso inexistente</h4>
+<pre><code class="language-html">GET / HTTP/1.1
+Host: www.example.com
+X-Rewrite-URL: /donotexist2
+[...]
+</code></pre>
+<p>Si la respuesta a cualquiera de las peticiones contiene indicios de que el recurso no fue encontrado, esto indica que la aplicación admite las cabeceras de petición especiales. Estos indicios pueden incluir el código de estado HTTP 404 o un mensaje de &quot;recurso no encontrado&quot; en el cuerpo de la respuesta.</p>
+<p>Una vez validada la compatibilidad con la cabecera <code>X-Original-URL</code> o <code>X-Rewrite-URL</code>, se puede intentar evadir la restricción de control de acceso enviando a la aplicación la petición esperada, pero especificando como URL principal de la petición una URL &quot;permitida&quot; por el componente frontal, e indicando la URL de destino real en la cabecera <code>X-Original-URL</code> o <code>X-Rewrite-URL</code>, según la que esté admitida. Si ambas están admitidas, se prueba una tras otra para verificar con cuál cabecera la evasión es efectiva.</p>
+<h4 id="4-other-headers-to-consider">4. Otras cabeceras a considerar</h4>
+<p>A menudo los paneles de administración o las partes de funcionalidad administrativa solo son accesibles para clientes en redes locales, por lo que puede ser posible abusar de diversas cabeceras HTTP relacionadas con proxies o reenvío para obtener acceso. Algunas cabeceras y valores con los que probar son:</p>
+<ul>
+<li>Cabeceras:<ul>
+<li><code>X-Forwarded-For</code></li>
+<li><code>X-Forward-For</code></li>
+<li><code>X-Remote-IP</code></li>
+<li><code>X-Originating-IP</code></li>
+<li><code>X-Remote-Addr</code></li>
+<li><code>X-Client-IP</code></li>
+</ul>
+</li>
+<li>Valores<ul>
+<li><code>127.0.0.1</code> (o cualquiera dentro de los espacios de direcciones <code>127.0.0.0/8</code> o <code>::1/128</code>)</li>
+<li><code>localhost</code></li>
+<li>Cualquier dirección <a href="https://tools.ietf.org/html/rfc1918" target="_blank" rel="noopener">RFC1918</a>:<ul>
+<li><code>10.0.0.0/8</code></li>
+<li><code>172.16.0.0/12</code></li>
+<li><code>192.168.0.0/16</code></li>
+</ul>
+</li>
+<li>Direcciones de enlace local: <code>169.254.0.0/16</code></li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>Nota: Incluir un elemento de puerto junto con la dirección o el nombre de host también puede ayudar a evadir protecciones perimetrales como los firewalls de aplicaciones web, etc.
+Por ejemplo: <code>127.0.0.4:80</code>, <code>127.0.0.4:443</code>, <code>127.0.0.4:43982</code></p>
+</blockquote>
+<h2 id="remediation">Corrección</h2>
+<p>Se deben aplicar los principios de mínimo privilegio a los usuarios, roles y recursos para garantizar que no ocurra ningún acceso no autorizado.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a><ul>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/access-control-testing/" target="_blank" rel="noopener">Complemento de ZAP: Access Control Testing</a></li>
+</ul>
+</li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Port Swigger Burp Suite</a><ul>
+<li><a href="https://github.com/SecurityInnovation/AuthMatrix/" target="_blank" rel="noopener">Extensión de Burp: AuthMatrix</a></li>
+<li><a href="https://github.com/Quitten/Autorize" target="_blank" rel="noopener">Extensión de Burp: Autorize</a></li>
+</ul>
+</li>
+<li><a href="https://github.com/hahwul/gori" target="_blank" rel="noopener">Gori</a><ul>
+<li>La pestaña Authorize reproduce una petición bajo múltiples identidades para encontrar evasiones del control de acceso, y se puede usar en scripts como <code>gori run authorize</code>.</li>
+</ul>
+</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<p><a href="https://github.com/OWASP/ASVS/tree/master/4.0" target="_blank" rel="noopener">OWASP Application Security Verification Standard 4.0.1</a>, v4.0.1-1, v4.0.1-4, v4.0.1-9, v4.0.1-16</p>

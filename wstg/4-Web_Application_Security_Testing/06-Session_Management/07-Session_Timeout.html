@@ -1,0 +1,38 @@
+<h1 id="session-timeout">Tiempo de espera de la sesión</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>En esta fase los evaluadores comprueban que la aplicación cierra automáticamente la sesión de un usuario cuando este ha estado inactivo durante cierto tiempo, asegurando que no sea posible &quot;reutilizar&quot; la misma sesión y que no quede almacenado ningún dato sensible en la caché del navegador.</p>
+<p>Todas las aplicaciones deben implementar un tiempo de espera por inactividad para las sesiones. Este tiempo de espera define el lapso durante el cual una sesión permanecerá activa en caso de que no haya actividad del usuario, cerrando e invalidando la sesión una vez transcurrido el periodo de inactividad definido desde la última petición HTTP recibida por la aplicación web para un ID de sesión determinado. El tiempo de espera más apropiado debe ser un equilibrio entre seguridad (tiempo más corto) y usabilidad (tiempo más largo) y depende en gran medida del nivel de sensibilidad de los datos que maneja la aplicación. Por ejemplo, un cierre de sesión a los 60 minutos para un foro público puede ser aceptable, pero un tiempo tan largo sería excesivo en una aplicación de banca en línea (donde se recomienda un tiempo de espera máximo de 15 minutos). En cualquier caso, toda aplicación que no imponga un cierre de sesión basado en tiempo de espera debe considerarse no segura, a menos que dicho comportamiento lo exija un requisito funcional específico.</p>
+<p>El tiempo de espera por inactividad limita las posibilidades que tiene un atacante de adivinar y usar un ID de sesión válido de otro usuario y, en determinadas circunstancias, podría proteger los equipos públicos de la reutilización de sesiones. Sin embargo, si el atacante logra secuestrar una sesión determinada, el tiempo de espera por inactividad no limita las acciones del atacante, ya que puede generar actividad en la sesión periódicamente para mantenerla activa durante periodos más largos.</p>
+<p>La gestión y expiración del tiempo de espera de la sesión deben imponerse en el lado del servidor. Si se utilizan datos bajo control del cliente para imponer el tiempo de espera de la sesión, por ejemplo usando valores de cookies u otros parámetros del cliente para llevar referencias de tiempo (p. ej., número de minutos desde la hora de inicio de sesión), un atacante podría manipularlos para extender la duración de la sesión. Por lo tanto, la aplicación debe llevar el control del tiempo de inactividad en el lado del servidor y, una vez expirado el tiempo de espera, invalidar automáticamente la sesión del usuario actual y eliminar todos los datos almacenados en el cliente.</p>
+<p>Ambas acciones deben implementarse con cuidado, para evitar introducir debilidades que un atacante pueda explotar para obtener acceso no autorizado si el usuario olvidó cerrar sesión en la aplicación. Más específicamente, en cuanto a la función de cierre de sesión, es importante asegurar que todos los tokens de sesión (p. ej., cookies) se destruyan correctamente o se inutilicen, y que se impongan controles adecuados en el lado del servidor para evitar la reutilización de los tokens de sesión. Si tales acciones no se llevan a cabo correctamente, un atacante podría reproducir (replay) estos tokens de sesión para &quot;resucitar&quot; la sesión de un usuario legítimo y suplantarlo (este ataque se conoce normalmente como &#39;cookie replay&#39;). Por supuesto, un factor atenuante es que el atacante necesita poder acceder a esos tokens (que están almacenados en el PC de la víctima), pero, en diversos casos, esto puede no ser imposible ni especialmente difícil.</p>
+<p>El escenario más común para este tipo de ataque es un equipo público que se utiliza para acceder a información privada (p. ej., correo web, cuenta bancaria en línea). Si el usuario se aleja del equipo sin cerrar sesión explícitamente y la aplicación no implementa el tiempo de espera de la sesión, un atacante podría acceder a la misma cuenta simplemente pulsando el botón &quot;atrás&quot; del navegador.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Validar que existe un tiempo de espera de sesión estricto (hard timeout).</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>El mismo enfoque visto en la sección de <a href="#/4-Web_Application_Security_Testing/06-Session_Management/06-Logout_Functionality">funcionalidad de cierre de sesión</a> puede aplicarse al medir el cierre de sesión por tiempo de espera.
+La metodología de pruebas es muy similar. Primero, los evaluadores deben comprobar si existe un tiempo de espera, por ejemplo, iniciando sesión y esperando a que se active el cierre de sesión por tiempo de espera. Al igual que en la función de cierre de sesión, una vez transcurrido el tiempo de espera, todos los tokens de sesión deben estar destruidos o inutilizados.</p>
+<p>Luego, si el tiempo de espera está configurado, los evaluadores deben entender si el tiempo de espera lo impone el cliente o el servidor (o ambos). Si la cookie de sesión no es persistente (o, más en general, la cookie de sesión no almacena ningún dato sobre el tiempo), los evaluadores pueden asumir que el tiempo de espera lo impone el servidor. Si la cookie de sesión contiene algunos datos relacionados con el tiempo (p. ej., hora de inicio de sesión, hora del último acceso o fecha de expiración de una cookie persistente), entonces es posible que el cliente participe en la imposición del tiempo de espera. En este caso, los evaluadores podrían intentar modificar la cookie (si no está protegida criptográficamente) y ver qué ocurre con la sesión. Por ejemplo, los evaluadores pueden establecer la fecha de expiración de la cookie muy lejos en el futuro y ver si se puede prolongar la sesión.</p>
+<p>Como regla general, todo debe comprobarse en el lado del servidor y no debería ser posible, restableciendo las cookies de sesión a valores anteriores, acceder de nuevo a la aplicación.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>El evaluador debe comprobar que:</p>
+<ul>
+<li>La función de cierre de sesión destruye efectivamente todos los tokens de sesión, o al menos los inutiliza,</li>
+<li>El servidor realiza las comprobaciones adecuadas sobre el estado de la sesión, impidiendo que un atacante reproduzca identificadores de sesión previamente destruidos</li>
+<li>Se impone un tiempo de espera y lo impone correctamente el servidor. Si el servidor utiliza un tiempo de expiración que se lee de un token de sesión enviado por el cliente (aunque esto no es recomendable), entonces el token debe estar protegido criptográficamente contra la manipulación.</li>
+</ul>
+<p>Lo más importante es que la aplicación invalide la sesión en el lado del servidor. Generalmente esto significa que el código debe invocar los métodos apropiados, p. ej., <code>HttpSession.invalidate()</code> en Java y <code>Session.abandon()</code> en .NET. Borrar las cookies del navegador es recomendable, pero no es estrictamente necesario, ya que si la sesión se invalida correctamente en el servidor, tener la cookie en el navegador no ayudará a un atacante.</p>
+<h2 id="references">Referencias</h2>
+<h3 id="owasp-resources">Recursos de OWASP</h3>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html" target="_blank" rel="noopener">Session Management Cheat Sheet</a></li>
+</ul>

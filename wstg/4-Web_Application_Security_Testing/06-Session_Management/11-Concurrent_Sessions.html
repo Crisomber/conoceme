@@ -1,0 +1,78 @@
+<h1 id="concurrent-sessions">Sesiones concurrentes</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-11</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las sesiones concurrentes son un aspecto común de las aplicaciones web que permiten múltiples interacciones simultáneas de usuarios. Este caso de prueba tiene como objetivo evaluar la capacidad de la aplicación para manejar múltiples sesiones activas de un mismo usuario. Esta funcionalidad es esencial para gestionar eficazmente las sesiones concurrentes de usuarios, en particular en áreas sensibles como paneles de administración que contienen información de identificación personal (PII), cuentas personales de usuario o APIs que dependen de servicios de terceros para enriquecer los datos proporcionados por el usuario. El objetivo principal es asegurar que las sesiones concurrentes se ajusten a los requisitos de seguridad de la aplicación.</p>
+<p>Comprender las necesidades de seguridad de una aplicación es clave para evaluar si habilitar sesiones concurrentes corresponde con las funcionalidades previstas. Permitir sesiones concurrentes no es inherentemente perjudicial y se permite intencionalmente en muchas aplicaciones. Sin embargo, es crucial asegurar que la funcionalidad de la aplicación esté alineada eficazmente con sus medidas de seguridad respecto a las sesiones concurrentes. Si se prevén sesiones concurrentes, es vital asegurar controles de seguridad adicionales, como la gestión de las sesiones activas, la terminación de sesiones y posibles notificaciones de nuevas sesiones. Por el contrario, si las sesiones concurrentes no están previstas ni planificadas en la aplicación, es crucial validar las comprobaciones existentes frente a vulnerabilidades de gestión de sesiones.</p>
+<p>Para reconocer que las sesiones concurrentes son esenciales, se deben considerar los siguientes factores:</p>
+<ul>
+<li>Comprender la naturaleza de la aplicación, en particular las situaciones en las que los usuarios podrían requerir acceso simultáneo desde diferentes ubicaciones o dispositivos.</li>
+<li>Identificar las operaciones críticas, como las transacciones financieras que requieren un acceso seguro.</li>
+<li>Manejar datos sensibles como la información de identificación personal (PII), lo que indica la necesidad de interacciones seguras.</li>
+<li>Distinguir entre un panel de administración y un panel de usuario estándar para el acceso normal de los usuarios.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar la gestión de sesiones de la aplicación valorando el manejo de múltiples sesiones activas de una única cuenta de usuario.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<ol>
+<li><p><strong>Generar una sesión válida:</strong></p>
+<ul>
+<li><p>Enviar credenciales válidas (nombre de usuario y contraseña) para crear una sesión.</p>
+</li>
+<li><p>Ejemplo de petición HTTP:</p>
+<pre><code class="language-http">POST /login HTTP/1.1
+Host: www.example.com
+Content-Length: 32
+
+username=admin&amp;password=admin123
+</code></pre>
+</li>
+<li><p>Ejemplo de respuesta:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Set-Cookie: SESSIONID=0add0d8eyYq3HIUy09hhus; Path=/; Secure
+</code></pre>
+</li>
+<li><p>Almacenar la cookie de autenticación generada. En algunos casos, la cookie de autenticación generada se sustituye por tokens como los JSON Web Tokens (JWT).</p>
+</li>
+</ul>
+</li>
+<li><p><strong>Probar la generación de sesiones activas:</strong></p>
+<ul>
+<li>Intentar crear múltiples cookies de autenticación enviando peticiones de inicio de sesión (p. ej., cien veces).</li>
+</ul>
+<p>Nota: Utilizar el modo de navegación privada o contenedores multicuenta puede ser beneficioso para realizar estas pruebas, ya que pueden proporcionar entornos separados para probar la gestión de sesiones sin interferencia de sesiones o cookies existentes almacenadas en el navegador.</p>
+</li>
+<li><p><strong>Probar la validación de sesiones activas:</strong></p>
+<ul>
+<li>Intentar acceder a la aplicación utilizando el token de sesión inicial (p. ej., <code>SESSIONID=0add0d8eyYq3HIUy09hhus</code>).</li>
+<li>Si se produce una autenticación exitosa con el primer token generado, considérese un posible problema que indica una gestión de sesiones inadecuada.</li>
+</ul>
+</li>
+</ol>
+<p>Además, existen casos de prueba adicionales que amplían el alcance de la metodología de pruebas para incluir escenarios con múltiples sesiones originadas desde diversas IP y ubicaciones. Estos casos de prueba ayudan a identificar posibles vulnerabilidades o irregularidades en el manejo de sesiones relacionadas con factores geográficos o de red:</p>
+<ul>
+<li>Probar múltiples sesiones desde la misma IP.</li>
+<li>Probar múltiples sesiones desde IP diferentes.</li>
+<li>Probar múltiples sesiones desde ubicaciones que es improbable o imposible que visite el mismo usuario en un corto periodo de tiempo (p. ej., una sesión creada en un país específico, seguida de otra sesión generada cinco minutos después desde un país diferente).</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La aplicación debe monitorear y limitar el número de sesiones activas por cuenta de usuario. Si se supera el máximo de sesiones permitidas, el sistema debe invalidar las sesiones anteriores para mantener la seguridad. Implementar soluciones adicionales puede mitigar aún más esta vulnerabilidad:</p>
+<ol>
+<li><strong>Notificación al usuario:</strong> Notificar a los usuarios después de cada inicio de sesión exitoso para concienciar sobre las sesiones activas.</li>
+<li><strong>Página de gestión de sesiones:</strong> Crear una página dedicada para mostrar y permitir la terminación de las sesiones activas, para un mayor control por parte del usuario.</li>
+<li><strong>Seguimiento de direcciones IP:</strong> Rastrear las direcciones IP de los usuarios que inician sesión en una cuenta y señalar cualquier actividad sospechosa, como múltiples inicios de sesión desde diferentes ubicaciones.</li>
+<li><strong>Restricciones de direcciones IP:</strong> Permitir a los usuarios especificar direcciones IP o rangos de confianza desde los cuales pueden acceder a sus cuentas, mejorando la seguridad al restringir las sesiones a ubicaciones conocidas y aprobadas.</li>
+</ol>
+<h2 id="recommended-tools">Herramientas recomendadas</h2>
+<h3 id="intercepting-proxy-tools">Herramientas de proxy de interceptación</h3>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy</a></li>
+<li><a href="https://portswigger.net" target="_blank" rel="noopener">Burp Suite Web Proxy</a></li>
+</ul>

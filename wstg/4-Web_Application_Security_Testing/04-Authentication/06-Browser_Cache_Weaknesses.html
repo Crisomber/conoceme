@@ -1,0 +1,74 @@
+<h1 id="browser-cache-weaknesses">Debilidades de la caché del navegador</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>En esta fase el evaluador comprueba que la aplicación indique correctamente al navegador que no retenga datos sensibles.</p>
+<p>Los navegadores pueden almacenar información con fines de caché y de historial. La caché se utiliza para mejorar el rendimiento, de modo que la información mostrada previamente no necesite descargarse de nuevo. Los mecanismos de historial se usan por comodidad del usuario, para que pueda ver exactamente lo que vio en el momento en que se obtuvo el recurso. Si se muestra información sensible al usuario (como su dirección, datos de la tarjeta de crédito, número de seguro social o nombre de usuario), esta información podría almacenarse con fines de caché o historial y, por lo tanto, recuperarse examinando la caché del navegador o simplemente pulsando el botón <strong>Atrás</strong> del navegador.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar si la aplicación almacena información sensible del lado del cliente.</li>
+<li>Revisar si se puede acceder sin autorización.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="browser-history">Historial del navegador</h3>
+<p>Técnicamente, el botón <strong>Atrás</strong> es un historial y no una caché (véase <a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.13" target="_blank" rel="noopener">Caching in HTTP: History Lists</a>). La caché y el historial son dos entidades distintas. Sin embargo, comparten la misma debilidad de presentar información sensible mostrada previamente.</p>
+<p>La primera y más sencilla prueba consiste en ingresar información sensible en la aplicación y cerrar la sesión. Luego el evaluador hace clic en el botón <strong>Atrás</strong> del navegador para comprobar si se puede acceder, sin estar autenticado, a la información sensible mostrada previamente.</p>
+<p>Si al pulsar el botón <strong>Atrás</strong> el evaluador puede acceder a páginas anteriores pero no a páginas nuevas, entonces no es un problema de autenticación, sino de historial del navegador. Si estas páginas contienen datos sensibles, significa que la aplicación no prohibió al navegador almacenarlos.</p>
+<p>No es necesario que la autenticación intervenga en la prueba. Por ejemplo, cuando un usuario introduce su dirección de correo electrónico para suscribirse a un boletín, esta información podría ser recuperable si no se maneja adecuadamente.</p>
+<p>Se puede evitar que el botón <strong>Atrás</strong> muestre datos sensibles. Esto se puede lograr:</p>
+<ul>
+<li>Entregando la página mediante HTTPS.</li>
+<li>Estableciendo <code>Cache-Control: no-store</code></li>
+</ul>
+<p><code>Cache-Control: no-store</code> indica al navegador que no almacene la respuesta en ninguna caché ni almacenamiento de historial, lo que ayuda a evitar que los datos sensibles sean accesibles cuando los usuarios navegan hacia atrás después de cerrar sesión.</p>
+<h3 id="browser-cache">Caché del navegador</h3>
+<p>Aquí los evaluadores comprueban que la aplicación no filtre datos sensibles en la caché del navegador. Para ello, pueden usar un proxy (como ZAP) y buscar entre las respuestas del servidor que pertenecen a la sesión, comprobando que, para cada página que contenga información sensible, el servidor haya indicado al navegador que no almacene en caché ningún dato. Dicha directiva puede emitirse en las cabeceras de respuesta HTTP con las siguientes directivas:</p>
+<ul>
+<li><code>Cache-Control: no-store</code></li>
+</ul>
+<p>Cuando se utiliza <code>Cache-Control: no-store</code>, las directivas adicionales como <code>must-revalidate</code>, <code>max-age</code> o la cabecera <code>Expires</code> generalmente son innecesarias para los navegadores modernos.</p>
+<pre><code class="language-http">HTTP/1.1
+Cache-Control: no-store
+</code></pre>
+<p>Por ejemplo, si los evaluadores están probando una aplicación de comercio electrónico, deben buscar todas las páginas que contengan un número de tarjeta de crédito u otra información financiera y comprobar que todas esas páginas aplican la directiva <code>no-store</code>. Si encuentran páginas que contienen información crítica pero que no indican al navegador que no almacene su contenido en caché, saben que la información sensible se almacenará en el disco, y pueden confirmarlo simplemente buscando la página en la caché del navegador.</p>
+<p>La ubicación exacta donde se almacena esa información depende del sistema operativo del cliente y del navegador utilizado. Estos son algunos ejemplos:</p>
+<ul>
+<li>Mozilla Firefox:<ul>
+<li>Unix/Linux: <code>~/.cache/mozilla/firefox/</code></li>
+<li>Windows: <code>C:\Users\&lt;user_name&gt;\AppData\Local\Mozilla\Firefox\Profiles\&lt;profile-id&gt;\Cache2\</code></li>
+</ul>
+</li>
+<li>Internet Explorer:<ul>
+<li><code>C:\Users\&lt;user_name&gt;\AppData\Local\Microsoft\Windows\INetCache\</code></li>
+</ul>
+</li>
+<li>Chrome:<ul>
+<li>Windows: <code>C:\Users\&lt;user_name&gt;\AppData\Local\Google\Chrome\User Data\Default\Cache</code></li>
+<li>Unix/Linux: <code>~/.cache/google-chrome</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="reviewing-cached-information">Revisión de la información en caché</h4>
+<p>Firefox ofrece funcionalidad para ver la información en caché, lo que puede resultar beneficioso para un evaluador. Por supuesto, la industria también ha producido diversas extensiones y aplicaciones externas que quizá prefieras o necesites para Chrome, Internet Explorer o Edge.</p>
+<p>Los detalles de la caché también están disponibles mediante las herramientas para desarrolladores en la mayoría de los navegadores modernos, como <a href="https://firefox-source-docs.mozilla.org/devtools-user/storage_inspector/index.html" target="_blank" rel="noopener">Firefox</a>, <a href="https://developer.chrome.com/docs/devtools/storage/cache" target="_blank" rel="noopener">Chrome</a> y Edge. En Firefox también es posible usar la URL <code>about:cache</code> para consultar los detalles de la caché.</p>
+<h4 id="check-handling-for-mobile-browsers">Comprobación del manejo en navegadores móviles</h4>
+<p>El manejo de las directivas de caché puede ser completamente diferente en los navegadores móviles. Por lo tanto, los evaluadores deben iniciar una nueva sesión de navegación con cachés limpias y aprovechar funciones como el <a href="https://developer.chrome.com/docs/devtools/device-mode" target="_blank" rel="noopener">Device Mode</a> de Chrome o el <a href="https://firefox-source-docs.mozilla.org/devtools-user/responsive_design_mode/index.html" target="_blank" rel="noopener">Responsive Design Mode</a> de Firefox para repetir o probar por separado los conceptos descritos anteriormente.</p>
+<p>Además, los proxies personales como ZAP y Burp Suite permiten al evaluador especificar qué <code>User-Agent</code> deben enviar sus spiders/crawlers. Esto puede configurarse para que coincida con una cadena <code>User-Agent</code> de un navegador móvil y utilizarse para ver qué directivas de caché envía la aplicación que se está probando.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>La metodología de prueba es equivalente a la de caja negra, ya que en ambos escenarios los evaluadores tienen acceso total a las cabeceras de respuesta del servidor y al código HTML. Sin embargo, con las pruebas de caja gris, el evaluador puede tener acceso a credenciales de cuenta que le permitan probar páginas sensibles accesibles solo para usuarios autenticados.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control" target="_blank" rel="noopener">MDN - Cache-Control</a></li>
+<li><a href="https://www.veggiespam.com/euthanize-pragma-no-cache/" target="_blank" rel="noopener">Euthanize Pragma no-cache</a></li>
+<li><a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html" target="_blank" rel="noopener">Caching in HTTP</a></li>
+</ul>

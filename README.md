@@ -6,5 +6,6 @@ Sitio de páginas educativas para aprender programación: https://crisomber.gith
 - `js/tema.js` — tema claro/oscuro (se carga en el `<head>`). Con `data-boton-tema` en el header añade el interruptor sol/luna; la elección se recuerda entre páginas.
 - `index.html` — página de inicio (sobre mí y catálogo de cursos). Estilos en `css/inicio.css`, tarjetas en `js/inicio.js`.
 - `base-de-datos.html` — curso interactivo de bases de datos y SQL en una sola página: conceptos, comandos esenciales, errores y excepciones comunes, preguntas por capítulo, 24 ejercicios con corrección automática, laboratorio SQLite en el navegador (sql.js) y examen final.
+- `wstg.html` + `wstg/` — traducción al español del [OWASP Web Security Testing Guide](https://github.com/OWASP/wstg) (CC BY-SA 4.0). `wstg/` contiene fragmentos HTML generados desde el Markdown traducido, las imágenes originales e `indice.json`; no se editan a mano.
 
 Abre `index.html` en cualquier navegador o visita la versión publicada en GitHub Pages.

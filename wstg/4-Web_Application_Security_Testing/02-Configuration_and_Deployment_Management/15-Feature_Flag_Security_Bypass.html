@@ -1,0 +1,103 @@
+<h1 id="feature-flag-security-bypass">Evasión de seguridad mediante feature flags</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-15</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los feature flags se utilizan comúnmente para controlar la funcionalidad de la aplicación y habilitar la entrega progresiva. Permiten activar, desactivar o desplegar gradualmente funcionalidades sin un despliegue completo de la aplicación. Las aplicaciones modernas utilizan cada vez más feature flags y kill-switches para condicionar funcionalidades relevantes para la seguridad, como la autenticación, la autorización, la detección de fraude, la limitación de tasa y los controles de riesgo, ya sea mediante servicios de feature flags (LaunchDarkly, Split, Flagsmith, ConfigCat) o soluciones a medida.</p>
+<p>Cuando los controles de seguridad dependen de feature flags, los estados inconsistentes de los flags pueden introducir vulnerabilidades. Un control puede estar habilitado en un servicio y deshabilitado en otro, o un rollback puede restaurar el código de la aplicación sin restaurar la configuración de seguridad correspondiente. Los flags del lado del cliente también pueden manipularse para revelar funcionalidades que deberían permanecer protegidas.</p>
+<p>Un patrón de fallo común ocurre cuando un kill-switch deshabilita la lógica de aplicación del control pero deja atrás una aserción de confianza. Por ejemplo, un control de prevención de fraude puede deshabilitarse por problemas de rendimiento, pero un servicio de backend sigue confiando en un parámetro <code>fraud_checked=true</code> que el control (ahora deshabilitado) habría establecido previamente. Un atacante puede reproducir una petición capturada anteriormente que contenga ese parámetro para que el backend trate una petición no verificada como si hubiera pasado la comprobación de fraude.</p>
+<p>Esta prueba evalúa si los controles de seguridad se siguen aplicando de forma coherente en todos los estados de los feature flags, incluidos la habilitación, la deshabilitación, el rollback, el despliegue parcial, el despliegue canario y la falla del servicio de feature flags.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los feature flags y kill-switches que controlan funcionalidades relevantes para la seguridad.</li>
+<li>Determinar si un cliente no autorizado puede manipular los estados de los feature flags, y verificar que los controles de seguridad del backend se sigan aplicando independientemente del estado del flag del lado del cliente.</li>
+<li>Verificar que los controles de seguridad se sigan aplicando de forma coherente a lo largo de las transiciones de flags, los rollbacks, los despliegues por etapas y entre servicios o instancias, incluyendo si se pueden reutilizar aserciones de seguridad obsoletas o el estado de sesión después de una transición.</li>
+<li>Evaluar el comportamiento a prueba de fallos (fail-safe) cuando el servicio de feature flags no está disponible.</li>
+<li>Identificar la información sensible expuesta a través de las configuraciones de feature flags, y los flags obsoletos que pueden exponer rutas de código en desuso o sin parchear.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las pruebas de feature flags pueden realizarse como <strong>pruebas de caja negra</strong>, infiriendo el comportamiento condicionado por flags mediante la comparación de respuestas entre etapas de despliegue, la reproducción de peticiones capturadas y el análisis de tiempos; o como <strong>pruebas de caja gris</strong>, donde el evaluador tiene visibilidad del sistema de gestión de flags y puede alternar directamente los estados para evaluar la coherencia de la aplicación de los controles. Siempre que sea posible, conviene combinar ambos enfoques: las pruebas de caja negra confirman lo que un atacante externo puede explotar realmente, mientras que las de caja gris confirman si el backend aplica los controles independientemente del estado del propio flag.</p>
+<h3 id="identify-security-relevant-feature-flags">Identificar los feature flags relevantes para la seguridad</h3>
+<p>Hay que identificar los feature flags, kill-switches y valores de configuración que controlan comportamientos relevantes para la seguridad, incluidos la autenticación, la autenticación multifactor, la autorización, la detección de fraude, la limitación de tasa, la autenticación basada en riesgo, la recuperación de cuentas, las funcionalidades administrativas y la monitorización de seguridad.</p>
+<h4 id="analyze-client-side-resources">Analizar los recursos del lado del cliente</h4>
+<p>Se deben inspeccionar los bundles de JavaScript y otros recursos del lado del cliente en busca de patrones comunes de feature flags:</p>
+<pre><code class="language-text">featureFlags
+isFeatureEnabled
+featureEnabled
+flags
+killSwitch
+securityFeature
+</code></pre>
+<p>Herramientas como <code>source-map-explorer</code> o el webpack Bundle Analyzer pueden ayudar a localizar el código relacionado con flags dentro de bundles minificados.</p>
+<h4 id="monitor-network-traffic-and-api-responses">Monitorear el tráfico de red y las respuestas de la API</h4>
+<p>Se usa un proxy de intercepción (Burp Suite, ZAP) para capturar las peticiones realizadas a los servicios de feature flags o a los endpoints de configuración internos (por ejemplo, llamadas a <code>app.launchdarkly.com</code>, <code>/api/config</code> o <code>/api/flags</code>). Hay que revisar los payloads de las respuestas en busca de nombres de flags, valores predeterminados y reglas de segmentación, y comprobar si algún endpoint devuelve el conjunto completo de flags evaluados para una sesión, incluidos los flags no relacionados con la página actual. Los payloads de flags excesivamente amplios son una fuente común de divulgación de información (véase más abajo).</p>
+<h3 id="test-for-client-side-flag-manipulation">Probar la manipulación de flags del lado del cliente</h3>
+<p>Cuando los flags se evalúan o se almacenan en caché del lado del cliente (por ejemplo, en un objeto JavaScript, una cookie o un valor de almacenamiento local), se usa un proxy para modificar el valor del flag y se reproduce la petición:</p>
+<pre><code class="language-http">PUT /api/user/settings HTTP/1.1
+Host: example.com
+Content-Type: application/json
+
+{&quot;flags&quot;: {&quot;betaAdminPanel&quot;: true}}
+</code></pre>
+<ul>
+<li><strong>Vulnerable:</strong> la aplicación expone funcionalidades ocultas, o el valor modificado del flag es aceptado sin una comprobación correspondiente del lado del servidor.</li>
+<li><strong>Seguro:</strong> el valor del lado del cliente no tiene ningún efecto sobre lo que el servidor autorizará; el servidor reevalúa el flag de forma independiente.</li>
+</ul>
+<h3 id="verify-backend-authorization-independence">Verificar la independencia de la autorización en el backend</h3>
+<p>Para cada flag relevante para la seguridad que se haya identificado, hay que confirmar que ocultar una funcionalidad en la interfaz de usuario va acompañado de una restricción equivalente en el lugar donde realmente se implementa esa funcionalidad (un endpoint de API, una llamada a un servicio de backend, un manejador de mensajes, etc.). Se debe intentar invocar directamente la funcionalidad subyacente mientras el flag está deshabilitado para el usuario actual, por ejemplo:</p>
+<pre><code class="language-http">GET /api/admin/reports HTTP/1.1
+Host: example.com
+Authorization: Bearer {low-privilege-token}
+</code></pre>
+<p><strong>Resultado esperado:</strong> el servidor debe aplicar la autorización independientemente del estado del flag del lado del cliente: se debe denegar el acceso a un usuario no autorizado (por ejemplo, <code>401 Unauthorized</code> o <code>403 Forbidden</code>) incluso si el flag se manipula en el cliente. Si la funcionalidad está deshabilitada globalmente por diseño, debe permanecer inaccesible para todos los usuarios, en lugar de que el flag solo oculte el elemento de la interfaz mientras la funcionalidad subyacente sigue siendo alcanzable.</p>
+<h3 id="test-behavior-during-flag-transitions-and-rollbacks">Probar el comportamiento durante las transiciones de flags y los rollbacks</h3>
+<ul>
+<li><strong>Evasión mediante kill-switch:</strong> deshabilitar un flag relevante para la seguridad (comprobación de fraude, limitación de tasa, autenticación escalonada) y reproducir una petición capturada <em>antes</em> de que el flag se deshabilitara, que contenga un parámetro, token o claim de sesión establecido previamente por ese control (p. ej., <code>fraud_checked=true</code>). Confirmar que el backend no sigue confiando en esa aserción obsoleta.</li>
+<li><strong>Rollback:</strong> simular u observar un rollback de la aplicación y confirmar que cualquier configuración de seguridad asociada a la versión revertida también se restaura, en lugar de quedar en su estado previo (potencialmente deshabilitado).</li>
+<li><strong>Despliegue parcial / canario:</strong> cuando varias instancias o servicios pueden estar ejecutándose con estados de flags diferentes al mismo tiempo, enviar peticiones repetidas y comparar las respuestas entre instancias para detectar una aplicación inconsistente de los controles.</li>
+<li><strong>Segundo escenario - kill-switch de MFA:</strong> deshabilitar la verificación escalonada/MFA para un subconjunto de usuarios mediante un kill-switch. Confirmar que un servicio posterior no siga confiando en un claim de sesión existente (p. ej., <code>mfa_verified=true</code>) que solo era válido porque antes se aplicaba MFA. Si el claim es aceptado después de deshabilitar el control, un atacante con una sesión obsoleta puede evadir por completo la verificación escalonada.</li>
+</ul>
+<h3 id="evaluate-fail-safe-behavior-when-the-flag-service-is-unavailable">Evaluar el comportamiento a prueba de fallos cuando el servicio de flags no está disponible</h3>
+<p>Se bloquea o limita el acceso al servicio de feature flags (por ejemplo, mediante reglas de proxy o un agujero negro de DNS en un entorno de pruebas) y se observa cómo se comporta la aplicación cuando no puede obtener el estado de los flags.</p>
+<ul>
+<li><strong>Vulnerable:</strong> la aplicación falla de forma abierta (fail open), dejando por defecto los flags relevantes para la seguridad en un estado habilitado/permisivo.</li>
+<li><strong>Resultado esperado:</strong> los controles relevantes para la seguridad siguen aplicándose o recurren a una configuración segura documentada cuando el servicio de feature flags no está disponible.</li>
+</ul>
+<h3 id="analyze-feature-flag-configurations-for-information-disclosure">Analizar las configuraciones de feature flags en busca de divulgación de información</h3>
+<p>Hay que revisar cualquier configuración de flags que el cliente pueda obtener (mediante una respuesta de API, un bundle de JS o un panel de administración expuesto) en busca de:</p>
+<ul>
+<li>Nombres de funcionalidades no publicadas o de servicios internos.</li>
+<li>Reglas de segmentación que revelen segmentos internos de usuarios, cuentas de empleados o cohortes de prueba.</li>
+<li>Valores de configuración (URL, descripciones de funcionalidades) que expongan detalles de implementación.</li>
+</ul>
+<h3 id="identify-stale-feature-flags">Identificar los feature flags obsoletos</h3>
+<p>Se debe buscar en la base de código (cuando sea accesible) o pedir una lista de los flags que ya no se alternan activamente. Los flags obsoletos que condicionan rutas de código ya sin uso pueden seguir siendo alcanzables y pueden hacer referencia a lógica que no ha recibido parches de seguridad posteriores. Hay que confirmar si esas rutas siguen siendo alcanzables en la aplicación en ejecución y, de ser así, si todavía se aplican correctamente.</p>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Aplicar todas las comprobaciones de autorización relevantes para la seguridad en el backend, independientemente de cualquier estado de flag suministrado por el cliente o visible para él.</li>
+<li>Asegurar que los kill-switches eliminen la confianza en cualquier parámetro, token o claim de sesión que solo era válido porque el control asociado estaba activo.</li>
+<li>Vincular la configuración de seguridad al mismo control de despliegue/versiones que el código de la aplicación, para que los rollbacks restauren ambos conjuntamente.</li>
+<li>Asegurar que los servicios de feature flags usen una alternativa segura documentada para los flags relevantes para la seguridad cuando no estén disponibles.</li>
+<li>Evitar exponer al cliente la configuración completa de flags; devolver solo los flags relevantes para el usuario y el contexto actuales.</li>
+<li>Auditar periódicamente y eliminar los flags obsoletos, junto con las rutas de código que condicionan, una vez completado un despliegue.</li>
+<li>Aplicar una evaluación de flags coherente en todos los servicios e instancias que manejan una petición determinada.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="#/6-Appendix/F-Leveraging_Dev_Tools">Herramientas de desarrollo del navegador</a></li>
+<li><a href="https://github.com/danvk/source-map-explorer" target="_blank" rel="noopener">source-map-explorer</a> / webpack Bundle Analyzer (para localizar la lógica de flags en bundles de JS minificados)</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://martinfowler.com/articles/feature-toggles.html" target="_blank" rel="noopener">Feature Toggles (aka Feature Flags) - Martin Fowler</a></li>
+<li><a href="https://launchdarkly.com/docs/home/account/secure" target="_blank" rel="noopener">LaunchDarkly Account Security</a></li>
+<li><a href="https://owasp.org/projects/asvs" target="_blank" rel="noopener">OWASP ASVS - Configuration</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/284.html" target="_blank" rel="noopener">CWE-284: Improper Access Control</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/863.html" target="_blank" rel="noopener">CWE-863: Incorrect Authorization</a></li>
+</ul>

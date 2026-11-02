@@ -1,0 +1,63 @@
+<h1 id="weak-security-question-answer">Pregunta y respuesta de seguridad débiles</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-08</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>A menudo llamadas preguntas y respuestas &quot;secretas&quot;, las preguntas y respuestas de seguridad se usan con frecuencia para recuperar contraseñas olvidadas (véase <a href="#/4-Web_Application_Security_Testing/04-Authentication/09-Weak_Password_Change_or_Reset_Functionalities">funcionalidades débiles de cambio o restablecimiento de contraseña</a>), o como seguridad adicional además de la contraseña.</p>
+<p>Normalmente se generan al crear la cuenta y requieren que el usuario seleccione algunas preguntas pregeneradas y proporcione una respuesta adecuada. Pueden permitir al usuario generar sus propios pares de pregunta y respuesta. Ambos métodos son propensos a inseguridades. Idealmente, las preguntas de seguridad deberían generar respuestas que solo conozca el usuario y que nadie más pueda adivinar o descubrir. Esto es más difícil de lo que parece.
+Las preguntas y respuestas de seguridad dependen del secreto de la respuesta. Las preguntas y respuestas deberían elegirse de modo que las respuestas solo las conozca el titular de la cuenta. Sin embargo, aunque muchas respuestas pueden no ser de conocimiento público, la mayoría de las preguntas que implementan los sitios promueven respuestas seudoprivadas.</p>
+<h3 id="pre-generated-questions">Preguntas pregeneradas</h3>
+<p>La mayoría de las preguntas pregeneradas son bastante simplistas por naturaleza y pueden dar lugar a respuestas inseguras. Por ejemplo:</p>
+<ul>
+<li>Las respuestas pueden ser conocidas por familiares o amigos cercanos del usuario, p. ej., &quot;¿Cuál es el apellido de soltera de tu madre?&quot;, &quot;¿Cuál es tu fecha de nacimiento?&quot;</li>
+<li>Las respuestas pueden ser fáciles de adivinar, p. ej., &quot;¿Cuál es tu color favorito?&quot;, &quot;¿Cuál es tu equipo de béisbol favorito?&quot;</li>
+<li>Las respuestas pueden descubrirse por fuerza bruta, p. ej., &quot;¿Cuál es el nombre de pila de tu profesor favorito de secundaria?&quot;: la respuesta probablemente esté en algunas listas fácilmente descargables de nombres de pila populares y, por lo tanto, se puede programar un sencillo ataque de fuerza bruta.</li>
+<li>Las respuestas pueden ser descubiertas públicamente, p. ej., &quot;¿Cuál es tu película favorita?&quot;: la respuesta puede encontrarse fácilmente en la página de perfil del usuario en las redes sociales.</li>
+</ul>
+<h3 id="self-generated-questions">Preguntas autogeneradas</h3>
+<p>El problema de que los usuarios generen sus propias preguntas es que les permite crear preguntas muy inseguras, o incluso eludir por completo el propósito de tener una pregunta de seguridad. Estos son algunos ejemplos reales que ilustran este punto:</p>
+<ul>
+<li>&quot;¿Cuánto es 1+1?&quot;</li>
+<li>&quot;¿Cuál es tu nombre de usuario?&quot;</li>
+<li>&quot;Mi contraseña es S3curIty!&quot;</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Determinar la complejidad de las preguntas y qué tan directas son.</li>
+<li>Evaluar las posibles respuestas de los usuarios y las capacidades de fuerza bruta.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="weak-pre-generated-questions">Preguntas pregeneradas débiles</h3>
+<p>Intentar obtener una lista de preguntas de seguridad creando una nueva cuenta o siguiendo el proceso de &quot;No recuerdo mi contraseña&quot;. Intentar generar tantas preguntas como sea posible para hacerse una buena idea del tipo de preguntas de seguridad que se formulan. Si alguna de las preguntas de seguridad cae en las categorías descritas anteriormente, es vulnerable a ser atacada (adivinada, descubierta por fuerza bruta, disponible en redes sociales, etc.).</p>
+<h3 id="weak-self-generated-questions">Preguntas autogeneradas débiles</h3>
+<p>Intentar crear preguntas de seguridad creando una nueva cuenta o configurando las propiedades de recuperación de contraseña de la cuenta existente. Si el sistema permite al usuario generar sus propias preguntas de seguridad, es vulnerable a que se creen preguntas inseguras. Si el sistema utiliza las preguntas de seguridad autogeneradas durante la funcionalidad de contraseña olvidada y si se pueden enumerar los nombres de usuario (véase <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Enumeración de cuentas y cuentas de usuario adivinables</a>), entonces debería ser fácil para el evaluador enumerar varias preguntas autogeneradas. Es de esperar encontrar varias preguntas autogeneradas débiles con este método.</p>
+<h3 id="brute-forcible-answers">Respuestas vulnerables a la fuerza bruta</h3>
+<p>Utilizar los métodos descritos en <a href="#/4-Web_Application_Security_Testing/04-Authentication/03-Weak_Lock_Out_Mechanism">Mecanismo de bloqueo débil</a> para determinar si un número de respuestas de seguridad proporcionadas incorrectamente activa un mecanismo de bloqueo.</p>
+<p>Lo primero que hay que tener en cuenta al intentar explotar las preguntas de seguridad es el número de preguntas que se deben responder. La mayoría de las aplicaciones solo requieren que el usuario responda una sola pregunta, mientras que algunas aplicaciones críticas pueden exigir responder dos o incluso más preguntas.</p>
+<p>El siguiente paso es evaluar la solidez de las preguntas de seguridad. ¿Podrían obtenerse las respuestas con una simple búsqueda en Google o con un ataque de ingeniería social? Como pentester, este es un recorrido paso a paso para explotar un esquema de preguntas de seguridad:</p>
+<ul>
+<li><p>¿La aplicación permite al usuario final elegir la pregunta que debe responder? Si es así, centrarse en preguntas que tengan:</p>
+<ul>
+<li>Una respuesta &quot;pública&quot;; por ejemplo, algo que pueda encontrarse con una simple consulta en un motor de búsqueda.</li>
+<li>Una respuesta factual, como la &quot;primera escuela&quot; u otros datos que se pueden consultar.</li>
+<li>Pocas respuestas posibles, como &quot;¿qué modelo era tu primer automóvil?&quot;. Estas preguntas presentarían al atacante una lista corta de respuestas posibles y, con base en estadísticas, el atacante podría clasificar las respuestas de más a menos probables.</li>
+</ul>
+</li>
+<li><p>Determinar cuántos intentos se tienen, si es posible.</p>
+<ul>
+<li>¿El restablecimiento de contraseña permite intentos ilimitados?</li>
+<li>¿Existe un periodo de bloqueo tras X respuestas incorrectas? Hay que tener en cuenta que un sistema de bloqueo puede ser en sí mismo un problema de seguridad, ya que un atacante puede aprovecharlo para lanzar una denegación de servicio contra usuarios legítimos.</li>
+<li>Elegir la pregunta adecuada con base en el análisis de los puntos anteriores y hacer una investigación para determinar las respuestas más probables.</li>
+</ul>
+</li>
+</ul>
+<p>La clave para explotar con éxito y eludir un esquema débil de preguntas de seguridad es encontrar una pregunta o un conjunto de preguntas que ofrezcan la posibilidad de encontrar fácilmente las respuestas. Siempre hay que buscar preguntas que den la mayor probabilidad estadística de adivinar la respuesta correcta, si se tiene total incertidumbre sobre alguna de las respuestas. Al final, un esquema de preguntas de seguridad es tan fuerte como su pregunta más débil.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.schneier.com/essay-081.html" target="_blank" rel="noopener">The Curse of the Secret Question</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Choosing_and_Using_Security_Questions_Cheat_Sheet.html" target="_blank" rel="noopener">The OWASP Security Questions Cheat Sheet</a></li>
+</ul>

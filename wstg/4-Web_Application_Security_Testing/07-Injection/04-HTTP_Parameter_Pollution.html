@@ -1,0 +1,128 @@
+<h1 id="http-parameter-pollution">Contaminación de parámetros HTTP</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La contaminación de parámetros HTTP (HTTP Parameter Pollution) prueba la respuesta de las aplicaciones al recibir varios parámetros HTTP con el mismo nombre; por ejemplo, si el parámetro <code>username</code> se incluye dos veces en los parámetros GET o POST.</p>
+<p>Suministrar varios parámetros HTTP con el mismo nombre puede hacer que una aplicación interprete los valores de formas imprevistas. Aprovechando estos efectos, un atacante podría eludir la validación de entrada, provocar errores en la aplicación o modificar los valores de variables internas. Como la contaminación de parámetros HTTP (<em>HPP</em>, por sus siglas en inglés) afecta a un componente básico de todas las tecnologías web, existen ataques del lado del servidor y del lado del cliente.</p>
+<p>Los estándares HTTP actuales no incluyen orientación sobre cómo interpretar varios parámetros de entrada con el mismo nombre. Por ejemplo, la <a href="https://www.ietf.org/rfc/rfc3986.txt" target="_blank" rel="noopener">RFC 3986</a> simplemente define el término <em>Query String</em> como una serie de pares campo-valor, y la <a href="https://www.ietf.org/rfc/rfc2396.txt" target="_blank" rel="noopener">RFC 2396</a> define clases de caracteres reservados y no reservados de la query string. Sin un estándar vigente, los componentes de las aplicaciones web manejan este caso límite de diversas maneras (véase la tabla siguiente para más detalles).</p>
+<p>Por sí mismo, esto no es necesariamente un indicio de vulnerabilidad. Sin embargo, si el desarrollador no es consciente del problema, la presencia de parámetros duplicados puede producir un comportamiento anómalo en la aplicación que un atacante podría explotar. Como suele ocurrir en seguridad, los comportamientos inesperados son una fuente habitual de debilidades que, en este caso, podrían dar lugar a ataques de contaminación de parámetros HTTP. Para presentar mejor esta clase de vulnerabilidades y el resultado de los ataques HPP, resulta interesante analizar algunos ejemplos reales descubiertos en el pasado.</p>
+<h3 id="input-validation-and-filters-bypass">Evasión de la validación de entrada y de los filtros</h3>
+<p>En 2009, inmediatamente después de la publicación de la primera investigación sobre la contaminación de parámetros HTTP, la técnica recibió la atención de la comunidad de seguridad como una posible forma de eludir los web application firewalls.</p>
+<p>Uno de estos fallos, que afectaba a las <em>ModSecurity SQL Injection Core Rules</em>, representa un ejemplo perfecto de la discordancia de impedancia (impedance mismatch) entre las aplicaciones y los filtros. El filtro de ModSecurity aplicaba correctamente una lista de denegación a la cadena <code>select 1,2,3 from table</code>, bloqueando así que el servidor web procesara esta URL de ejemplo: <code>/index.aspx?page=select 1,2,3 from table</code>. Sin embargo, aprovechando la concatenación de varios parámetros HTTP, un atacante podía hacer que el servidor de aplicaciones concatenara la cadena después de que el filtro de ModSecurity ya hubiera aceptado la entrada. Por ejemplo, la URL <code>/index.aspx?page=select 1&amp;page=2,3</code> from table no activaría el filtro de ModSecurity, pero la capa de aplicación volvería a concatenar la entrada en la cadena maliciosa completa.</p>
+<p>Otra vulnerabilidad HPP resultó afectar a <em>Apple Cups</em>, el conocido sistema de impresión utilizado por muchos sistemas Unix. Explotando HPP, un atacante podía provocar fácilmente una vulnerabilidad de Cross-Site Scripting mediante la siguiente URL: <code>https://127.0.0.1:631/admin/?kerberos=onmouseover=alert(1)&amp;kerberos</code>. El punto de control de validación de la aplicación podía eludirse añadiendo un argumento <code>kerberos</code> adicional con una cadena válida (por ejemplo, una cadena vacía). Como el punto de control de validación solo consideraba la segunda aparición, el primer parámetro <code>kerberos</code> no se sanitizaba correctamente antes de usarse para generar contenido HTML dinámico. Una explotación exitosa daba como resultado la ejecución de código JavaScript en el contexto del sitio anfitrión.</p>
+<h3 id="authentication-bypass">Evasión de la autenticación</h3>
+<p>Se descubrió una vulnerabilidad HPP aún más crítica en <em>Blogger</em>, la popular plataforma de blogs. El error permitía a usuarios maliciosos adueñarse del blog de la víctima mediante la siguiente petición HTTP (<code>https://www.blogger.com/add-authors.do</code>):</p>
+<pre><code class="language-html">POST /add-authors.do HTTP/1.1
+[...]
+
+security_token=attackertoken&amp;blogID=attackerblogidvalue&amp;blogID=victimblogidvalue&amp;authorsList=goldshlager19test%40gmail.com(attacker email)&amp;ok=Invite
+</code></pre>
+<p>El fallo residía en el mecanismo de autenticación que usaba la aplicación web, ya que la comprobación de seguridad se realizaba sobre el primer parámetro <code>blogID</code>, mientras que la operación real utilizaba la segunda aparición.</p>
+<h3 id="expected-behavior-by-application-server">Comportamiento esperado según el servidor de aplicaciones</h3>
+<p>La forma en que se manejan los parámetros duplicados depende del framework, del servidor y de cómo la aplicación lee el valor (por ejemplo, el primer valor, el último valor o la colección completa). Se debe tratar cualquier tabla de comportamientos por defecto solo como punto de partida: hay que verificar el comportamiento real de la pila tecnológica objetivo, incluidos los proxies inversos, los web application firewalls (WAF) y las API gateways, que pueden normalizar las query strings de forma distinta.</p>
+<p>Dada la URL y la query string: <code>https://example.com/?color=red&amp;color=blue</code></p>
+<div class="tabla"><table><thead><tr>
+<th>Pila típica</th>
+<th>Análisis por defecto habitual</th>
+<th>Ejemplo</th>
+</tr>
+</thead><tbody><tr>
+<td>ASP.NET / IIS</td>
+<td>Todas las apariciones concatenadas con una coma</td>
+<td><code>color=red,blue</code></td>
+</tr>
+<tr>
+<td>ASP.NET Core / Kestrel</td>
+<td>Todas las apariciones disponibles (<code>StringValues</code>; unidas por comas al convertirse en cadena)</td>
+<td><code>color=red,blue</code></td>
+</tr>
+<tr>
+<td>PHP (Apache / php-fpm / Nginx)</td>
+<td>Solo la última aparición</td>
+<td><code>color=blue</code></td>
+</tr>
+<tr>
+<td>Java Servlet (Tomcat, Jetty y similares)</td>
+<td>Solo la primera aparición</td>
+<td><code>color=red</code></td>
+</tr>
+<tr>
+<td>Node.js / Express</td>
+<td>Solo la primera aparición</td>
+<td><code>color=red</code></td>
+</tr>
+<tr>
+<td>Python (Django, Flask y similares)</td>
+<td>Todas las apariciones en una lista / MultiDict</td>
+<td><code>color=[&#39;red&#39;,&#39;blue&#39;]</code></td>
+</tr>
+</tbody></table></div>
+<p>El comportamiento de otros servidores y de plataformas más antiguas varía; siempre hay que confirmarlo en el sistema bajo prueba. La investigación histórica sobre este tema incluye AppSec EU 2009 (Carettoni &amp; di Paola).</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar el back end y el método de análisis (parsing) utilizado.</li>
+<li>Evaluar los puntos de inyección e intentar eludir los filtros de entrada mediante HPP.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Que una página o un endpoint de API concretos sean vulnerables a HPP dependerá de la interacción entre varios componentes, entre ellos la aplicación, el servidor web, el web application firewall y cualquier middleware. Cuando estos varían entre distintas partes de una aplicación (como en una arquitectura de microservicios), algunas partes de la aplicación pueden ser vulnerables y otras no.</p>
+<p>Como se requiere un conocimiento profundo de la lógica de negocio, probar HPP exige pruebas manuales. Las herramientas automáticas solo pueden asistir parcialmente a los auditores, ya que tienden a generar demasiados falsos positivos. Además, HPP puede manifestarse en componentes del lado del cliente y del lado del servidor.</p>
+<h3 id="server-side-hpp">HPP del lado del servidor</h3>
+<p>Para probar vulnerabilidades HPP, hay que identificar cualquier formulario o acción que admita entrada proporcionada por el usuario. Los parámetros de la query string en peticiones HTTP GET son fáciles de modificar en la barra de navegación del navegador. Si la acción del formulario envía datos mediante POST, el evaluador tendrá que usar un proxy de interceptación para manipular los datos POST al enviarse al servidor. Una vez identificado un parámetro de entrada concreto para probar, se pueden editar los datos GET o POST interceptando la petición, o cambiar la query string después de que cargue la página de respuesta. Para probar vulnerabilidades HPP basta con añadir el mismo parámetro a los datos GET o POST, pero con un valor distinto asignado.</p>
+<p>Por ejemplo: si se prueba el parámetro <code>search_string</code> en la query string, la URL de la petición incluiría el nombre y el valor de ese parámetro:</p>
+<pre><code class="language-text">https://example.com/?search_string=kittens
+</code></pre>
+<p>El parámetro en cuestión podría estar oculto entre otros parámetros, pero el enfoque es el mismo; se dejan los demás parámetros en su sitio y se añade el duplicado:</p>
+<pre><code class="language-text">https://example.com/?mode=guest&amp;search_string=kittens&amp;num_results=100
+</code></pre>
+<p>Se añade el mismo parámetro con un valor diferente:</p>
+<pre><code class="language-text">https://example.com/?mode=guest&amp;search_string=kittens&amp;num_results=100&amp;search_string=puppies
+</code></pre>
+<p>Para endpoints basados en JSON, el payload (carga útil) tendría este aspecto:</p>
+<pre><code class="language-http">POST /search HTTP/1.1
+Host: example.com
+Content-Type: application/json
+
+{
+  &quot;search_string&quot;: &quot;kittens&quot;,
+  &quot;search_string&quot;: &quot;puppies&quot;
+}
+</code></pre>
+<p>y se envía la nueva petición.</p>
+<p>Hay que analizar la página de respuesta para determinar qué valor(es) se procesaron. En el ejemplo anterior, los resultados de la búsqueda pueden mostrar <code>kittens</code>, <code>puppies</code>, alguna combinación de ambos (<code>kittens,puppies</code>, <code>kittens~puppies</code> o <code>[&#39;kittens&#39;,&#39;puppies&#39;]</code>), o bien dar un resultado vacío o una página de error.</p>
+<p>Que este comportamiento por defecto revele o no una posible vulnerabilidad depende de la validación de entrada y del filtrado específicos de cada aplicación. Como regla general: si la validación de entrada existente y otros mecanismos de seguridad son suficientes para entradas únicas, y si el servidor asigna solo el primer o el último de los parámetros contaminados, la contaminación de parámetros no revela una vulnerabilidad. Si los parámetros duplicados se concatenan, distintos componentes de la aplicación web usan apariciones diferentes o la prueba genera un error, aumenta la probabilidad de poder usar la contaminación de parámetros para desencadenar vulnerabilidades de seguridad.</p>
+<p>Un análisis más profundo requeriría tres peticiones HTTP por cada parámetro HTTP:</p>
+<ol>
+<li>Enviar una petición HTTP que contenga el nombre y el valor estándar del parámetro, y registrar la respuesta HTTP. Por ejemplo, <code>page?par1=val1</code></li>
+<li>Reemplazar el valor del parámetro por un valor manipulado, enviar y registrar la respuesta HTTP. Por ejemplo, <code>page?par1=HPP_TEST1</code></li>
+<li>Enviar una nueva petición que combine los pasos (1) y (2). De nuevo, guardar la respuesta HTTP. Por ejemplo, <code>page?par1=val1&amp;par1=HPP_TEST1</code></li>
+<li>Comparar las respuestas obtenidas en todos los pasos anteriores. Si la respuesta de (3) es distinta de la de (1) y la respuesta de (3) también es distinta de la de (2), existe una discordancia de impedancia que podría llegar a abusarse para desencadenar vulnerabilidades HPP.</li>
+</ol>
+<p>Elaborar un exploit completo a partir de una debilidad de contaminación de parámetros queda fuera del alcance de este texto. Véanse las referencias para ejemplos y detalles.</p>
+<h3 id="client-side-hpp">HPP del lado del cliente</h3>
+<p>De forma similar a la HPP del lado del servidor, las pruebas manuales son la única técnica fiable para auditar aplicaciones web con el fin de detectar vulnerabilidades de contaminación de parámetros que afecten a componentes del lado del cliente. Mientras que en la variante del lado del servidor el atacante aprovecha una aplicación web vulnerable para acceder a datos protegidos o realizar acciones que no están permitidas o que no deberían ejecutarse, los ataques del lado del cliente buscan subvertir componentes y tecnologías del lado del cliente.</p>
+<p>Para probar vulnerabilidades HPP del lado del cliente, hay que identificar cualquier formulario o acción que admita entrada del usuario y muestre de vuelta al usuario un resultado de esa entrada. Una página de búsqueda es ideal, pero un cuadro de inicio de sesión podría no funcionar (ya que podría no mostrar de vuelta al usuario un nombre de usuario no válido).</p>
+<p>De forma similar a la HPP del lado del servidor, hay que contaminar cada parámetro HTTP con <code>%26HPP_TEST</code> y buscar apariciones <em>decodificadas de URL</em> del payload proporcionado por el usuario:</p>
+<ul>
+<li><code>&amp;HPP_TEST</code></li>
+<li><code>&amp;amp;HPP_TEST</code></li>
+<li>etc.</li>
+</ul>
+<p>En particular, hay que prestar atención a las respuestas que tengan vectores HPP dentro de los atributos <code>data</code>, <code>src</code>, <code>href</code> o en las acciones de formularios. De nuevo, que este comportamiento por defecto revele o no una posible vulnerabilidad depende de la validación de entrada, del filtrado y de la lógica de negocio específicos de la aplicación. Esto también puede afectar a los parámetros de la query string usados en <code>XMLHttpRequest</code> (XHR), <code>fetch</code> y la creación de atributos en tiempo de ejecución.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP Passive/Active Scanners</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://www.acunetix.com/websitesecurity/HTTP-Parameter-Pollution-WhitePaper.pdf" target="_blank" rel="noopener">HTTP Parameter Pollution - Luca Carettoni, Stefano di Paola</a></li>
+<li><a href="https://blog.mindedsecurity.com/2009/05/client-side-http-parameter-pollution.html" target="_blank" rel="noopener">Client-side HTTP Parameter Pollution Example (Yahoo! Classic Mail flaw) - Stefano di Paola</a></li>
+<li><a href="https://www.acunetix.com/blog/whitepaper-http-parameter-pollution/" target="_blank" rel="noopener">How to Detect HTTP Parameter Pollution Attacks - Chrysostomos Daniel</a></li>
+<li><a href="https://capec.mitre.org/data/definitions/460.html" target="_blank" rel="noopener">CAPEC-460: HTTP Parameter Pollution (HPP) - Evgeny Lebanidze</a></li>
+<li><a href="https://s3.eurecom.fr/docs/ndss11_hpp.pdf" target="_blank" rel="noopener">Automated Discovery of Parameter Pollution Vulnerabilities in Web Applications - Marco Balduzzi, Carmen Torrano Gimenez, Davide Balzarotti, Engin Kirda</a></li>
+</ul>

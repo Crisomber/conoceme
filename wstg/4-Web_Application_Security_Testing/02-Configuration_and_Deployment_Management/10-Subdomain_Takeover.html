@@ -1,0 +1,112 @@
+<h1 id="subdomain-takeover">Toma de control de subdominios (Subdomain Takeover)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-10</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La explotación exitosa de este tipo de vulnerabilidad permite a un adversario reclamar y tomar el control del subdominio de la víctima. Este ataque depende de lo siguiente:</p>
+<ol>
+<li>El registro del subdominio en el servidor DNS externo de la víctima está configurado para apuntar a un recurso/servicio externo/endpoint inexistente o inactivo. La proliferación de productos XaaS (Anything as a Service) y de servicios de nube pública ofrece muchos objetivos potenciales que considerar.</li>
+<li>El proveedor de servicios que aloja el recurso/servicio externo/endpoint no gestiona correctamente la verificación de la propiedad del subdominio.</li>
+</ol>
+<p>Si la toma de control del subdominio tiene éxito, son posibles una gran variedad de ataques (servir contenido malicioso, phishing, robar cookies de sesión de los usuarios, credenciales, etc.). Esta vulnerabilidad podría explotarse con una amplia variedad de registros de recursos DNS, entre ellos: <code>A</code>, <code>CNAME</code>, <code>MX</code>, <code>NS</code>, <code>TXT</code>, etc. En términos de gravedad del ataque, una toma de control de subdominio mediante <code>NS</code> (aunque menos probable) tiene el mayor impacto, porque un ataque exitoso podría resultar en el control total de toda la zona DNS y del dominio de la víctima.</p>
+<h3 id="github">GitHub</h3>
+<ol>
+<li>La víctima (victim.com) usa GitHub para el desarrollo y configuró un registro DNS (<code>coderepo.victim.com</code>) para acceder a él.</li>
+<li>La víctima decide migrar su repositorio de código de GitHub a una plataforma comercial y no elimina <code>coderepo.victim.com</code> de su servidor DNS.</li>
+<li>Un adversario descubre que <code>coderepo.victim.com</code> está alojado en GitHub y lo reclama usando GitHub Pages y su propia cuenta de GitHub.</li>
+</ol>
+<h3 id="expired-domain">Dominio expirado</h3>
+<ol>
+<li>La víctima (victim.com) es propietaria de otro dominio (victimotherdomain.com) y usa un registro CNAME (www) para hacer referencia al otro dominio (<code>www.victim.com</code> --&gt; <code>victimotherdomain.com</code>)</li>
+<li>En algún momento, victimotherdomain.com expira y queda disponible para que cualquiera lo registre. Como el registro CNAME no se elimina de la zona DNS de victim.com, cualquiera que registre <code>victimotherdomain.com</code> tiene control total sobre <code>www.victim.com</code> hasta que el registro DNS se elimine o se actualice.</li>
+</ol>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Enumerar todos los dominios posibles (anteriores y actuales), incluidos los nombres cubiertos por comodines.</li>
+<li>Identificar los dominios olvidados o mal configurados, y cualquier firma de servicio colgante (dangling) no cubierta por una huella de respuesta conocida.</li>
+<li>Cuando se confirme que una toma de control es factible, evaluar si las cookies, la política CORS, la validación de redirecciones de OAuth o la lista de permitidos de CSP de la aplicación padre extienden la confianza al subdominio reclamado.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Las pruebas de toma de control de subdominios siguen tres fases: enumeración de subdominios, detección automatizada basada en huellas y validación manual.</p>
+<p>Un registro DNS colgante (dangling) ocurre cuando una entrada DNS apunta a un recurso externo que ya no existe o que ha sido desaprovisionado. Por ejemplo, un registro CNAME que apunta a un sitio de GitHub Pages que el propietario eliminó sigue resolviéndose, pero el recurso subyacente no está reclamado. Un atacante puede registrar ese recurso y tomar el control del subdominio.</p>
+<h4 id="subdomain-enumeration">Enumeración de subdominios</h4>
+<p>Se usa <a href="https://github.com/projectdiscovery/subfinder" target="_blank" rel="noopener">subfinder</a> para descubrir subdominios del dominio objetivo: <code>subfinder -d victim.com -o subdomains.txt</code></p>
+<p>Esto produce una lista de subdominios para usar en la fase de detección.</p>
+<p>Antes de la identificación por huellas, hay que resolver y filtrar la lista para conservar solo los subdominios con un registro <code>CNAME</code>, <code>NS</code> o <code>MX</code>, ya que son los tipos de registro que con más frecuencia quedan colgantes. <a href="https://github.com/projectdiscovery/dnsx" target="_blank" rel="noopener">dnsx</a> puede hacerlo de forma masiva: <code>dnsx -l subdomains.txt -cname -resp -o resolved.txt</code></p>
+<h4 id="fingerprint-based-detection">Detección basada en huellas</h4>
+<p>La detección basada en huellas funciona comparando la respuesta HTTP de cada subdominio con una base de datos de respuestas conocidas de servicios vulnerables. El proyecto <a href="https://github.com/EdOverflow/can-i-take-over-xyz" target="_blank" rel="noopener">can-i-take-over-xyz</a> mantiene esta base de datos, catalogando las cadenas de respuesta específicas que devuelven proveedores de servicios como GitHub Pages, AWS S3, Heroku y Fastly cuando un recurso no está reclamado.</p>
+<p>Se usa <a href="https://github.com/LukaSikic/subzy" target="_blank" rel="noopener">subzy</a> para un primer escaneo rápido: <code>subzy run --targets subdomains.txt</code></p>
+<p>Se continúa con <a href="https://github.com/projectdiscovery/nuclei" target="_blank" rel="noopener">nuclei</a> usando las plantillas dedicadas a tomas de control para obtener un resultado más preciso: <code>nuclei -l subdomains.txt -t takeovers/</code></p>
+<p>Un resultado positivo de cualquiera de las dos herramientas indica que la respuesta de un subdominio coincidió con una huella vulnerable conocida, lo que sugiere un registro DNS colgante que apunta a un recurso no reclamado en un servicio de terceros.</p>
+<p>Por ejemplo, un subdominio que apunta a un sitio de GitHub Pages no reclamado devuelve la siguiente respuesta:</p>
+<pre><code class="language-http">HTTP/1.1 404 Not Found
+...
+&lt;p&gt;There isn&#39;t a GitHub Pages site here.&lt;/p&gt;
+</code></pre>
+<p>Esta cadena específica figura en can-i-take-over-xyz como la huella de GitHub Pages. Cuando subzy o nuclei encuentran esta respuesta, marcan el subdominio como potencialmente vulnerable.</p>
+<h4 id="manual-validation">Validación manual</h4>
+<p>Las herramientas automatizadas producen falsos positivos. Cada hallazgo debe validarse manualmente antes de reportarlo.</p>
+<ol>
+<li>Confirmar el registro DNS y a dónde apunta: <code>dig CNAME subdomain.victim.com</code></li>
+<li>Confirmar que la respuesta coincide con la huella esperada para ese proveedor de servicios según figura en <a href="https://github.com/EdOverflow/can-i-take-over-xyz" target="_blank" rel="noopener">can-i-take-over-xyz</a>: <code>curl -i http://subdomain.victim.com</code></li>
+<li>Confirmar que el recurso no está reclamado en la plataforma del proveedor de servicios. No se debe reclamar.</li>
+</ol>
+<p>Para los registros <code>NS</code> en concreto, hay que comprobar si un servidor de nombres delegado no está registrado: <code>dig NS subdomain.victim.com</code>, y luego comprobar si el dominio del propio servidor de nombres devuelto está disponible para su registro. Un dominio de servidor de nombres sin registrar significa que cualquiera puede registrarlo y responder a las consultas DNS de la zona delegada, la variante de toma de control de mayor impacto.</p>
+<h4 id="cloud-specific-takeovers">Tomas de control específicas de la nube</h4>
+<p>Los principales proveedores de nube y los servicios PaaS/JAMstack tienen patrones de toma de control distintos que merecen atención específica. Esta lista cambia a medida que los proveedores corrigen las brechas de verificación, por lo que hay que contrastar el estado actual con <a href="https://github.com/EdOverflow/can-i-take-over-xyz" target="_blank" rel="noopener">can-i-take-over-xyz</a> antes de reportar:</p>
+<ul>
+<li>AWS S3: un CNAME que apunta a la URL de un bucket de S3 (por ejemplo, <code>bucket.s3.amazonaws.com</code>) donde el bucket ya no existe devuelve una respuesta <code>NoSuchBucket</code>. Cualquiera que cree un bucket con el mismo nombre en cualquier cuenta de AWS puede reclamar el subdominio.</li>
+<li>Azure: los CNAME colgantes que apuntan a recursos de Azure desaprovisionados, como App Services, endpoints de Azure CDN/Front Door o perfiles de Traffic Manager, pueden reclamarse registrando el mismo nombre de recurso en una suscripción de Azure diferente.</li>
+<li>GCP: existen patrones similares para buckets de Cloud Storage y endpoints de Firebase Hosting.</li>
+<li>GitHub Pages: cubierto anteriormente en <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/10-Subdomain_Takeover@github">GitHub</a>; sigue siendo uno de los hallazgos más comunes en la práctica.</li>
+<li>Vercel y Netlify: un CNAME que apunta a un dominio de proyecto (p. ej., <code>*.vercel.app</code>, <code>*.netlify.app</code>) que ha sido eliminado o renombrado normalmente puede reclamarse de nuevo creando un proyecto nuevo con el nombre coincidente.</li>
+<li>Dominios personalizados de Cloudflare Pages / Workers: los CNAME colgantes a <code>*.pages.dev</code> a veces pueden reclamarse dependiendo de las protecciones a nivel de cuenta; hay que verificar el comportamiento actual, ya que Cloudflare lo ha endurecido con el tiempo.</li>
+<li>Heroku: un CNAME a <code>*.herokuapp.com</code> para una app que ha sido eliminada devuelve una respuesta &quot;No such app&quot; y puede reclamarse de nuevo creando una app con el nombre coincidente (sujeto a las reglas de nombres de Heroku).</li>
+<li>Fastly y Shopify: ambos han aparecido históricamente en reportes de tomas de control por configuraciones de dominios personalizados colgantes; cualquier coincidencia con sus huellas en can-i-take-over-xyz debe tratarse igual que en los proveedores anteriores.</li>
+</ul>
+<h4 id="dangling-service-signatures">Firmas de servicios colgantes</h4>
+<p>Más allá de las huellas de cadenas de respuesta ya cubiertas arriba, un registro colgante también puede manifestarse mediante señales que no son en sí mismas una coincidencia en el cuerpo HTTP:</p>
+<ul>
+<li>Una respuesta <code>NXDOMAIN</code>, <code>SERVFAIL</code> o un registro <code>A</code> vacío al resolver el nombre de host del propio servicio al que apunta el CNAME de un objetivo (por ejemplo, el propio destino del CNAME no se resuelve) es una señal más fuerte que una coincidencia de huella HTTP, ya que muestra que el recurso de origen ha desaparecido por completo y no solo que devuelve una página de &quot;no encontrado&quot;.</li>
+<li>Los errores de certificado TLS (discrepancia de nombre de host, certificado de un dominio no relacionado) en un subdominio que debería ser servido por un proveedor específico pueden indicar que el proveedor ya no tiene un certificado aprovisionado para ese nombre de host, lo cual es coherente con un recurso desaprovisionado.</li>
+<li>Las páginas de error específicas de un proveedor que aún no coinciden con una huella conocida de can-i-take-over-xyz (servicios nuevos o menos comunes) siguen justificando una investigación manual con los mismos pasos de validación con dig/curl; la base de datos de huellas debe tratarse como un punto de partida, no como una lista exhaustiva.</li>
+</ul>
+<h4 id="wildcard-cname-risk">Riesgo de CNAME comodín</h4>
+<p>Un registro DNS comodín (por ejemplo, <code>*.victim.com CNAME target.example-paas.com</code>) que apunta a un servicio propenso a tomas de control multiplica el impacto de una sola configuración colgante: cualquier subdominio que un atacante elija solicitar (<code>anything.victim.com</code>, <code>admin.victim.com</code>, <code>login.victim.com</code>) se resuelve a través del comodín, de modo que reclamar el recurso de destino otorga control sobre un conjunto ilimitado de subdominios y no sobre uno solo. Al enumerar, hay que comprobar explícitamente los registros comodín (<code>dig CNAME nonexistent-random-string.victim.com</code>, comparando el resultado con un subdominio real conocido), ya que los nombres cubiertos por comodines suelen estar ausentes de las listas de subdominios de reconocimiento pasivo y solo aparecen al probar directamente una etiqueta arbitraria.</p>
+<h4 id="impact-beyond-content-control">Impacto más allá del control del contenido</h4>
+<p>Una toma de control exitosa no se limita a servir contenido controlado por el atacante en el subdominio recuperado; como el subdominio comparte el límite de confianza del dominio padre en varios mecanismos de navegador y de protocolo, el impacto puede extenderse a:</p>
+<ul>
+<li>Cookies: una cookie con un alcance sin la restricción <code>Secure</code>/solo host (por ejemplo, establecida con un atributo <code>Domain</code> que cubre el dominio padre, o sin él y por tanto accesible a un subdominio hermano mediante el comportamiento de dominios relacionados) puede leerse o sobrescribirse desde el subdominio reclamado, lo que permite el secuestro de sesiones contra la aplicación principal.</li>
+<li>CORS: si la política CORS de la aplicación principal permite el patrón de origen que incluye el subdominio reclamado (una coincidencia de subdominio comodín, o una comprobación de <code>Origin</code> reflejado que confía en <code>*.victim.com</code>), el atacante puede hacer peticiones autenticadas de origen cruzado contra la aplicación real desde el subdominio reclamado.</li>
+<li>OAuth: una configuración de cliente OAuth con un URI de redirección en el subdominio reclamado (o una validación del URI de redirección que solo comprueba el sufijo del dominio padre) permite al atacante recibir códigos de autorización o tokens destinados a la aplicación legítima.</li>
+<li>CSP: una Content-Security-Policy en la aplicación principal que incluye en la lista de permitidos el dominio padre con un comodín (<code>*.victim.com</code>) como origen de scripts o de conexión permite al atacante servir scripts o exfiltrar datos desde un origen de confianza según la política.</li>
+</ul>
+<p>Al reportar un hallazgo de toma de control, hay que comprobar si alguno de estos puntos aplica al subdominio específico reclamado, ya que cambian el hallazgo de &quot;suplantación de contenido en un subdominio aislado&quot; a &quot;compromiso de la confianza de sesión/autorización/scripts de la aplicación principal&quot;.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>El evaluador dispone del archivo de zona DNS, lo que significa que la enumeración DNS no es necesaria. La metodología de prueba es la misma.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Para mitigar el riesgo de toma de control de subdominios, deben eliminarse de la zona DNS los registros de recursos DNS vulnerables. Se recomienda como buena práctica la monitorización continua y las revisiones periódicas.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/projectdiscovery/subfinder" target="_blank" rel="noopener">subfinder - Subdomain enumeration tool</a></li>
+<li><a href="https://github.com/projectdiscovery/dnsx" target="_blank" rel="noopener">dnsx - Fast bulk DNS resolution and filtering</a></li>
+<li><a href="https://github.com/LukaSikic/subzy" target="_blank" rel="noopener">subzy - Subdomain takeover detection tool</a></li>
+<li><a href="https://github.com/projectdiscovery/nuclei" target="_blank" rel="noopener">nuclei - Vulnerability scanner with takeover templates</a></li>
+<li><a href="https://github.com/projectdiscovery/nuclei-templates" target="_blank" rel="noopener">nuclei-templates - Community takeover templates</a></li>
+<li><a href="https://github.com/EdOverflow/can-i-take-over-xyz" target="_blank" rel="noopener">can-i-take-over-xyz - Vulnerable service fingerprint database</a></li>
+<li><a href="https://man.cx/dig" target="_blank" rel="noopener">dig - DNS lookup utility</a></li>
+<li><a href="https://owasp.org/www-project-domain-protect" target="_blank" rel="noopener">OWASP Domain Protect</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.hackerone.com/blog/Guide-Subdomain-Takeovers" target="_blank" rel="noopener">HackerOne - A Guide To Subdomain Takeovers</a></li>
+<li><a href="https://0xpatrik.com/subdomain-takeover-basics/" target="_blank" rel="noopener">Subdomain Takeover: Basics</a></li>
+<li><a href="https://0xpatrik.com/subdomain-takeover-ns/" target="_blank" rel="noopener">Subdomain Takeover: Going beyond CNAME</a></li>
+<li><a href="https://github.com/EdOverflow/can-i-take-over-xyz/" target="_blank" rel="noopener">can-i-take-over-xyz - A list of vulnerable services</a></li>
+<li><a href="https://2017.appsec.eu/presos/Developer/DNS%20hijacking%20using%20cloud%20providers%20%E2%80%93%20no%20verification%20needed%20-%20Frans%20Rosen%20-%20OWASP_AppSec-Eu_2017.pdf" target="_blank" rel="noopener">OWASP AppSec Europe 2017 - Frans Rosén: DNS hijacking using cloud providers - no verification needed</a></li>
+</ul>

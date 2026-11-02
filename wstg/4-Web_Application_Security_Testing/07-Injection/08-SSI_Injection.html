@@ -1,0 +1,57 @@
+<h1 id="ssi-injection">Inyección SSI</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-08</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los servidores web suelen dar a los desarrolladores la posibilidad de añadir pequeños fragmentos de código dinámico dentro de páginas HTML estáticas, sin tener que recurrir a lenguajes completos del lado del servidor o del cliente. Esta funcionalidad la proporcionan los <a href="https://owasp.org/www-community/attacks/Server-Side_Includes_%28SSI%29_Injection" target="_blank" rel="noopener">Server-Side Includes</a> (SSI).</p>
+<p>Los Server-Side Includes son directivas que el servidor web analiza antes de entregar la página al usuario. Representan una alternativa a escribir programas CGI o incrustar código mediante lenguajes de scripting del lado del servidor, cuando solo se necesita realizar tareas muy simples. Las implementaciones comunes de SSI proporcionan directivas (comandos) para incluir archivos externos, para establecer e imprimir variables de entorno CGI del servidor web, o para ejecutar scripts CGI externos o comandos del sistema.</p>
+<p>SSI puede conducir a una ejecución remota de comandos (RCE); sin embargo, la mayoría de los servidores web tienen la directiva <code>exec</code> deshabilitada por defecto.</p>
+<p>Esta es una vulnerabilidad muy similar a una vulnerabilidad clásica de inyección en lenguajes de scripting. Un factor atenuante es que el servidor web debe estar configurado para permitir SSI. Por otro lado, las vulnerabilidades de inyección SSI suelen ser más sencillas de explotar, ya que las directivas SSI son fáciles de entender y, al mismo tiempo, bastante potentes; por ejemplo, pueden mostrar el contenido de archivos y ejecutar comandos del sistema.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección SSI.</li>
+<li>Evaluar la severidad de la inyección.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Para probar si SSI es explotable, se inyectan directivas SSI como entrada del usuario. Si SSI está habilitado y la validación de la entrada del usuario no se ha implementado correctamente, el servidor ejecutará la directiva. Esto es muy similar a una vulnerabilidad clásica de inyección en lenguajes de scripting, en el sentido de que ocurre cuando la entrada del usuario no se valida ni se sanea adecuadamente.</p>
+<p>Primero hay que determinar si el servidor web admite directivas SSI. A menudo la respuesta es afirmativa, ya que el soporte de SSI es bastante común. Para determinar si se admiten directivas SSI, se descubre el tipo de servidor web que ejecuta el objetivo mediante técnicas de recopilación de información (véase <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server">Fingerprint Web Server</a>). Si se tiene acceso al código, se determina si se utilizan directivas SSI buscando palabras clave específicas en los archivos de configuración del servidor web.</p>
+<p>Otra forma de verificar que las directivas SSI están habilitadas es comprobar si existen páginas con la extensión <code>.shtml</code>, que está asociada a las directivas SSI. El uso de la extensión <code>.shtml</code> no es obligatorio, por lo que no haber encontrado archivos <code>.shtml</code> no significa necesariamente que el objetivo no sea vulnerable a ataques de inyección SSI.</p>
+<p>El siguiente paso es determinar todos los posibles vectores de entrada del usuario y probar si la inyección SSI es explotable.</p>
+<p>Primero hay que encontrar todas las páginas donde se permite la entrada del usuario. Los posibles vectores de entrada también pueden incluir cabeceras y cookies. Se debe determinar cómo se almacena y se utiliza la entrada, es decir, si se devuelve como mensaje de error o elemento de la página y si fue modificada de alguna manera. El acceso al código fuente puede ayudar a determinar con más facilidad dónde están los vectores de entrada y cómo se maneja la entrada.</p>
+<p>Una vez que se tiene una lista de posibles puntos de inyección, se puede determinar si la entrada se valida correctamente. Hay que asegurarse de que es posible inyectar los caracteres utilizados en las directivas SSI, como <code>&lt;!#=/.&quot;-&gt;</code> y <code>[a-zA-Z0-9]</code>.</p>
+<p>El siguiente ejemplo devuelve el valor de la variable. La sección de <a href="#/4-Web_Application_Security_Testing/07-Injection/08-SSI_Injection@references">referencias</a> contiene enlaces útiles con documentación específica de cada servidor para ayudar a evaluar mejor un sistema en particular.</p>
+<pre><code class="language-html">&lt;!--#echo var=&quot;VAR&quot; --&gt;
+</code></pre>
+<p>Al usar la directiva <code>include</code>, si el archivo suministrado es un script CGI, esta directiva incluirá la salida del script CGI. Esta directiva también puede utilizarse para incluir el contenido de un archivo o para listar los archivos de un directorio:</p>
+<pre><code class="language-html">&lt;!--#include virtual=&quot;FILENAME&quot; --&gt;
+</code></pre>
+<p>Para devolver la salida de un comando del sistema:</p>
+<pre><code class="language-html">&lt;!--#exec cmd=&quot;OS_COMMAND&quot; --&gt;
+</code></pre>
+<p>Si la aplicación es vulnerable, la directiva se inyecta y el servidor la interpretará la próxima vez que se sirva la página.</p>
+<p>Las directivas SSI también pueden inyectarse en las cabeceras HTTP, si la aplicación web utiliza esos datos para construir una página generada dinámicamente:</p>
+<pre><code class="language-text">GET / HTTP/1.1
+Host: www.example.com
+Referer: &lt;!--#exec cmd=&quot;/bin/ps ax&quot;--&gt;
+User-Agent: &lt;!--#include virtual=&quot;/proc/version&quot;--&gt;
+</code></pre>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/communitydownload" target="_blank" rel="noopener">Web Proxy Burp Suite</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://www.gnu.org/software/grep" target="_blank" rel="noopener">String searcher: grep</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://nginx.org/en/docs/http/ngx_http_ssi_module.html" target="_blank" rel="noopener">Nginx SSI module</a></li>
+<li><a href="https://httpd.apache.org/docs/current/mod/mod_include.html" target="_blank" rel="noopener">Apache: Module mod_include</a></li>
+<li><a href="https://learn.microsoft.com/en-us/previous-versions/iis/6.0-sdk/ms525185%28v=vs.90%29" target="_blank" rel="noopener">IIS: Server-Side Includes directives</a></li>
+<li><a href="https://httpd.apache.org/docs/current/howto/ssi.html" target="_blank" rel="noopener">Apache Tutorial: Introduction to Server-Side Includes</a></li>
+<li><a href="https://httpd.apache.org/docs/current/misc/security_tips.html#ssi" target="_blank" rel="noopener">Apache: Security Tips for Server Configuration</a></li>
+<li><a href="https://blog.jeremiahgrossman.com/2006/08/ssi-injection-instead-of-javascript.html" target="_blank" rel="noopener">SSI Injection instead of JavaScript Malware</a></li>
+<li><a href="https://www.cgisecurity.com/papers/header-based-exploitation.txt" target="_blank" rel="noopener">Header Based Exploitation</a></li>
+</ul>

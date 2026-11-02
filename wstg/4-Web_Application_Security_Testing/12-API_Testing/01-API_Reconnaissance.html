@@ -1,0 +1,211 @@
+<h1 id="api-reconnaissance">Reconocimiento de API</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-APIT-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El reconocimiento es un paso importante en cualquier trabajo de pentesting. Esto incluye el pentesting de API. El reconocimiento mejora significativamente la eficacia del proceso de pruebas al recopilar información sobre la API y desarrollar una comprensión del objetivo. Esta fase no solo aumenta la probabilidad de descubrir problemas de seguridad críticos, sino que también garantiza una evaluación integral de la postura de seguridad de las API.</p>
+<p>Esta guía tiene una sección sobre <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">Information Gathering</a> que puede aplicarse al auditar API. Sin embargo, existen algunas diferencias. Como investigadores de seguridad, a menudo nos centramos en áreas específicas, y buscar en esta guía las secciones que aplican puede llevar mucho tiempo. Para asegurar que el investigador tenga un único lugar en el que concentrarse en las API, esta sección se centra en los elementos que aplican a las API y ofrece referencias al contenido de apoyo que se encuentra en otras partes de la guía.</p>
+<h3 id="api-types">Tipos de API</h3>
+<p>Las API pueden ser públicas o privadas.</p>
+<h4 id="public-apis">API públicas</h4>
+<p>Las API públicas normalmente tienen sus detalles publicados en un documento Swagger/OpenAPI. Obtener acceso a este documento es importante para comprender la superficie de ataque. Igualmente importante es encontrar versiones anteriores de este documento que puedan mostrar código obsoleto pero aún funcional que pueda tener vulnerabilidades de seguridad.</p>
+<p>Hay que tener presente que este documento, por bien intencionado que sea, puede no ser exacto y también puede no divulgar la API completa.</p>
+<p>Las API públicas también pueden estar documentadas en bibliotecas compartidas o directorios de API.</p>
+<h4 id="private-apis">API privadas</h4>
+<p>La visibilidad de las API privadas depende de quién sea el consumidor previsto. Una API puede ser privada, pero accesible solo para clientes suscritos (también conocidos como <code>partners</code>) o solo accesible para clientes internos, como otros departamentos de la misma empresa. Encontrar API privadas mediante técnicas de reconocimiento también es importante. Estas API pueden descubrirse mediante varias técnicas que se tratan más abajo.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Encontrar todos los endpoints de API soportados por el código del servidor backend, estén documentados o no.</li>
+<li>Encontrar todos los parámetros de cada endpoint soportado por el servidor backend, estén documentados o no.</li>
+<li>Descubrir datos interesantes relacionados con las API en el HTML y JavaScript enviados a los clientes.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="find-the-documentation">Encontrar la documentación</h3>
+<p>Tanto en el caso público como en el privado, la documentación de la API será útil según su nivel de calidad y exactitud. La documentación de las API públicas normalmente se comparte con todos, mientras que la documentación de las API privadas solo se comparte con el cliente previsto. Sin embargo, en ambos casos encontrar la documentación, ya sea filtrada accidentalmente o de otro modo, será útil en la investigación.</p>
+<p>Independientemente de la visibilidad de la API, buscar documentación de la API puede encontrar documentación antigua, aún no publicada o filtrada accidentalmente. Esta documentación será muy útil para entender qué superficie de ataque expone la API.</p>
+<p>En trabajos con tiempo limitado, hay que solicitar al cliente lo antes posible artefactos de API legibles por máquina para que las herramientas de pruebas puedan importarlos o procesarlos directamente. Hay que pedir definiciones OpenAPI, especificaciones Swagger 2.0 heredadas y colecciones de peticiones actualizadas (por ejemplo <a href="https://www.postman.com/" target="_blank" rel="noopener">Postman</a> o <a href="https://www.usebruno.com/" target="_blank" rel="noopener">Bruno</a>). Para las API que no sean REST dentro del alcance (por ejemplo GraphQL), hay que solicitar esquemas o esquemas exportados cuando la introspección esté deshabilitada. Las definiciones de reproducción de peticiones (por ejemplo <a href="https://hurl.dev/" target="_blank" rel="noopener">Hurl</a>) también son útiles. Si la API es antigua, pueden aparecer archivos WSDL o WADL como artefactos heredados en algunos entornos. Esto es especialmente útil para API privadas, internas o recién desplegadas, para las que puede no existir documentación pública.</p>
+<h3 id="api-directories">Directorios de API</h3>
+<p>Las fuentes alternativas de documentación de API pueden incluir directorios de API, tales como:</p>
+<ul>
+<li>GitHub en general</li>
+<li><a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener">GitHub Public APIs Repository</a></li>
+<li><a href="https://apis.guru" target="_blank" rel="noopener">APIs.guru</a></li>
+<li><a href="https://rapidapi.com/" target="_blank" rel="noopener">RapidAPI</a></li>
+<li><a href="https://publicapis.dev/" target="_blank" rel="noopener">PublicAPIs</a> y <a href="https://publicapis.io/" target="_blank" rel="noopener">PublicAPIs</a></li>
+<li><a href="https://www.postman.com/explore" target="_blank" rel="noopener">Postman API Network</a></li>
+</ul>
+<h3 id="looking-in-well-known-places">Buscar en lugares conocidos</h3>
+<p>Si la documentación no es fácilmente evidente, se puede buscar activamente en el objetivo documentación basándose en algunos nombres o rutas obvios. Estos incluyen:</p>
+<ul>
+<li>/api-docs</li>
+<li>/doc</li>
+<li>/swagger</li>
+<li>/swagger.json</li>
+<li>/openapi.json</li>
+<li>/.well-known/schema-discovery</li>
+</ul>
+<h3 id="robotstxt">Robots.txt</h3>
+<p><code>robots.txt</code> es un archivo de texto que los propietarios de sitios crean para indicar a los rastreadores web (como los bots de los motores de búsqueda) cómo rastrear e indexar su sitio. Forma parte del Robots Exclusion Protocol (REP), que regula cómo interactúan los bots con los sitios.</p>
+<p>Este archivo puede ofrecer pistas adicionales sobre la estructura de rutas o los endpoints de la API.</p>
+<p>La sección <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">Information Gathering</a> hace referencia a robots.txt en varios casos, incluidos WSTG-INFO-01, WSTG-INFO-03, WSTG-INFO-05 y WSTG-INFO-08.</p>
+<h3 id="gitdorking">GitDorking</h3>
+<p>Si la aplicación utiliza GitHub, GitLab u otros repositorios basados en Git de cara al público, también podemos buscar pistas o contenido sensible (lo que se conoce como <code>GitDorking</code>). Esta información puede incluir contraseñas, claves de API, archivos de configuración y otros datos confidenciales que los desarrolladores pueden confirmar (commit) accidental o inadvertidamente en sus repositorios. Las organizaciones pueden compartir accidentalmente código sensible, de ejemplo o de pruebas que puede ofrecer pistas sobre detalles de implementación. Las cuentas personales de GitHub de los empleados del objetivo también pueden publicar accidentalmente información que ofrezca pistas.</p>
+<h3 id="browsing-and-spidering-the-application">Navegar y rastrear (spidering) la aplicación</h3>
+<p>Incluso si se dispone de la documentación de la API, navegar por la aplicación es una buena idea. La documentación puede estar desactualizada, ser inexacta o estar incompleta.</p>
+<p>Navegar por la aplicación con un proxy de interceptación como ZAP o Burp Suite registra los endpoints para su inspección posterior. Además, mediante su funcionalidad integrada de spidering, los proxies de interceptación pueden ayudar a generar una lista completa de endpoints. A partir de las URLs rastreadas, hay que buscar enlaces con esquemas de nombres evidentes de URL de API. Estos incluyen:</p>
+<ul>
+<li><code>https://example.com/api/v1</code> (o v2, etc.)  </li>
+<li><code>https://example.com/graphql</code></li>
+</ul>
+<p>O subdominios que las aplicaciones puedan consumir o de los que puedan depender:</p>
+<ul>
+<li><code>https://api.example.com/api/v1</code></li>
+</ul>
+<p>Es importante que el pentester intente ejercitar tanta funcionalidad de la aplicación como sea posible. Esto no solo sirve para generar una lista completa de endpoints, sino también para evitar problemas con la carga diferida (lazy loading) y la división de código (code splitting). Además, el trabajo de pentesting debe incluir cuentas de ejemplo con distintos niveles de privilegio para que la navegación y el spidering puedan acceder y exponer los endpoints de la mayor cantidad de funcionalidad posible.</p>
+<p>Una vez completado, la información de endpoints obtenida de la navegación y el spidering de la aplicación puede ayudar al pentester a componer documentación y colecciones de la API con herramientas como <a href="https://www.postman.com/" target="_blank" rel="noopener">Postman</a> y <a href="https://www.usebruno.com/" target="_blank" rel="noopener">Bruno</a>. Las herramientas de reproducción de peticiones como <a href="https://hurl.dev/" target="_blank" rel="noopener">Hurl</a> pueden entonces usar esa información para automatizar flujos de prueba repetibles. Algunos clientes, como Postman y Bruno, también pueden usar scripts previos y posteriores a la petición, que pueden ayudar a reproducir flujos realistas al probar API con estado.</p>
+<h3 id="analyze-intercepted-requests">Analizar las peticiones interceptadas</h3>
+<p>Al auditar API REST, se debe usar un proxy de interceptación para recopilar las peticiones HTTP completas. Los servicios REST utilizan más que solo parámetros de URL, por lo que capturar el cuerpo completo de la petición y las cabeceras es crítico.</p>
+<p>Hay que analizar las peticiones recopiladas para identificar parámetros no estándar u ocultos:</p>
+<ul>
+<li>Identificar las cabeceras HTTP que influyen en el comportamiento de la aplicación o en la selección de recursos.</li>
+<li>Determinar si un segmento de URL tiene un patrón repetido en múltiples URLs. Los patrones que contienen fechas, números o valores identificadores pueden indicar un parámetro incrustado en la URL. Por ejemplo, en la URL <code>https://api.example.com/user/2026-10-03/profile</code>, el segmento de fecha puede representar un valor de parámetro.</li>
+<li>Identificar valores de parámetros estructurados con formato JSON, XML u otras estructuras personalizadas.</li>
+<li>Examinar el último elemento de una URL. Si carece de extensión de archivo, puede ser un parámetro.</li>
+<li>Buscar segmentos de URL muy variables. Si un único segmento cambia con frecuencia a lo largo de cientos de peticiones, es más probable que represente un valor de parámetro que un componente de ruta estático.</li>
+<li>Verificar los segmentos de URL variables sospechosos estableciéndolos a un valor obviamente inválido. Esto aplica tanto a los segmentos intermedios que parecen dinámicos como a los segmentos finales sin extensión de archivo. Un <code>404</code> a nivel de enrutamiento antes del procesamiento de la aplicación puede indicar un segmento de ruta estático. Las respuestas <code>404</code> generadas por la aplicación no son suficientes por sí solas para hacer esa distinción. Si la petición llega a la lógica de la aplicación y devuelve un error de recurso no encontrado o de validación, el segmento puede estar enrutado por la aplicación y ser parametrizado. Debe tratarse como una heurística y correlacionarse el origen de la respuesta con el comportamiento de enrutamiento observado.</li>
+</ul>
+<h3 id="google-dorking">Google Dorking</h3>
+<p>Usar técnicas de reconocimiento pasivo como el Google Dorking con directivas como <code>site</code> e <code>inurl</code> nos permite adaptar una búsqueda a palabras clave comunes de API que el indexador de Google pueda haber encontrado. Consulte <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/01-Conduct_Search_Engine_Reconnaissance_for_Information_Leakage">Conduct Search Engine Reconnaissance for Information Leakage</a> para más información.</p>
+<p>A continuación se muestran algunos ejemplos específicos de API:</p>
+<p><code>site:&quot;mytargetsite.com&quot; inurl:&quot;/api&quot;</code></p>
+<p><code>inurl:apikey filetype:env</code></p>
+<p>Otras palabras clave pueden incluir <code>&quot;v1&quot;</code>, <code>&quot;api&quot;</code>, <code>&quot;graphql&quot;</code>.</p>
+<p>Podemos extender el Google Dorking para incluir subdominios del objetivo.</p>
+<p>Las listas de palabras (wordlists) son útiles aquí para obtener una lista completa de las palabras comunes usadas en las API.</p>
+<h3 id="look-back-way-back">Mirar atrás, muy atrás</h3>
+<p>En general, las API cambian con el tiempo. Pero las versiones obsoletas o anteriores pueden seguir operativas, ya sea a propósito o por una configuración errónea. Estas también deben probarse, ya que hay una buena probabilidad de que contengan vulnerabilidades que las versiones más nuevas han corregido. Además, los cambios en las API muestran funciones más recientes que pueden ser menos robustas y, por tanto, buenas candidatas para las pruebas.</p>
+<p>Para descubrir versiones anteriores podemos usar la <code>Wayback machine</code> para ayudar a encontrar endpoints antiguos. Una herramienta útil conocida como <a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">WayBackUrls</a>, de TomNomNom, obtiene todas las URLs que la Wayback Machine conoce de un dominio.</p>
+<ul>
+<li><a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">WayBackUrls</a>. Obtiene todas las URLs que la Wayback Machine conoce de un dominio.</li>
+<li><a href="https://github.com/xnl-h4ck3r/waymore" target="_blank" rel="noopener">waymore</a>. Encuentra mucho más de la Wayback Machine, Common Crawl, Alien Vault OTX, URLScan y VirusTotal.</li>
+<li><a href="https://github.com/lc/gau" target="_blank" rel="noopener">gau</a>. Obtiene URLs conocidas de Open Threat Exchange de AlienVault, la Wayback Machine y Common Crawl.</li>
+</ul>
+<h3 id="the-client-side-application">La aplicación del lado del cliente</h3>
+<p>Una excelente fuente de información de API y de otro tipo es el HTML y JavaScript que el servidor envía al cliente. A veces, la aplicación cliente filtra información sensible, incluidas API y secretos. La sección <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Web_Page_Content_for_Information_Leakage">Review Web Page Content for Information Leakage</a> contiene información general para revisar el contenido web en busca de fugas. Aquí ampliaremos el enfoque en la revisión del contenido JavaScript en busca de secretos relacionados con API.</p>
+<p>Existe una variedad de herramientas que podemos utilizar para ayudarnos a extraer información sensible del JavaScript transmitido al navegador. Estas herramientas suelen basarse en uno de dos enfoques: expresiones regulares o árboles de sintaxis abstracta (AST). Además, hay herramientas generales que nos ayudan a organizar o gestionar archivos JS para su investigación con herramientas de AST y de expresiones regulares.</p>
+<p>Las expresiones regulares son más directas, al buscar patrones conocidos en el contenido JS o HTML. Sin embargo, este enfoque puede pasar por alto contenido no identificado explícitamente en la expresión regular. Dada la estructura de algunos JS, este enfoque puede perder mucho. Los AST, por otro lado, son estructuras en forma de árbol que representan la sintaxis del código fuente. Cada nodo del árbol corresponde a una parte del código. Para JavaScript, un AST descompone el código en componentes básicos, lo que permite que las herramientas y los compiladores comprendan y modifiquen el código con facilidad.</p>
+<h4 id="general-tools">Herramientas generales</h4>
+<ol>
+<li><a href="https://github.com/0xDexter0us/uproot-JS" target="_blank" rel="noopener">Uproot</a>. Un plugin de BurpSuite que guarda en disco cualquier archivo JS encontrado. Esto ayuda a extraer los archivos para cualquier análisis con herramientas de línea de comandos.</li>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/openapi-support/" target="_blank" rel="noopener">OpenAPI Support</a>. Este complemento de ZAP permite rastrear e importar definiciones OpenAPI (Swagger), versiones 1.2, 2.0 y 3.0.</li>
+<li><a href="https://github.com/aress31/openapi-parser" target="_blank" rel="noopener">OpenAPI Parser</a>. Un plugin de BurpSuite que analiza documentos OpenAPI en Burp Suite para automatizar las evaluaciones de seguridad de API basadas en OpenAPI.</li>
+</ol>
+<h4 id="regular-expression-tools">Herramientas de expresiones regulares</h4>
+<ol>
+<li><a href="https://github.com/nahamsec/JSParser" target="_blank" rel="noopener">JSParser</a>. Un script de python 2.7 que usa Tornado y JSBeautifier para extraer URLs relativas de archivos JavaScript.</li>
+<li><a href="https://github.com/PortSwigger/js-miner" target="_blank" rel="noopener">JSMiner</a>. Un plugin de BurpSuite que intenta encontrar cosas interesantes dentro de archivos estáticos, principalmente archivos JavaScript y JSON. Esta herramienta escanea de forma &quot;pasiva&quot; mientras se rastrea la aplicación.</li>
+<li><a href="https://github.com/hisxo/JSpector" target="_blank" rel="noopener">JSpector</a>. Un plugin de BurpSuite que rastrea pasivamente archivos JavaScript y crea automáticamente incidencias con las URLs, endpoints y métodos peligrosos encontrados en los archivos JS.</li>
+<li><a href="https://github.com/GerbenJavado/LinkFinder" target="_blank" rel="noopener">Link Finder</a>. Un script de python que encuentra endpoints en archivos JavaScript.</li>
+</ol>
+<h4 id="ast-tools">Herramientas de AST</h4>
+<ol>
+<li><a href="https://github.com/BishopFox/jsluice" target="_blank" rel="noopener">JSLuice</a>. Una herramienta de línea de comandos que extrae URLs, rutas, secretos y otros datos interesantes del código fuente de JavaScript.</li>
+</ol>
+<h3 id="other-recon-tools">Otras herramientas de reconocimiento</h3>
+<ol>
+<li><a href="https://github.com/secdec/attack-surface-detector-burp" target="_blank" rel="noopener">Attack Surface Detector</a>. Un plugin de BurpSuite que utiliza análisis estático de código para identificar endpoints de aplicaciones web analizando las rutas e identificando parámetros.</li>
+<li><a href="https://github.com/portswigger/param-miner" target="_blank" rel="noopener">Param Miner</a>. Un plugin de BurpSuite que identifica parámetros ocultos y no enlazados.</li>
+<li><a href="https://github.com/xnl-h4ck3r/xnLinkFinder" target="_blank" rel="noopener">xnLinkFinder</a>. Una herramienta de python usada para descubrir endpoints, posibles parámetros y una lista de palabras específica para un objetivo determinado.</li>
+<li><a href="https://github.com/xnl-h4ck3r/GAP-Burp-Extension" target="_blank" rel="noopener">GAP</a>. Extensión de Burp para encontrar posibles endpoints y parámetros, y generar una lista de palabras personalizada para el objetivo.</li>
+</ol>
+<h3 id="server-side-source-code">Código fuente del lado del servidor</h3>
+<p>Si se tiene acceso al código fuente del lado del servidor, hay que extraer de él los endpoints. <a href="https://owasp.org/projects/noir" target="_blank" rel="noopener">OWASP Noir</a> analiza el código de enrutamiento de muchos frameworks web y lista cada endpoint con sus métodos y parámetros, incluidas las API internas u obsoletas a las que ningún cliente actual llama. Consulte <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/06-Identify_Application_Entry_Points@owasp-noir">Identify Application Entry Points</a> para un recorrido de la herramienta.</p>
+<p>Para las pruebas de API, se deben exportar los resultados como OpenAPI. Este comando escribe un documento OpenAPI 3.0 con cada endpoint del código fuente de <a href="https://github.com/OWASP/railsgoat" target="_blank" rel="noopener">OWASP RailsGoat</a>:</p>
+<pre><code class="language-bash">noir scan railsgoat -f oas3 -o railsgoat-openapi.json
+</code></pre>
+<p>El archivo generado comienza de la siguiente manera:</p>
+<pre><code class="language-json">{
+  &quot;openapi&quot;: &quot;3.0.3&quot;,
+  &quot;info&quot;: {
+    &quot;title&quot;: &quot;Generated by Noir&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;
+  },
+  &quot;servers&quot;: [
+    {
+      &quot;url&quot;: &quot;http://localhost&quot;
+    }
+  ],
+  &quot;paths&quot;: {
+    &quot;/api/v1/mobile/1&quot;: {
+      &quot;get&quot;: {
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful response&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;schema&quot;: {
+                  &quot;type&quot;: &quot;object&quot;
+                }
+              }
+            }
+          }
+        },
+        &quot;parameters&quot;: [
+          {
+            &quot;name&quot;: &quot;class&quot;,
+            &quot;in&quot;: &quot;query&quot;,
+            &quot;required&quot;: false,
+            &quot;schema&quot;: {
+              &quot;type&quot;: &quot;string&quot;
+            }
+          }
+        ],
+        &quot;x-noir-unmapped-path-params&quot;: [
+          &quot;id&quot;
+        ]
+      }
+    },
+</code></pre>
+<p>Se importa el documento con el complemento <a href="https://www.zaproxy.org/docs/desktop/addons/openapi-support/" target="_blank" rel="noopener">OpenAPI Support</a> de ZAP o la extensión OpenAPI Parser de Burp Suite (consulte <a href="#/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance@general-tools">General Tools</a>). El proxy añade cada endpoint a su árbol del sitio, de modo que se pueden ejecutar contra ellos las pruebas de esta sección. Noir reemplaza cada parámetro de ruta por un valor de ejemplo, por lo que una ruta con un marcador <code>:id</code> aparece como <code>/api/v1/mobile/1</code>, y conserva los nombres originales en <code>x-noir-unmapped-path-params</code>. Estos se utilizan al probar <a href="#/4-Web_Application_Security_Testing/12-API_Testing/02-API_Broken_Object_Level_Authorization">API Broken Object Level Authorization</a>.</p>
+<h3 id="port-scanning">Escaneo de puertos</h3>
+<p>Los servidores de API suelen desplegarse en puertos no estándar, o junto con otros servicios expuestos (paneles de administración internos, listeners gRPC o WebSocket, endpoints de depuración/métricas) que una revisión basada solo en la documentación pasaría por alto. <a href="https://github.com/projectdiscovery/naabu" target="_blank" rel="noopener">naabu</a> es un escáner de puertos rápido que puede enumerar rápidamente los puertos abiertos en los hosts identificados, y puede canalizar sus resultados directamente a Nmap para la detección de servicios solo en los puertos hallados abiertos:</p>
+<pre><code class="language-bash">naabu -p - -rate 2000 -c 50 -retries 2 -warm-up-time 1 -silent -host api.example.com -nmap-cli &#39;nmap -sV -oX scan.xml&#39;
+</code></pre>
+<p>Ejecutar primero este escaneo, y el escaneo más lento de detección completa de servicios de Nmap solo contra los puertos que naabu reporta como abiertos, reduce considerablemente el tiempo total de escaneo en comparación con un escaneo directo de Nmap de todo el rango. Consulte <a href="https://danaepp.com/improving-port-scans-against-api-servers" target="_blank" rel="noopener">Improving Port Scans Against API Servers</a> para más orientación de ajuste específica para objetivos de API, incluido por qué los escaneos CONNECT pueden superar a los escaneos SYN con alta concurrencia, y cómo evitar pasar por alto servicios debido a limitación de tasa o filtrado por firewall.</p>
+<p>Consulte también <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/04-Attack_Surface_Identification">Attack Surface Identification</a> para más información sobre el descubrimiento de puertos no estándar.</p>
+<h3 id="active-fuzzing">Fuzzing activo</h3>
+<p>El Active Fuzzing consiste en usar herramientas con listas de palabras y filtrar los resultados de las peticiones para descubrir endpoints mediante fuerza bruta.</p>
+<p>Tras el descubrimiento de endpoints y parámetros, se usan los valores de las peticiones recopiladas para optimizar el fuzzing a nivel de valor:</p>
+<ul>
+<li>Comparar los valores observados para identificar los rangos y formatos probablemente válidos frente a los inválidos.</li>
+<li>Comenzar con valores inválidos marginales (por ejemplo <code>0</code> para campos que siempre son enteros positivos).</li>
+<li>Buscar secuencias para poder probar valores fuera del rango actualmente asignado al usuario autenticado.</li>
+</ul>
+<h4 id="kiterunner">Kiterunner</h4>
+<p><a href="https://github.com/assetnote/kiterunner" target="_blank" rel="noopener">KiteRunner</a> es una herramienta que realiza el descubrimiento de contenido tradicional y la fuerza bruta de rutas/endpoints en aplicaciones y API modernas.</p>
+<pre><code class="language-console">kr [scan|brute] &lt;input&gt; [flags]
+</code></pre>
+<p>Para escanear un objetivo en busca de API usando una lista de palabras podemos:</p>
+<pre><code class="language-console">kr scan https://example.com/api -w /usr/share/wordlists/apis/routes-large.kite --fail-status-codes 404,403
+</code></pre>
+<h4 id="ffufdirbustergobuster">FFUF/DirBuster/GoBuster</h4>
+<p>FFUF, DirBuster y GoBuster están diseñados para descubrir rutas y archivos ocultos en servidores web mediante técnicas de fuerza bruta. Los tres utilizan listas de palabras personalizables para generar peticiones al servidor web objetivo, intentando identificar directorios y archivos válidos. Los tres soportan procesamiento multihilo o altamente eficiente para acelerar el proceso de fuerza bruta.</p>
+<p>Algunos archivos de listas de palabras comunes para API incluyen: <a href="https://github.com/danielmiessler/SecLists" target="_blank" rel="noopener">SecLists</a> en la sección Discovery/Web-Content/API, <a href="https://github.com/Escape-Technologies/graphql-wordlist" target="_blank" rel="noopener">GraphQL Wordlist</a> y <a href="https://wordlists.assetnote.io/" target="_blank" rel="noopener">Assetnote</a>.</p>
+<p>Ejemplo con GoBuster:</p>
+<p><code>gobuster dir -u &lt;target url&gt; -w &lt;wordlist file&gt;</code></p>
+<h4 id="authenticated-fuzzing">Fuzzing autenticado</h4>
+<p>Al hacer fuzzing de API autenticadas, hay que reproducir la misma autenticación y gestión de sesiones que espera el objetivo. Se deben incluir tokens personalizados, cabeceras de autorización no estándar, metadatos de petición firmados o cookies según se requiera; de lo contrario, las herramientas pueden producir falsos negativos al no llegar nunca a la lógica de la aplicación. Si el mecanismo usa campos dinámicos (por ejemplo marcas de tiempo, nonces o firmas vinculadas al cuerpo), esos valores se deben recalcular para cada petición mutada, normalmente mediante scripts previos a la petición o interceptores de proxy/peticiones.</p>
+<h2 id="references">Referencias</h2>
+<h3 id="owasp-resources">Recursos de OWASP</h3>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/REST_Assessment_Cheat_Sheet.html" target="_blank" rel="noopener">REST Assessment Cheat Sheet</a></li>
+</ul>
+<h3 id="books">Libros</h3>
+<ul>
+<li>Corey J. Ball - &quot;Hacking APIs : breaking web application programming interfaces&quot;, No Starch, 2022 - ISBN-13: 978-1-7185-0244-4</li>
+<li>Confidence Staveley - &quot;API Security for White Hat Hackers, Packt, 2024 - ISBN 978-1-80056-080-2</li>
+</ul>

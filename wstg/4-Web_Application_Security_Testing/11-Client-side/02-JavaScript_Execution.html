@@ -1,0 +1,39 @@
+<h1 id="javascript-execution">Ejecución de JavaScript</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Una vulnerabilidad de inyección de JavaScript es un subtipo de cross site scripting (XSS) que implica la capacidad de inyectar código JavaScript arbitrario que la aplicación ejecuta dentro del navegador de la víctima. Esta vulnerabilidad puede tener muchas consecuencias, como la divulgación de las cookies de sesión de un usuario, que podrían usarse para suplantar a la víctima, o, de forma más general, puede permitir al atacante modificar el contenido de la página que ven las víctimas o el comportamiento de la aplicación.</p>
+<p>Las vulnerabilidades de inyección de JavaScript pueden ocurrir cuando la aplicación carece de una validación adecuada de la entrada y la salida proporcionadas por el usuario. Como JavaScript se utiliza para rellenar dinámicamente las páginas web, esta inyección ocurre durante esa fase de procesamiento del contenido y, en consecuencia, afecta a la víctima.</p>
+<p>Al probar esta vulnerabilidad, hay que considerar que algunos caracteres son tratados de manera diferente por distintos navegadores. Como referencia, consulte <a href="https://owasp.org/www-community/attacks/DOM_Based_XSS" target="_blank" rel="noopener">DOM-based XSS</a>.</p>
+<p>Este es un ejemplo de un script que no realiza ninguna validación de la variable <code>rr</code>. La variable contiene entrada proporcionada por el usuario a través de la cadena de consulta (query string) y, además, no aplica ninguna forma de codificación:</p>
+<pre><code class="language-js">var rr = location.search.substring(1);
+if(rr) {
+    window.location=decodeURIComponent(rr);
+}
+</code></pre>
+<p>Esto implica que un atacante podría inyectar código JavaScript simplemente enviando la siguiente cadena de consulta: <code>www.victim.com/?javascript:alert(1)</code>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar sinks y posibles puntos de inyección de JavaScript.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Considere una página que contiene el siguiente script:</p>
+<pre><code class="language-html">&lt;script&gt;
+function loadObj(){
+    var cc=eval(&#39;(&#39;+aMess+&#39;)&#39;);
+    document.getElementById(&#39;mess&#39;).textContent=cc.message;
+}
+
+if(window.location.hash.indexOf(&#39;message&#39;)==-1) {
+    var aMess=&#39;({&quot;message&quot;:&quot;Hello User!&quot;})&#39;;
+} else {
+    var aMess=location.hash.substr(window.location.hash.indexOf(&#39;message=&#39;)+8)
+}
+&lt;/script&gt;
+</code></pre>
+<p>El código anterior contiene una fuente (source), <code>location.hash</code>, controlada por el atacante, que puede inyectar directamente en el valor de <code>message</code> código JavaScript para tomar el control del navegador del usuario.</p>

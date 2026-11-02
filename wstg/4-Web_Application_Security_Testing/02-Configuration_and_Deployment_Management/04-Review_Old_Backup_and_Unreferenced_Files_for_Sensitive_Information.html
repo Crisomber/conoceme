@@ -1,0 +1,226 @@
+<h1 id="review-old-backup-and-unreferenced-files-for-sensitive-information">Revisión de archivos antiguos, de respaldo y sin referenciar en busca de información sensible</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los servidores web suelen acumular archivos sin referenciar u olvidados: versiones antiguas renombradas, copias de respaldo manuales o de editores (<code>file~</code>, <code>file.old</code>, <code>.bak</code>), archivos comprimidos y &quot;snapshots&quot; del sistema de archivos. Como estos suelen conservar una extensión o un nombre distinto del original (p. ej., <code>login.asp.old</code> junto a <code>login.asp</code>), tienden a servirse como texto plano/código fuente en lugar de ejecutarse, exponiendo código del lado del servidor, credenciales y detalles internos. El mismo problema aparece ahora también como objetos olvidados en el almacenamiento de objetos en la nube (buckets/contenedores) que respalda una aplicación o su pipeline de despliegue.</p>
+<h3 id="threats">Amenazas</h3>
+<ul>
+<li>Divulgación de credenciales, rutas internas u otros datos sensibles mediante archivos de inclusión/configuración sin referenciar.</li>
+<li>Acceso a funcionalidad poderosa sin referenciar (p. ej., una página de administración sin enlazar).</li>
+<li>Exposición de vulnerabilidades ya corregidas en la versión actual, mediante una copia antigua o de respaldo que todavía las contiene.</li>
+<li>Divulgación de código fuente cuando una copia o respaldo de un archivo ejecutable se sirve como texto plano en lugar de ejecutarse.</li>
+<li>Divulgación masiva mediante archivos comprimidos de respaldo que contienen muchos archivos a la vez (código fuente, includes, clases compiladas para descompilación).</li>
+<li>Datos sensibles en archivos de log (IDs de sesión, parámetros de URL, actividad de administración).</li>
+<li>Artefactos de respaldo/despliegue olvidados (volcados de bases de datos, <code>.tfstate</code>, archivos <code>.env</code>) dejados en el almacenamiento de objetos en la nube (buckets/contenedores), accesibles directamente sin pasar por la aplicación; véase <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information@cloud-object-storage-artifacts">Artefactos en el almacenamiento de objetos en la nube</a>.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Encontrar y analizar archivos antiguos, de respaldo y sin referenciar (incluidos los archivos expuestos únicamente por su extensión y los objetos dejados en el almacenamiento en la nube) que puedan contener información sensible.</li>
+<li>Validar que no existan evasiones del sistema o del framework para las reglas establecidas con el fin de impedir que estos archivos se sirvan.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Las pruebas de archivos antiguos, de respaldo y sin referenciar usan técnicas tanto automatizadas como manuales, y normalmente implican una combinación de lo siguiente. Como principio general, hay que tratar el descubrimiento automatizado como una forma de generar a escala y a bajo costo una lista de candidatos, y siempre verificar manualmente una muestra de los resultados: las herramientas automatizadas informan sobre códigos de estado y huellas, no sobre si un archivo realmente contiene datos sensibles, y son comunes tanto los falsos positivos (páginas personalizadas de &quot;no encontrado&quot; que devuelven <code>200</code>) como los falsos negativos (contenido sensible tras un código de respuesta inesperado).</p>
+<h4 id="sensitive-file-extensions">Extensiones de archivo sensibles</h4>
+<p>Hay que enviar peticiones con diferentes extensiones de archivo y verificar cómo se manejan, directorio por directorio, ya que los directorios pueden estar configurados de forma distinta (por ejemplo, un directorio puede ejecutar archivos <code>.php</code> mientras que otro los sirve como texto plano). Los directorios del servidor web pueden identificarse con herramientas de escaneo que buscan directorios bien conocidos, y hacer un espejo del sitio ayuda a reconstruir el árbol de directorios servido por la aplicación.</p>
+<p>Si la arquitectura de la aplicación web tiene balanceo de carga o es heterogénea (por ejemplo, una mezcla de nodos IIS y Apache), hay que evaluar todos los servidores, ya que la configuración puede variar ligeramente entre nodos e introducir comportamientos o vulnerabilidades asimétricos.</p>
+<h5 id="example">Ejemplo</h5>
+<p>El evaluador ha identificado la existencia de un archivo llamado <code>connection.inc</code>. Al intentar acceder a él directamente, devuelve su contenido, que es:</p>
+<pre><code class="language-php">&lt;?
+    mysql_connect(&quot;127.0.0.1&quot;, &quot;root&quot;, &quot;password&quot;)
+        or die(&quot;Could not connect&quot;);
+?&gt;
+</code></pre>
+<p>El evaluador determina la existencia de un DBMS MySQL en el backend y las credenciales débiles que utiliza la aplicación web para acceder a él.</p>
+<p>Las extensiones y rutas que vale la pena comprobar se dividen en distintas categorías, lo cual importa porque conllevan diferentes niveles de riesgo y requieren un tratamiento distinto una vez encontradas. Un resultado en cualquier categoría es solo un hallazgo candidato: hay que confirmar que la respuesta realmente devuelve el contenido del archivo (y no un 404 personalizado ni una página de acceso denegado), y leer suficiente de ese contenido para confirmar que es genuinamente sensible, antes de reportarlo. Esto es especialmente importante en las categorías &quot;puede servirse legítimamente&quot; y &quot;la sensibilidad depende del contenido&quot; que se muestran a continuación, donde la mera presencia de la extensión no constituye por sí misma un hallazgo.</p>
+<div class="tabla"><table><thead><tr>
+<th>Tipo</th>
+<th>Categoría</th>
+<th>Ejemplos</th>
+</tr>
+</thead><tbody><tr>
+<td>Credenciales y secretos</td>
+<td>En general nunca deberían servirse públicamente</td>
+<td><code>.env</code>, <code>.pem</code>, <code>.key</code>, <code>.p12</code>, <code>.pfx</code>, <code>.tfstate</code>, <code>.tfvars</code>, <code>.kdbx</code>, <code>.htpasswd</code>, <code>.npmrc</code>, <code>.dockercfg</code>/<code>.docker/config.json</code>, <code>.asa</code>, <code>.inc</code>, <code>.config</code></td>
+</tr>
+<tr>
+<td>Código fuente/configuración</td>
+<td>En general nunca deberían servirse públicamente</td>
+<td>archivos de código fuente <code>.java</code>, <code>.yaml</code>/<code>.yml</code> y <code>.json</code> fuera de las rutas de API esperadas (manifiestos de Kubernetes, definiciones de pipelines de CI, <code>docker-compose.yml</code>)</td>
+</tr>
+<tr>
+<td>Respaldos y archivos comprimidos</td>
+<td>En general nunca deberían servirse públicamente</td>
+<td><code>.bak</code>, <code>.old</code>, <code>.orig</code>, <code>.save</code>, <code>.swp</code>, <code>~</code> (respaldos de editores), <code>.zip</code>, <code>.tar</code>, <code>.gz</code>, <code>.tgz</code>, <code>.rar</code>, <code>.7z</code></td>
+</tr>
+<tr>
+<td>Artefactos de datos</td>
+<td>La sensibilidad depende en gran medida del contenido</td>
+<td><code>.db</code>, <code>.sqlite</code>, <code>.sqlite3</code>, <code>.parquet</code>, <code>.avro</code>, <code>.csv</code>, <code>.ipynb</code> (los notebooks en particular pueden contener credenciales codificadas en la salida de las celdas, pero con frecuencia no las contienen)</td>
+</tr>
+<tr>
+<td>Pueden servirse legítimamente</td>
+<td>Pueden servirse legítimamente</td>
+<td><code>.txt</code>, <code>.md</code>, <code>.log</code>, <code>.pdf</code>, <code>.docx</code>, <code>.rtf</code>, <code>.xlsx</code>, <code>.pptx</code></td>
+</tr>
+<tr>
+<td>Rutas especiales (no extensiones de archivo)</td>
+<td>Nombres de directorios y rutas, no extensiones</td>
+<td><code>.git/</code>, <code>.docker/</code></td>
+</tr>
+</tbody></table></div>
+<p>La lista anterior detalla solo unos pocos ejemplos, ya que las extensiones y nombres de archivo que vale la pena comprobar son demasiado numerosos para tratarlos de forma exhaustiva aquí. Véase <a href="https://filext.com/" target="_blank" rel="noopener">FILExt</a> para una base de datos de extensiones más completa, y <a href="https://github.com/danielmiessler/SecLists/tree/master/Discovery/Web-Content" target="_blank" rel="noopener">las listas de palabras raft/common backup/config de SecLists</a> para listas de nombres de archivo mantenidas y actualizadas que impulsen el descubrimiento automatizado.</p>
+<p>Para identificar archivos con una extensión determinada, se debe usar una combinación de escáneres de vulnerabilidades, herramientas de spidering/espejado, consultas en motores de búsqueda (véase <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/01-Conduct_Search_Engine_Reconnaissance_for_Information_Leakage">Pruebas: Spidering y googling</a>) e inspección manual, ya que la revisión manual cubre los vacíos del spidering automatizado (por ejemplo, enlaces que solo aparecen después de ejecutar JavaScript del lado del cliente).</p>
+<h5 id="windows-83-legacy-filename-handling">Manejo de nombres de archivo heredados 8.3 en Windows</h5>
+<p>En los sistemas basados en Windows, la generación de nombres de archivo cortos heredados 8.3 puede afectar la forma en que el servidor web resuelve y accede a los archivos, independientemente de cualquier lógica de carga de archivos. En entornos donde la generación de nombres 8.3 está habilitada, los archivos sensibles que no son directamente accesibles por su nombre largo pueden seguir siendo accesibles mediante su equivalente abreviado, lo que puede divulgar código fuente o archivos de configuración incluso cuando los controles de acceso bloquean correctamente el nombre largo.</p>
+<p>Ejemplos de comportamiento de resolución de nombres 8.3 que pueden dar lugar a una exposición no deseada de archivos:</p>
+<ol>
+<li>Un archivo como <code>file.phtml</code> puede procesarse como código PHP.</li>
+<li>Un nombre de archivo abreviado correspondiente (por ejemplo, <code>FILE~1.PHT</code>) puede ser accesible según la configuración del servidor y de los manejadores.</li>
+<li>Los archivos con nombres engañosos o extendidos pueden seguir resolviéndose a manejadores ejecutables una vez expandidos por el sistema operativo.</li>
+</ol>
+<p>Las pruebas deben centrarse en determinar si el manejo de nombres de archivo heredados permite el acceso a archivos sensibles que no estaban destinados a servirse de este modo; las pruebas de los mecanismos de carga de archivos en sí se cubren por separado en los casos de prueba de carga de archivos y de lógica de negocio.</p>
+<h4 id="inference-from-the-naming-scheme-used-for-published-content">Inferencia a partir del esquema de nombres usado en el contenido publicado</h4>
+<p>Hay que enumerar todas las páginas y funcionalidades de la aplicación, manualmente o con una herramienta de spidering. La mayoría de las aplicaciones usan un esquema de nombres reconocible y organizan los recursos en páginas y directorios con palabras que describen su función, por lo que a menudo es posible inferir el nombre y la ubicación de páginas sin referenciar a partir del esquema de nombres usado en el contenido publicado. Por ejemplo, si se encuentra una página titulada <code>viewuser.asp</code>, también se debe buscar <code>edituser.asp</code>, <code>adduser.asp</code> y <code>deleteuser.asp</code>. De manera similar, si se descubre un directorio <code>/app/user</code>, también se debe buscar <code>/app/admin</code> y <code>/app/manager</code>.</p>
+<h4 id="other-clues-in-published-content">Otras pistas en el contenido publicado</h4>
+<p>Muchas aplicaciones web dejan pistas en el contenido publicado que pueden llevar al descubrimiento de páginas y funcionalidades ocultas. Estas pistas suelen encontrarse en el código fuente de los archivos HTML y JavaScript, que deben revisarse manualmente para identificarlas. Por ejemplo:</p>
+<p>Los comentarios de los programadores y las secciones de código fuente comentadas pueden hacer referencia a contenido oculto:</p>
+<pre><code class="language-html">&lt;!-- &lt;A HREF=&quot;uploadfile.jsp&quot;&gt;Upload a document to the server&lt;/A&gt; --&gt;
+&lt;!-- Link removed while bugs in uploadfile.jsp are fixed          --&gt;
+</code></pre>
+<p>JavaScript puede contener enlaces a páginas que solo se muestran en la interfaz gráfica del usuario bajo ciertas circunstancias:</p>
+<pre><code class="language-javascript">var adminUser=false;
+if (adminUser) menu.add (new menuItem (&quot;Maintain users&quot;, &quot;/admin/useradmin.jsp&quot;));
+</code></pre>
+<p>Las páginas HTML pueden contener FORMs que han sido ocultados deshabilitando el elemento SUBMIT:</p>
+<pre><code class="language-html">&lt;form action=&quot;forgotPassword.jsp&quot; method=&quot;post&quot;&gt;
+    &lt;input type=&quot;hidden&quot; name=&quot;userID&quot; value=&quot;123&quot;&gt;
+    &lt;!-- &lt;input type=&quot;submit&quot; value=&quot;Forgot Password&quot;&gt; --&gt;
+&lt;/form&gt;
+</code></pre>
+<p>Otra fuente de pistas sobre directorios sin referenciar es el archivo <code>/robots.txt</code>, usado para dar instrucciones a los robots web:</p>
+<pre><code class="language-html">User-agent: *
+Disallow: /Admin
+Disallow: /uploads
+Disallow: /backup
+Disallow: /~jbloggs
+Disallow: /include
+</code></pre>
+<h4 id="blind-guessing">Adivinación a ciegas</h4>
+<p>En su forma más simple, consiste en pasar una lista de nombres de archivo comunes por un motor de peticiones para intentar adivinar archivos y directorios que existan en el servidor. El siguiente script envoltorio de netcat leerá una lista de palabras desde stdin y realizará un ataque básico de adivinación:</p>
+<pre><code class="language-bash">#!/bin/bash
+
+server=example.org
+port=80
+
+while read url
+do
+echo -ne &quot;$url\t&quot;
+echo -e &quot;GET /$url HTTP/1.0\nHost: $server\n&quot; | netcat $server $port | head -1
+done | tee outputfile
+</code></pre>
+<p>Dependiendo del servidor, GET puede reemplazarse por HEAD para obtener resultados más rápido. Se puede usar grep sobre el archivo de salida especificado para buscar códigos de respuesta &quot;interesantes&quot;. El código de respuesta 200 (OK) normalmente indica que se ha encontrado un recurso válido (siempre que el servidor no entregue una página personalizada de &quot;no encontrado&quot; usando el código 200). Pero también hay que prestar atención a 301 (Moved), 302 (Found), 401 (Unauthorized), 403 (Forbidden) y 500 (Internal error), que también pueden indicar recursos o directorios que merecen una investigación adicional.</p>
+<p>El ataque básico de adivinación debe ejecutarse contra el webroot y también contra todos los directorios que se hayan identificado mediante otras técnicas de enumeración. Pueden realizarse ataques de adivinación más avanzados y efectivos de la siguiente manera:</p>
+<ul>
+<li>Identificar las extensiones de archivo en uso dentro de áreas conocidas de la aplicación (p. ej., JSP, ASPX, HTML) y usar una lista de palabras básica a la que se añada cada una de esas extensiones (o usar una lista más larga de extensiones comunes si los recursos lo permiten).</li>
+<li>Para cada archivo identificado mediante otras técnicas de enumeración, crear una lista de palabras personalizada derivada de ese nombre de archivo. Obtener una lista de extensiones de archivo comunes (incluidas <code>~</code>, <code>bak</code>, <code>txt</code>, <code>src</code>, <code>dev</code>, <code>old</code>, <code>inc</code>, <code>orig</code>, <code>copy</code>, <code>tmp</code>, <code>swp</code>, <code>env</code>, <code>save</code>, etc.) y usar cada extensión antes, después y en lugar de la extensión del nombre de archivo real.</li>
+</ul>
+<blockquote>
+<p>Nota: las operaciones de copia de archivos de Windows generan nombres de archivo con el prefijo &quot;Copy of &quot; o versiones localizadas de esta frase, por lo que no cambian las extensiones de archivo. Aunque los archivos &quot;Copy of &quot; normalmente no divulgan código fuente cuando se accede a ellos, pueden aportar información valiosa en caso de que provoquen errores al invocarlos.</p>
+</blockquote>
+<h4 id="information-obtained-through-server-vulnerabilities-and-misconfiguration">Información obtenida mediante vulnerabilidades y configuraciones incorrectas del servidor</h4>
+<p>La forma más obvia en que un servidor mal configurado puede divulgar páginas sin referenciar es mediante el listado de directorios. Hay que solicitar todos los directorios enumerados para identificar cuáles proporcionan un listado de directorios.</p>
+<p>Se han encontrado numerosas vulnerabilidades en servidores web individuales que permiten a un atacante enumerar contenido sin referenciar, por ejemplo:</p>
+<ul>
+<li>La vulnerabilidad de listado de directorios de Apache con <code>?M=D</code>.</li>
+<li>Diversas vulnerabilidades de divulgación del código fuente de scripts en IIS.</li>
+<li>Vulnerabilidades de listado de directorios en IIS WebDAV.</li>
+</ul>
+<h4 id="use-of-publicly-available-information">Uso de información disponible públicamente</h4>
+<p>Las páginas y funcionalidades de las aplicaciones web expuestas a internet que no están referenciadas desde la propia aplicación pueden estar referenciadas desde otras fuentes de dominio público. Hay varias fuentes de estas referencias:</p>
+<ul>
+<li>Las páginas que antes estaban referenciadas pueden seguir apareciendo en los archivos de los motores de búsqueda de internet. Por ejemplo, <code>1998results.asp</code> puede que ya no esté enlazada desde el sitio de una empresa, pero puede seguir en el servidor y en las bases de datos de los motores de búsqueda. El operador de búsqueda <code>site:</code> de Google puede usarse para ejecutar una consulta solo contra el dominio elegido, como en: <code>site:www.example.com</code>. El uso de los motores de búsqueda de esta manera ha dado lugar a una amplia variedad de técnicas descritas en la sección <code>Google Hacking</code> de esta Guía. Es poco probable que los archivos de respaldo estén referenciados por otros archivos y, por tanto, pueden no haber sido indexados, pero si se encuentran en directorios navegables, el motor de búsqueda podría conocerlos.</li>
+<li>Google y otros motores de búsqueda mantienen versiones en caché de las páginas encontradas por sus rastreadores, las cuales pueden seguir referenciando o insinuando contenido oculto adicional incluso después de que se elimine la página original.</li>
+<li>El contenido que no está referenciado desde una aplicación objetivo puede estar enlazado desde sitios de terceros. Por ejemplo, una aplicación que procesa pagos en línea en nombre de comerciantes terceros puede contener una variedad de funcionalidades a medida que (normalmente) solo se pueden encontrar siguiendo enlaces dentro de los sitios de sus clientes.</li>
+<li>La búsqueda en alojamientos públicos de código y en registros de compilación de CI/CD (búsqueda de código en GitHub/GitLab y logs de CI en caché) puede revelar referencias a nombres de archivo internos, rutas o nombres de buckets subidos por error.</li>
+</ul>
+<h4 id="filename-filter-bypass">Evasión de filtros de nombres de archivo</h4>
+<p>Dado que los filtros de lista de denegación se basan en expresiones regulares, a veces se pueden aprovechar funciones oscuras de expansión de nombres de archivo del sistema operativo que funcionan de formas que el desarrollador no esperaba. El evaluador a veces puede explotar las diferencias en la manera en que la aplicación, el servidor web y el sistema operativo subyacente, con sus convenciones de nombres de archivo, analizan los nombres de archivo.</p>
+<p>Ejemplo: la expansión de nombres de archivo 8.3 de Windows hace que <code>c:\program files</code> se convierta en <code>C:\PROGRA~1</code></p>
+<ul>
+<li>Se eliminan los caracteres incompatibles</li>
+<li>Se convierten los espacios en guiones bajos</li>
+<li>Se toman los primeros seis caracteres del nombre base</li>
+<li>Se añade <code>~&lt;dígito&gt;</code>, que sirve para distinguir archivos con nombres que comparten los mismos seis caracteres iniciales</li>
+<li>Esta convención cambia después de las primeras 3 colisiones de nombres</li>
+<li>Se trunca la extensión del archivo a tres caracteres</li>
+<li>Se convierten todos los caracteres a mayúsculas</li>
+</ul>
+<h4 id="cloud-object-storage-artifacts">Artefactos en el almacenamiento de objetos en la nube</h4>
+<p>El mismo problema del &quot;archivo olvidado&quot; reaparece en el almacenamiento de objetos en la nube que respalda una aplicación web, sus recursos estáticos o su pipeline de despliegue (AWS S3, Azure Blob Storage, Google Cloud Storage). Esta subsección cubre únicamente el enfoque del descubrimiento de artefactos olvidados; para mayor profundidad sobre ACL de buckets/contenedores, políticas IAM y URL firmadas, véase <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/11-Cloud_Storage">Almacenamiento en la nube</a>.</p>
+<ul>
+<li>Identificar los buckets/contenedores asociados al objetivo mediante convenciones de nombres (<code>&lt;company&gt;-backup</code>, <code>&lt;company&gt;-assets</code>, <code>&lt;company&gt;-logs</code>, <code>&lt;company&gt;-dev</code>, <code>&lt;app&gt;-uploads</code>), registros DNS (CNAME que apuntan a endpoints de almacenamiento; véase también <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/10-Subdomain_Takeover">Toma de control de subdominios (Subdomain Takeover)</a>) y referencias encontradas en bundles de JS, mensajes de error o configuración de CI.</li>
+<li>Los tipos comunes de artefactos olvidados en los buckets reflejan la lista de extensiones anterior, con algunas adiciones específicas del almacenamiento: archivos <code>terraform.tfstate</code>, archivos <code>.env</code> subidos como parte de un paso de despliegue, exportaciones de snapshots de bases de datos y artefactos de compilación de CI/CD (binarios compilados o archivos comprimidos que contienen secretos incrustados).</li>
+<li>Una vez encontrado un objeto o listado candidato, hay que verificar manualmente su contenido antes de reportarlo: un objeto llamado <code>backup.sql</code> que resulta estar vacío o ser un marcador de posición no es un hallazgo; hay que confirmar que los datos realmente presentes son sensibles.</li>
+<li>Herramientas como <a href="https://github.com/sa7mon/S3Scanner" target="_blank" rel="noopener">S3Scanner</a> y <a href="https://github.com/initstring/cloud_enum" target="_blank" rel="noopener">cloud_enum</a> automatizan el descubrimiento en los principales proveedores, pero, como en el descubrimiento en el servidor, los resultados deben tratarse como candidatos que requieren confirmación manual, no como hallazgos en sí mismos.</li>
+</ul>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Las pruebas de caja gris sobre archivos antiguos y de respaldo, y sobre el manejo de extensiones de archivo, implican examinar directamente la configuración del servidor/aplicación en lugar de solo sondear desde fuera:</p>
+<ul>
+<li>Examinar los archivos dentro de los directorios servidos por los servidores web que componen la infraestructura de la aplicación. Como las copias/archivos de respaldo tienden a seguir convenciones de nombres predecibles (sufijos de respaldo específicos de cada editor, copias hechas por personas del estilo <code>.old</code>/<code>.bak</code>), esta búsqueda puede automatizarse con scripts; una estrategia útil es una tarea programada periódicamente que compruebe dichas extensiones, combinada con revisiones manuales menos frecuentes.</li>
+<li>Revisar la configuración del servidor para confirmar qué extensiones se sirven con qué tipo de contenido/manejador, directorio por directorio, y confirmar que coincide con lo previsto (por ejemplo, que un directorio que contiene archivos <code>.inc</code> o <code>.config</code> no sea accesible desde la web en absoluto).</li>
+<li>Si la aplicación depende de una infraestructura con balanceo de carga o heterogénea, determinar si esto introduce comportamientos inconsistentes entre nodos.</li>
+<li>Cuando el evaluador tenga acceso a la configuración de la infraestructura en la nube, revisar directamente las políticas y ACL de los buckets/contenedores (véase <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/11-Cloud_Storage">Almacenamiento en la nube</a> para las comprobaciones dedicadas de ACL/IAM/URL firmadas) en lugar de depender únicamente del sondeo externo.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Para una estrategia de protección eficaz, las pruebas deben combinarse con una política de seguridad que prohíba claramente las prácticas peligrosas, entre ellas:</p>
+<ul>
+<li>Editar archivos in situ en los sistemas de archivos del servidor web o del servidor de aplicaciones. Este es un hábito particularmente malo, ya que es probable que los editores generen archivos de respaldo o temporales. Si es absolutamente necesario editar archivos en un sistema de producción, hay que asegurarse de no dejar nada que no esté explícitamente previsto, y tener presente que se hace bajo el propio riesgo.</li>
+<li>Revisar cuidadosamente cualquier otra actividad realizada en los sistemas de archivos expuestos por el servidor web, como las actividades de administración ad hoc (por ejemplo, comprimir directorios para un respaldo rápido y dejar el archivo comprimido).</li>
+<li>Adoptar políticas de gestión de la configuración que impidan que se acumulen archivos obsoletos y sin referenciar en los directorios servidos.</li>
+<li>Diseñar las aplicaciones para que no creen ni dependan de archivos almacenados bajo los árboles de directorios web servidos por el servidor web. Los archivos de datos, de log, de configuración, etc. deben almacenarse en directorios no accesibles por el servidor web, para evitar tanto la divulgación de información como, cuando los permisos permitan escribir, la modificación de datos.</li>
+<li>Asegurarse de que los snapshots del sistema de archivos no sean accesibles a través de la web si la raíz de documentos se encuentra en un sistema de archivos que usa esta tecnología. Por ejemplo, en Apache debería usarse una directiva location como esta:</li>
+</ul>
+<pre><code class="language-xml">&lt;Location ~ &quot;.snapshot&quot;&gt;
+    Order deny,allow
+    Deny from all
+&lt;/Location&gt;
+</code></pre>
+<ul>
+<li>Configurar los servidores web/directorios para servir cada extensión de archivo con el manejador previsto (o no servirla en absoluto), directorio por directorio, y validarlo después de cambios de infraestructura en entornos con balanceo de carga/heterogéneos.</li>
+<li>Para el almacenamiento de objetos en la nube, deshabilitar por defecto el listado público y la lectura pública, y usar políticas IAM acotadas en lugar de permisos públicos a nivel de todo el bucket; tratar como sensible por defecto cualquier bucket usado para respaldos, logs o artefactos de despliegue.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<p>Las herramientas de evaluación de vulnerabilidades suelen incluir comprobaciones para detectar directorios web con nombres estándar (como &quot;admin&quot;, &quot;test&quot;, &quot;backup&quot;, etc.) y reportar cualquier directorio web que permita la indexación. Si el evaluador no puede encontrar un listado de directorios, debe intentar comprobar las extensiones de respaldo probables. Algunas herramientas que pueden ayudar con esto son:</p>
+<ul>
+<li><a href="https://www.tenable.com/products/nessus" target="_blank" rel="noopener">Nessus</a></li>
+<li><a href="https://cirt.net/Nikto2" target="_blank" rel="noopener">Nikto2</a></li>
+</ul>
+<h3 id="web-spider-tools">Herramientas de web spider</h3>
+<ul>
+<li><a href="https://www.gnu.org/software/wget" target="_blank" rel="noopener">wget</a></li>
+<li><a href="https://curl.se/" target="_blank" rel="noopener">curl</a></li>
+</ul>
+<h3 id="modern-alternatives">Alternativas modernas</h3>
+<ul>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a> - proxy de pruebas de seguridad web ampliamente utilizado</li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a> - herramienta de código abierto para pruebas de seguridad de aplicaciones web, que incluye navegación forzada/spidering para esta clase de problemas</li>
+<li><a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">ffuf</a> - fuzzer web rápido, muy adecuado para el descubrimiento basado en listas de palabras de respaldos/extensiones</li>
+<li><a href="https://www.screamingfrog.co.uk/seo-spider/" target="_blank" rel="noopener">Screaming Frog SEO Spider</a> - rastreador de sitios web y verificador de enlaces rotos</li>
+</ul>
+<h3 id="cloud-object-storage-discovery">Descubrimiento de almacenamiento de objetos en la nube</h3>
+<ul>
+<li><a href="https://github.com/sa7mon/S3Scanner" target="_blank" rel="noopener">S3Scanner</a></li>
+<li><a href="https://github.com/initstring/cloud_enum" target="_blank" rel="noopener">cloud_enum</a></li>
+</ul>
+<p>Algunas de estas también están incluidas en las distribuciones estándar de Linux. Las herramientas de desarrollo web suelen incluir funciones para identificar enlaces rotos y archivos sin referenciar.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://filext.com/" target="_blank" rel="noopener">FILExt - File Extension Database</a></li>
+<li><a href="https://github.com/danielmiessler/SecLists/tree/master/Discovery/Web-Content" target="_blank" rel="noopener">SecLists - Discovery/Web-Content wordlists</a></li>
+</ul>

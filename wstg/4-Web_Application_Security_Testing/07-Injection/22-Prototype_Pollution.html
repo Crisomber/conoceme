@@ -1,0 +1,114 @@
+<h1 id="prototype-pollution">Contaminación de prototipos (Prototype Pollution)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-22</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>JavaScript es un lenguaje basado en prototipos. Casi todos los objetos heredan de <code>Object.prototype</code>, y cualquier propiedad que no se encuentre directamente en un objeto se busca a través de la cadena de prototipos. La contaminación de prototipos (prototype pollution) ocurre cuando una aplicación usa entradas controladas por el atacante para establecer las <em>claves</em> de un objeto durante una mezcla (merge) recursiva, una clonación o una asignación basada en rutas, lo que permite al atacante llegar a <code>Object.prototype</code> a través de una clave especial como <code>__proto__</code>, <code>constructor</code> o <code>prototype</code>. Dado que ese prototipo es compartido por todos los objetos del entorno de ejecución, la propiedad inyectada se vuelve visible silenciosamente para partes no relacionadas de la aplicación.</p>
+<blockquote>
+<p>Nota: esto no es lo mismo que <a href="#/4-Web_Application_Security_Testing/07-Injection/04-HTTP_Parameter_Pollution">HTTP Parameter Pollution</a>; a pesar del nombre similar, las dos vulnerabilidades no están relacionadas.</p>
+</blockquote>
+<p>La contaminación por sí sola rara vez causa daño directamente. Su impacto depende de un <em>gadget</em>: código existente que más tarde lee una propiedad que el atacante logró plantar y luego la usa de forma sensible. La misma causa raíz aparece en dos contextos:</p>
+<ul>
+<li><strong>Del lado del servidor (Node.js)</strong>: dependiendo del gadget disponible, el impacto va desde la denegación de servicio y la elusión de la lógica de seguridad hasta la ejecución remota de código. Un ejemplo bien conocido es el RCE de Kibana, <a href="https://nvd.nist.gov/vuln/detail/CVE-2019-7609" target="_blank" rel="noopener">CVE-2019-7609</a>.</li>
+<li><strong>Del lado del cliente (navegador)</strong>: combinada con un gadget adecuado, comúnmente conduce a <a href="#/4-Web_Application_Security_Testing/07-Injection/01-Reflected_Cross_Site_Scripting">Cross-Site Scripting</a> basado en DOM y puede usarse para eludir defensas del lado del cliente.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las funciones y bibliotecas que mezclan, clonan o asignan de forma recursiva propiedades controladas por el usuario.</li>
+<li>Determinar si la entrada del usuario puede alcanzar y modificar <code>Object.prototype</code>.</li>
+<li>Identificar los gadgets que convierten la contaminación de prototipos en un impacto concreto.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El siguiente ejemplo ilustra la causa raíz. Una mezcla recursiva ingenua copia cada clave de un objeto controlado por el atacante en un objeto destino:</p>
+<pre><code class="language-javascript">function merge(target, source) {
+    for (const key in source) {
+        if (typeof source[key] === &quot;object&quot; &amp;&amp; typeof target[key] === &quot;object&quot;) {
+            merge(target[key], source[key]);
+        } else {
+            target[key] = source[key];
+        }
+    }
+    return target;
+}
+</code></pre>
+<p>Si el objeto fuente se analiza a partir de una entrada del usuario como <code>{&quot;__proto__&quot;: {&quot;polluted&quot;: &quot;yes&quot;}}</code>, la asignación entra en <code>__proto__</code> y escribe sobre <code>Object.prototype</code>. A partir de entonces, todos los objetos del entorno de ejecución heredan la propiedad plantada:</p>
+<pre><code class="language-javascript">merge({}, JSON.parse(&#39;{&quot;__proto__&quot;: {&quot;polluted&quot;: &quot;yes&quot;}}&#39;));
+({}).polluted;   // &quot;yes&quot;  -&gt; Object.prototype was polluted
+</code></pre>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="identify-the-sources">Identificar las fuentes</h4>
+<p>La contaminación de prototipos es alcanzable a través de cualquier entrada cuyas claves terminen como nombres de propiedades de un objeto. Se debe revisar la aplicación en busca de:</p>
+<ul>
+<li>La cadena de consulta (query string) de la URL y el fragmento de la URL (hash), usando notación de corchetes o de puntos, p. ej., <code>?__proto__[key]=value</code> o <code>?__proto__.key=value</code>.</li>
+<li>Cuerpos de petición JSON que se deserializan y luego se mezclan o clonan (los endpoints de configuración, perfil o ajustes son candidatos comunes).</li>
+<li>Otras entradas estructuradas analizadas en objetos anidados, como datos de formularios o cookies.</li>
+</ul>
+<h4 id="client-side-prototype-pollution">Contaminación de prototipos del lado del cliente</h4>
+<p>Se envía una sonda que intenta establecer una propiedad con nombre único en el prototipo a través de una fuente candidata. Las dos codificaciones siguientes expresan la misma intención:</p>
+<pre><code class="language-text">https://example.com/#__proto__[testpolluted]=reflected
+https://example.com/#constructor[prototype][testpolluted]=reflected
+</code></pre>
+<p>Luego se confirma en la consola de desarrollador del navegador si la propiedad se filtró al prototipo global, leyéndola desde un objeto vacío completamente nuevo:</p>
+<pre><code class="language-javascript">({}).testpolluted;
+// &quot;reflected&quot; -&gt; Object.prototype is polluted via this source
+// undefined   -&gt; not polluted through this source
+</code></pre>
+<p>Si se devuelve el valor, la fuente es explotable y el siguiente paso es encontrar un gadget que convierta la propiedad contaminada en XSS basado en DOM (por ejemplo, una propiedad que una biblioteca lee al construir marcado o al configurar el comportamiento de scripts). Las herramientas de navegador que buscan tanto fuentes como gadgets, como DOM Invader (véase Herramientas), aceleran significativamente esta fase.</p>
+<h4 id="server-side-prototype-pollution">Contaminación de prototipos del lado del servidor</h4>
+<p>Aquí el evaluador no puede leer el prototipo desde una consola, por lo que la detección es indirecta: se contamina una propiedad y se observa un cambio de comportamiento visible externamente. Se envía un cuerpo JSON que anida la clave especial dentro de un objeto por lo demás normal, dirigido a un endpoint que mezcla o clona los datos de la petición:</p>
+<pre><code class="language-http">POST /api/update HTTP/1.1
+Host: example.com
+Content-Type: application/json
+
+{&quot;name&quot;:&quot;test&quot;,&quot;__proto__&quot;:{&quot;json spaces&quot;:10}}
+</code></pre>
+<p>Un indicador fiable y no destructivo en aplicaciones Express es contaminar la propiedad <code>json spaces</code>: si una respuesta JSON posterior de la aplicación llega con formato legible (con sangría) cuando antes no lo tenía, el servidor leyó el ajuste de sangría del prototipo contaminado, lo que confirma la vulnerabilidad. Otros indicadores de comportamiento incluyen:</p>
+<ul>
+<li>Una propiedad que el cliente nunca envió apareciendo en respuestas JSON posteriores.</li>
+<li>Un cambio en el estado HTTP, las cabeceras o la negociación de contenido después de contaminar una propiedad que el framework lee internamente.</li>
+<li>Un error distintivo o un cambio de análisis para entradas que antes se aceptaban.</li>
+</ul>
+<h4 id="assess-the-impact">Evaluar el impacto</h4>
+<p>Dado que el impacto depende del gadget, se debe analizar cada contaminación confirmada en busca de consecuencias realistas. Del lado del cliente, esto es con mayor frecuencia XSS basado en DOM o la elusión de un control de seguridad. Del lado del servidor, los gadgets han escalado históricamente a denegación de servicio, elusión de autenticación o autorización y ejecución remota de código. Cualquier contaminación de prototipos confirmada debe tratarse como de severidad potencialmente alta hasta que el análisis de gadgets descarte el impacto.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Cuando se dispone del código fuente, se buscan directamente los patrones vulnerables en lugar de sondear a ciegas.</p>
+<p>Se buscan rutinas recursivas de mezcla (merge), clonación (clone), extensión (extend) o asignación profunda, ya sean escritas a mano o proporcionadas por una biblioteca de utilidades. Las funciones que recorren una ruta anidada de claves y asignan dentro de un objeto son los principales sinks. Un grep típico se dirigiría a las funciones auxiliares de mezcla y asignación, a las utilidades de clonación profunda y al acceso a propiedades mediante una ruta controlada por el usuario.</p>
+<p>Para cada sink candidato, se confirma si las claves se validan antes de la asignación. El código seguro rechaza u omite <code>__proto__</code>, <code>constructor</code> y <code>prototype</code>, o usa objetos sin prototipo:</p>
+<pre><code class="language-javascript">// Vulnerable: blindly assigns into a nested key path
+target[key] = source[key];
+
+// Safer: refuse dangerous keys
+if (key === &quot;__proto__&quot; || key === &quot;constructor&quot; || key === &quot;prototype&quot;) {
+    continue;
+}
+</code></pre>
+<p>También se confirman las versiones de cualquier dependencia con avisos conocidos de contaminación de prototipos, ya que muchas utilidades populares han sido parcheadas con el tiempo. Cuando se dispone del código fuente, es sencillo rastrear la entrada del usuario desde el analizador de peticiones hasta estos sinks y establecer su alcanzabilidad, así como identificar gadgets en la aplicación o sus dependencias.</p>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Sanear las claves de las propiedades antes de la asignación, rechazando explícitamente <code>__proto__</code>, <code>constructor</code> y <code>prototype</code>.</li>
+<li>Usar objetos sin prototipo para datos de tipo mapa, por ejemplo <code>Object.create(null)</code>, o usar la estructura de datos <code>Map</code> en lugar de objetos simples.</li>
+<li>Congelar el prototipo base con <code>Object.freeze(Object.prototype)</code> donde el comportamiento de la aplicación lo permita.</li>
+<li>Validar los datos estructurados entrantes contra un esquema estricto (por ejemplo, JSON Schema) para que se descarten las claves inesperadas.</li>
+<li>Preferir utilidades de mezcla y clonación bien mantenidas, y mantener todas las dependencias actualizadas a versiones que mitiguen la contaminación de prototipos.</li>
+<li>En Node.js, la opción de ejecución <code>--disable-proto=delete</code> elimina el accesor <code>__proto__</code> como medida de defensa en profundidad.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/documentation/desktop/tools/dom-invader" target="_blank" rel="noopener">DOM Invader</a> - descubrimiento automatizado de fuentes y gadgets para contaminación de prototipos del lado del cliente</li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a> - interceptación y elaboración de payloads JSON para pruebas del lado del servidor</li>
+<li><a href="https://github.com/kleiton0x00/ppmap" target="_blank" rel="noopener">ppmap</a> - escáner de contaminación de prototipos del lado del cliente</li>
+<li><a href="https://github.com/dwisiswant0/ppfuzz" target="_blank" rel="noopener">ppfuzz</a> - fuzzer de contaminación de prototipos</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://portswigger.net/web-security/prototype-pollution" target="_blank" rel="noopener">PortSwigger: Prototype Pollution</a></li>
+<li><a href="https://portswigger.net/research/widespread-prototype-pollution-gadgets" target="_blank" rel="noopener">PortSwigger: Widespread Prototype Pollution Gadgets</a></li>
+<li><a href="https://github.com/HoLyVieR/prototype-pollution-nsec18" target="_blank" rel="noopener">Olivier Arteau: Prototype Pollution Attacks in NodeJS Applications (NorthSec 2018)</a></li>
+<li><a href="https://github.com/BlackFan/client-side-prototype-pollution" target="_blank" rel="noopener">BlackFan: Client-Side Prototype Pollution</a></li>
+<li><a href="https://slides.com/securitymb/prototype-pollution-in-kibana" target="_blank" rel="noopener">Michał Bentkowski: Prototype Pollution in Kibana (CVE-2019-7609)</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/1321.html" target="_blank" rel="noopener">CWE-1321: Improperly Controlled Modification of Object Prototype Attributes (&#39;Prototype Pollution&#39;)</a></li>
+</ul>

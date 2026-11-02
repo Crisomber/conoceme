@@ -1,0 +1,162 @@
+<h1 id="oauth-weaknesses">Debilidades de OAuth</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHZ-05</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p><a href="https://oauth.net/2/" target="_blank" rel="noopener">OAuth2.0</a> (en adelante, OAuth) es un framework de autorización que permite a un cliente acceder a recursos en nombre de su usuario.</p>
+<p>Para lograrlo, OAuth depende en gran medida de tokens para comunicarse entre las distintas entidades, cada una con un <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-1.1" target="_blank" rel="noopener">rol</a> diferente:</p>
+<ul>
+<li><strong>Resource Owner (propietario del recurso):</strong> La entidad que concede acceso a un recurso, el propietario, y que en la mayoría de los casos es el propio usuario</li>
+<li><strong>Client (cliente):</strong> La aplicación que solicita acceso a un recurso en nombre del Resource Owner. Estos clientes son de dos <a href="https://oauth.net/2/client-types/" target="_blank" rel="noopener">tipos</a>:<ul>
+<li><strong>Públicos:</strong> clientes que no pueden proteger un secreto (<em>p. ej.</em> aplicaciones centradas en el frontend, como SPAs, aplicaciones móviles, etc.)</li>
+<li><strong>Confidenciales:</strong> clientes que pueden autenticarse de forma segura con el servidor de autorización manteniendo a salvo sus secretos registrados (<em>p. ej.</em> servicios de backend)</li>
+</ul>
+</li>
+<li><strong>Authorization Server (servidor de autorización):</strong> El servidor que guarda la información de autorización y concede el acceso</li>
+<li><strong>Resource Server (servidor de recursos):</strong> La aplicación que sirve el contenido al que accede el cliente</li>
+</ul>
+<p>Dado que la responsabilidad de OAuth es delegar derechos de acceso del propietario al cliente, es un objetivo muy atractivo para los atacantes, y las malas implementaciones conducen al acceso no autorizado a los recursos y la información de los usuarios.</p>
+<p>Para proporcionar acceso a una aplicación cliente, OAuth se apoya en varios <a href="https://oauth.net/2/grant-types/" target="_blank" rel="noopener">tipos de concesión de autorización (authorization grant types)</a> para generar un token de acceso:</p>
+<ul>
+<li><a href="https://oauth.net/2/grant-types/authorization-code/" target="_blank" rel="noopener">Authorization Code</a>: usado tanto por clientes confidenciales como públicos para intercambiar un código de autorización por un token de acceso, pero recomendado solo para clientes confidenciales</li>
+<li><a href="https://oauth.net/2/pkce/" target="_blank" rel="noopener">Proof Key for Code Exchange (PKCE)</a>: PKCE se construye sobre la concesión Authorization Code, proporcionándole mayor seguridad para que sea usada por clientes públicos y mejorando la postura de los confidenciales</li>
+<li><a href="https://oauth.net/2/grant-types/client-credentials/" target="_blank" rel="noopener">Client Credentials</a>: usado para la comunicación máquina a máquina, donde el &quot;usuario&quot; es la máquina que solicita al Resource Server acceso a sus propios recursos</li>
+<li><a href="https://oauth.net/2/grant-types/device-code/" target="_blank" rel="noopener">Device Code</a>: usado para dispositivos con capacidades de entrada limitadas.</li>
+<li><a href="https://oauth.net/2/grant-types/refresh-token/" target="_blank" rel="noopener">Refresh Token</a>: tokens proporcionados por el servidor de autorización para permitir a los clientes renovar los tokens de acceso de los usuarios cuando dejan de ser válidos o expiran. Este tipo de concesión se usa en conjunto con algún otro tipo de concesión.</li>
+</ul>
+<p>Dos flujos quedarán obsoletos con la publicación de <a href="https://oauth.net/2.1/" target="_blank" rel="noopener">OAuth2.1</a>, y no se recomienda su uso:</p>
+<ul>
+<li><a href="https://oauth.net/2/grant-types/implicit/" target="_blank" rel="noopener">Implicit Flow*</a>: la implementación segura de PKCE vuelve obsoleto este flujo. Antes de PKCE, el flujo implícito era usado por aplicaciones del lado del cliente como las <a href="https://en.wikipedia.org/wiki/Single-page_application" target="_blank" rel="noopener">aplicaciones de una sola página</a>, ya que <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS" target="_blank" rel="noopener">CORS</a> flexibilizó la <a href="https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy" target="_blank" rel="noopener">política del mismo origen</a> para que los sitios pudieran comunicarse entre sí. Para más información sobre por qué no se recomienda la concesión implícita, revise esta <a href="https://datatracker.ietf.org/doc/html/rfc9700#section-2.1.2" target="_blank" rel="noopener">sección</a>.</li>
+<li><a href="https://oauth.net/2/grant-types/password/" target="_blank" rel="noopener">Resource Owner Password Credentials</a>: usado para intercambiar las credenciales de los usuarios directamente con el cliente, que luego las envía al servidor de autorización para intercambiarlas por un token de acceso. Para información sobre por qué no se recomienda este flujo, revise esta <a href="https://datatracker.ietf.org/doc/html/rfc9700#section-2.4" target="_blank" rel="noopener">sección</a>.</li>
+</ul>
+<p>*: El flujo implícito en OAuth es el único que está obsoleto, pero sigue siendo una solución viable dentro de Open ID Connect (OIDC) para obtener <code>id_tokens</code>. Hay que tener cuidado de entender cómo se está usando el flujo implícito, lo cual puede identificarse si solo se usa el endpoint <code>/authorization</code> para obtener un token de acceso, sin depender en absoluto del endpoint <code>/token</code>. Un ejemplo de esto puede encontrarse <a href="https://auth0.com/docs/get-started/authentication-and-authorization-flow/implicit-flow-with-form-post" target="_blank" rel="noopener">aquí</a>.</p>
+<p><em>Tenga en cuenta que los flujos de OAuth son un tema complejo, y lo anterior incluye solo un resumen de las áreas clave. Las referencias en línea contienen más información sobre los flujos específicos.</em></p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Determinar si la implementación de OAuth2 es vulnerable o si utiliza una implementación obsoleta o personalizada.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="deprecated-grant-types">Tipos de concesión obsoletos</h3>
+<p>Los tipos de concesión obsoletos quedaron en desuso por razones de seguridad y funcionalidad. Identificar si se están utilizando permite revisar rápidamente si son susceptibles a alguna de las amenazas asociadas a su uso. Algunos pueden estar fuera del alcance del atacante, como la forma en que un cliente podría estar usando las credenciales de los usuarios. Esto debe documentarse y comunicarse a los equipos internos de ingeniería.</p>
+<p>En el caso de los clientes públicos, generalmente es posible identificar el tipo de concesión en la petición al endpoint <code>/token</code>. Se indica en el intercambio de tokens con el parámetro <code>grant_type</code>.</p>
+<p>El siguiente ejemplo muestra la concesión Authorization Code con PKCE.</p>
+<pre><code class="language-http">POST /oauth/token HTTP/1.1
+Host: as.example.com
+[...]
+
+{
+  &quot;client_id&quot;:&quot;example-client&quot;,
+  &quot;code_verifier&quot;:&quot;example&quot;,
+  &quot;grant_type&quot;:&quot;authorization_code&quot;,
+  &quot;code&quot;:&quot;example&quot;,
+  &quot;redirect_uri&quot;:&quot;https://client.example.com&quot;
+}
+</code></pre>
+<p>Los valores del parámetro <code>grant_type</code> y el tipo de concesión que indican son:</p>
+<ul>
+<li><code>password</code>: Indica la concesión ROPC.</li>
+<li><code>client_credentials</code>: Indica la concesión Client Credential.</li>
+<li><code>authorization_code</code>: Indica la concesión Authorization Code.</li>
+</ul>
+<p>El tipo Implicit Flow no se indica con el parámetro <code>grant_type</code>, ya que el token se presenta en la respuesta a la petición al endpoint <code>/authorization</code>, y en cambio puede identificarse mediante <code>response_type</code>. A continuación se muestra un ejemplo.</p>
+<pre><code class="language-http">GET /authorize
+  ?client_id=&lt;some_client_id&gt;
+  &amp;response_type=token 
+  &amp;redirect_uri=https%3A%2F%2Fclient.example.com%2F
+  &amp;scope=openid%20profile%20email
+  &amp;state=&lt;random_state&gt;
+</code></pre>
+<p>Los siguientes parámetros de URL indican el flujo de OAuth que se está utilizando:</p>
+<ul>
+<li><code>response_type=token</code>: Indica Implicit Flow, ya que el cliente solicita directamente al servidor de autorización que devuelva un token.</li>
+<li><code>response_type=code</code>: Indica el flujo Authorization Code, ya que el cliente solicita al servidor de autorización que devuelva un código, que luego se intercambiará por un token.</li>
+<li><code>code_challenge=sha256(xyz)</code>: Indica la extensión PKCE, ya que ningún otro flujo utiliza este parámetro.</li>
+</ul>
+<p>El siguiente es un ejemplo de petición de autorización para el flujo Authorization Code con PKCE:</p>
+<pre><code class="language-http">GET /authorize
+    ?redirect_uri=https%3A%2F%2Fclient.example.com%2F
+    &amp;client_id=&lt;some_client_id&gt;
+    &amp;scope=openid%20profile%20email
+    &amp;response_type=code
+    &amp;response_mode=query
+    &amp;state=&lt;random_state&gt;
+    &amp;nonce=&lt;random_nonce&gt;
+    &amp;code_challenge=&lt;random_code_challenge&gt;
+    &amp;code_challenge_method=S256 HTTP/1.1
+Host: as.example.com
+[...]
+</code></pre>
+<h4 id="public-clients">Clientes públicos</h4>
+<p>Para los clientes públicos se recomienda la concesión Authorization Code con la extensión PKCE. Una petición de autorización para el flujo Authorization Code con PKCE debe contener <code>response_type=code</code> y <code>code_challenge=sha256(xyz)</code>.</p>
+<p>El intercambio de tokens debe contener el tipo de concesión <code>authorization_code</code> y un <code>code_verifier</code>.</p>
+<p>Los tipos de concesión inadecuados para clientes públicos son:</p>
+<ul>
+<li>Concesión Authorization Code sin la extensión PKCE</li>
+<li>Client Credentials</li>
+<li>Implicit Flow</li>
+<li>ROPC</li>
+</ul>
+<h4 id="confidential-clients">Clientes confidenciales</h4>
+<p>Para los clientes confidenciales se recomienda la concesión Authorization Code. También se puede usar la extensión PKCE.</p>
+<p>Los tipos de concesión inadecuados para clientes confidenciales son:</p>
+<ul>
+<li>Client Credentials (excepto para máquina a máquina; véase más abajo)</li>
+<li>Implicit Flow</li>
+<li>ROPC</li>
+</ul>
+<h5 id="machine-to-machine">Máquina a máquina</h5>
+<p>En situaciones en las que no hay interacción de un usuario y los clientes son únicamente confidenciales, puede utilizarse la concesión Client Credentials.</p>
+<p>Si se conocen el <code>client_id</code> y el <code>client_secret</code>, es posible obtener un token pasando el tipo de concesión <code>client_credentials</code>.</p>
+<pre><code class="language-bash">$ curl --request POST \
+  --url https://as.example.com/oauth/token \
+  --header &#39;content-type: application/json&#39; \
+  --data &#39;{&quot;client_id&quot;:&quot;&lt;some_client_id&gt;&quot;,&quot;client_secret&quot;:&quot;&lt;some_client_secret&gt;&quot;,&quot;grant_type&quot;:&quot;client_credentials&quot;}&#39; --proxy https://localhost:8080/ -k
+</code></pre>
+<h3 id="credential-leakage">Filtración de credenciales</h3>
+<p>Dependiendo del flujo, OAuth transporta varios tipos de credenciales como parámetros de URL.</p>
+<p>Los siguientes tokens pueden considerarse credenciales filtradas:</p>
+<ul>
+<li>access token</li>
+<li>refresh token</li>
+<li>authorization code</li>
+<li>PKCE code challenge / code verifier</li>
+</ul>
+<p>Debido a cómo funciona OAuth, el <code>code</code> de autorización, así como el <code>code_challenge</code> y el <code>code_verifier</code>, pueden formar parte de la URL. El flujo implícito transporta el token de autorización como parte de la URL si el <code>response_mode</code> no está configurado como <a href="https://openid.net/specs/oauth-v2-form-post-response-mode-1_0.html" target="_blank" rel="noopener"><code>form_post</code></a>. Esto puede provocar la filtración del token o código solicitado en la cabecera referrer, en archivos de log y en proxies, debido a que estos parámetros se pasan en la query o en el fragmento.</p>
+<p>El riesgo que conlleva la filtración de tokens en el flujo implícito es mucho mayor que el de filtrar el <code>code</code> o cualquier otro parámetro <code>code_*</code>, ya que estos están vinculados a clientes específicos y son más difíciles de abusar en caso de filtración.</p>
+<p>Para probar este escenario, se debe usar un proxy interceptor HTTP como ZAP e interceptar el tráfico de OAuth.</p>
+<ul>
+<li>Recorrer el proceso de autorización e identificar cualquier credencial presente en la URL.</li>
+<li>Si se incluyen recursos externos en una página involucrada en el flujo de OAuth, analizar la petición que se les realiza. Las credenciales podrían filtrarse en la cabecera referrer.</li>
+</ul>
+<p>Después de recorrer el flujo de OAuth y usar la aplicación, se capturan algunas peticiones en el historial de peticiones de un proxy interceptor HTTP. Se debe buscar en el historial de peticiones la cabecera HTTP referrer (p. ej. <code>Referer: https://idp.example.com/</code>) que contenga las URL del servidor de autorización y del cliente.</p>
+<p>Revisar las metaetiquetas HTML (aunque esta etiqueta <a href="https://caniuse.com/mdn-html_elements_meta_name_referrer" target="_blank" rel="noopener">no es compatible</a> con todos los navegadores) o la cabecera <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy" target="_blank" rel="noopener">Referrer-Policy</a> puede ayudar a evaluar si se está produciendo alguna filtración de credenciales a través de la cabecera referrer.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">Testing JSON Web Tokens</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Al implementar OAuth, siempre se debe considerar la tecnología utilizada y si la aplicación es una aplicación del lado del servidor que puede evitar revelar secretos, o una aplicación del lado del cliente que no puede.</li>
+<li>En casi cualquier caso, se debe usar el flujo Authorization Code con PKCE. Una excepción pueden ser los flujos máquina a máquina.</li>
+<li>Usar parámetros POST o valores de cabeceras para transportar secretos.</li>
+<li>Cuando no exista otra posibilidad (por ejemplo, en aplicaciones heredadas que no se pueden migrar), implementar cabeceras de seguridad adicionales como <code>Referrer-Policy</code>.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/releases" target="_blank" rel="noopener">BurpSuite</a></li>
+<li><a href="https://github.com/portswigger/espresso" target="_blank" rel="noopener">EsPReSSO</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://oauth.net/articles/authentication/" target="_blank" rel="noopener">User Authentication with OAuth 2.0</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6749" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6750" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework: Bearer Token Usage</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6819" target="_blank" rel="noopener">OAuth 2.0 Threat Model and Security Considerations</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9700" target="_blank" rel="noopener">OAuth 2.0 Security Best Current Practice</a></li>
+<li><a href="https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce" target="_blank" rel="noopener">Authorization Code Flow with Proof Key for Code Exchange</a></li>
+</ul>

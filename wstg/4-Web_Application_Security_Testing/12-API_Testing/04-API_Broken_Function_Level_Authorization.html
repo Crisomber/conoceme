@@ -1,0 +1,79 @@
+<h1 id="api-broken-function-level-authorization">Autorización rota a nivel de función en API (BFLA)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-APIT-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Broken Function Level Authorization (BFLA) ocurre cuando una API aplica de forma indebida las restricciones sobre los usuarios que acceden a ciertas funciones u operaciones. Esta vulnerabilidad permite a los atacantes invocar funciones sensibles que no están autorizados a ejecutar, como funciones administrativas u otras operaciones de alto privilegio.</p>
+<p>BFLA surge comúnmente cuando las API exponen múltiples endpoints que atienden a diferentes roles de usuario (p. ej., usuario frente a administrador) pero no restringen el acceso a estas funciones según el nivel de autorización del usuario.</p>
+<p>Explotar BFLA puede tener consecuencias graves, como la escalada de privilegios, el acceso no autorizado a funciones sensibles (p. ej., operaciones administrativas) o la exposición de funcionalidades críticas que solo deberían ser accesibles para roles de usuario específicos.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>El objetivo de esta prueba es determinar si la API aplica un <strong>control de acceso basado en roles o privilegios</strong> para impedir que los usuarios accedan a funciones, o las ejecuten, que no están autorizados a utilizar. Esto asegura que los límites de seguridad a nivel de función se apliquen correctamente.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="identify-function-level-endpoints">Identificar endpoints a nivel de función</h3>
+<p>Revisar la documentación de la API (p. ej., la especificación OpenAPI), el tráfico, o usar un proxy de interceptación (p. ej., <strong>Burp Suite</strong>, <strong>ZAP</strong>) para identificar los diferentes endpoints a nivel de función. Estos pueden incluir:</p>
+<ul>
+<li><strong>Funciones administrativas</strong> (p. ej., <code>/api/admin/deleteUser</code>, <code>/api/admin/getAllUsers</code>)</li>
+<li><strong>Operaciones basadas en roles</strong> (p. ej., <code>/api/admin/promoteUser</code>, <code>/api/user/createOrder</code>)</li>
+<li><strong>Funciones críticas</strong> para los usuarios (p. ej., <code>/api/user/withdrawFunds</code>)</li>
+</ul>
+<p>Centrarse en las <strong>diferencias de funcionalidad</strong> entre los distintos roles de usuario (p. ej., usuario normal, administrador, socio, invitado) y en los endpoints que ofrecen capacidades más sensibles.</p>
+<h3 id="manipulate-role-based-access-controls">Manipular los controles de acceso basados en roles</h3>
+<p>Intentar acceder a operaciones sensibles expuestas en los endpoints de la API, o realizarlas, que deberían estar restringidas según los roles de usuario.</p>
+<p>Iniciar sesión como un usuario con menos privilegios (p. ej., invitado o usuario normal) y enviar peticiones a endpoints que realizan acciones sensibles reservadas para roles con mayores privilegios (p. ej., administrador).</p>
+<p>Ejemplo: como <strong>usuario normal</strong>, enviar una petición al siguiente endpoint administrativo para eliminar un usuario aleatorio:</p>
+<pre><code class="language-http">POST /api/admin/deleteUser
+Authorization: Bearer &lt;regular_user_token&gt;
+
+{ &quot;userId&quot;: &quot;12345&quot; }
+</code></pre>
+<h3 id="test-function-level-access-with-different-http-methods">Probar el acceso a nivel de función con distintos métodos HTTP</h3>
+<p>Probar varios <strong>métodos HTTP</strong> en busca de vulnerabilidades BFLA. Probar cada recurso identificado con métodos HTTP alternativos. Emitir peticiones con métodos distintos de los documentados (como <code>PUT</code>, <code>DELETE</code> o <code>PATCH</code>) contra endpoints que normalmente solo aceptan <code>GET</code> o <code>POST</code>. Registrar cualquier diferencia en el comportamiento de la respuesta o en el resultado de la autorización.</p>
+<ul>
+<li><strong>GET</strong>: Intentar acceder a información disponible solo para usuarios con altos privilegios, como los administradores.<ul>
+<li>Ejemplo: <code>GET /api/admin/getAllUsers</code></li>
+</ul>
+</li>
+<li><strong>POST/PUT/PATCH</strong>: Intentar modificar o crear recursos sensibles, como cambiar roles de usuario o datos críticos del sistema.<ul>
+<li>Ejemplo: <code>POST /api/admin/promoteUser { &quot;userId&quot;: &quot;12345&quot;, &quot;newRole&quot;: &quot;admin&quot; }</code></li>
+</ul>
+</li>
+<li><strong>DELETE</strong>: Intentar eliminar recursos sensibles, como eliminar cuentas de usuario o datos.<ul>
+<li>Ejemplo: <code>DELETE /api/admin/deleteUser/12345</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="test-for-bfla-in-graphql-apis">Probar BFLA en API GraphQL</h3>
+<p>En las <strong>API GraphQL</strong>, probar si un usuario puede invocar funciones restringidas a roles con mayores privilegios modificando las consultas GraphQL.</p>
+<p>Ejemplo: <code>mutation { deleteUser(id: &quot;12345&quot;) { success } }</code>.</p>
+<h2 id="indicators-of-bfla">Indicadores de BFLA</h2>
+<ul>
+<li><strong>Explotación exitosa</strong>: Si un usuario con menos privilegios (p. ej., usuario normal o invitado) puede ejecutar funciones de altos privilegios o realizar acciones reservadas para otros roles (p. ej., administrador).</li>
+<li><strong>Respuestas de error</strong>: Las API correctamente protegidas, en general, devolverían <code>403 Forbidden</code> o <code>401 Unauthorized</code> al invocar funciones restringidas en lugar de una respuesta <code>200 OK</code>.</li>
+<li><strong>Aplicación inconsistente</strong>: Algunos endpoints aplican restricciones basadas en roles y otros no, lo que indica controles de seguridad inconsistentes.</li>
+</ul>
+<h2 id="remediations">Correcciones</h2>
+<p>Para prevenir las vulnerabilidades BFLA, implementar las siguientes mitigaciones:</p>
+<ul>
+<li><strong>Aplicar control de acceso basado en roles (RBAC)</strong>: Asegurar que la API compruebe los roles y permisos del usuario a <strong>nivel de función</strong> antes de permitir el acceso a ciertas operaciones. Solo se debe permitir que los roles autorizados invoquen funciones sensibles.</li>
+<li><strong>Principio de mínimo privilegio</strong>: Aplicar el principio de mínimo privilegio asegurando que los usuarios solo puedan acceder al conjunto mínimo de funciones que necesitan para su rol.</li>
+<li><strong>Lógica de control de acceso centralizada</strong>: Usar lógica de control de acceso centralizada para asegurar la coherencia en todos los endpoints de la API. Esto evita brechas en las que algunas funciones carezcan de las comprobaciones de acceso adecuadas.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><strong>ZAP</strong>: Usar escáneres automatizados y herramientas manuales de proxy para inspeccionar las peticiones y respuestas de la API en busca de vulnerabilidades BFLA.</li>
+<li><strong>Burp Suite</strong>: Usar <strong>Repeater</strong> o <strong>Intruder</strong> para enviar peticiones como usuarios con menos privilegios y probar si se aplican las restricciones a nivel de función.</li>
+<li><strong>Postman</strong>: Enviar manualmente peticiones a la API como diferentes roles de usuario y observar las respuestas.</li>
+<li><strong>Herramientas de fuzzing</strong>: Usar fuzzers para probar diferentes parámetros y métodos de función con el fin de identificar posibles debilidades de autorización.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/" target="_blank" rel="noopener">OWASP API Security Top 10: BFLA</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/03-Privilege_Escalation">Privilege Escalation</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/12-API_Testing/99-GraphQL">GraphQL</a></li>
+</ul>

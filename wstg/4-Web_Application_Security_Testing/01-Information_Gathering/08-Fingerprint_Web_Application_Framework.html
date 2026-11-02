@@ -1,0 +1,275 @@
+<h1 id="fingerprint-web-application-framework">Identificación del framework de la aplicación web (Fingerprint Web Application Framework)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-08</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>No sería exagerado decir que casi toda idea concebible para una aplicación web ya se ha puesto en desarrollo. Con la gran cantidad de proyectos de software libre y de código abierto que se desarrollan y despliegan activamente en todo el mundo, es muy probable que una prueba de seguridad de aplicaciones encuentre un objetivo que dependa total o parcialmente de estas aplicaciones o frameworks bien conocidos (por ejemplo, WordPress, phpBB, Mediawiki, etc.). Conocer los componentes de la aplicación web que se están probando ayuda significativamente al proceso de prueba y también reducirá drásticamente el esfuerzo requerido durante la misma. Estas aplicaciones web bien conocidas tienen cabeceras HTML, cookies y estructuras de directorios específicas que pueden enumerarse para identificar la aplicación. La mayoría de los frameworks web tienen varios marcadores en estas ubicaciones, que pueden ayudar a un atacante o a un evaluador a reconocerlos. Esto es básicamente lo que hacen todas las herramientas automáticas: buscan un marcador en una ubicación predefinida y luego lo comparan con la base de datos de firmas conocidas. Para lograr mayor precisión, normalmente se utilizan varios marcadores.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar (fingerprinting) los componentes utilizados por las aplicaciones web.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Hay varias ubicaciones comunes que se deben considerar para identificar frameworks o componentes:</p>
+<ul>
+<li>Cabeceras HTTP</li>
+<li>Cookies</li>
+<li>Código fuente HTML</li>
+<li>Archivos y carpetas específicos</li>
+<li>Extensiones de archivo</li>
+<li>Mensajes de error</li>
+</ul>
+<h4 id="http-headers">Cabeceras HTTP</h4>
+<p>La forma más básica de identificar un framework web es observar el campo <code>X-Powered-By</code> en la cabecera de respuesta HTTP. Se pueden usar muchas herramientas para identificar un objetivo; la más sencilla es netcat.</p>
+<p>Considérese la siguiente petición-respuesta HTTP:</p>
+<pre><code class="language-html">$ nc 127.0.0.1 80
+HEAD / HTTP/1.0
+
+HTTP/1.1 200 OK
+Server: nginx/1.0.14
+[...]
+X-Powered-By: Mono
+</code></pre>
+<p>A partir del campo <code>X-Powered-By</code>, entendemos que el framework de la aplicación web es probablemente <code>Mono</code>. Sin embargo, aunque este enfoque es simple y rápido, esta metodología no funciona en todos los casos. Es posible deshabilitar fácilmente la cabecera <code>X-Powered-By</code> con una configuración adecuada. También hay varias técnicas que permiten a un sitio ofuscar las cabeceras HTTP (consulta un ejemplo en la sección <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework@remediation">Corrección</a>). En el ejemplo anterior, también podemos observar que se está usando una versión específica de <code>nginx</code> para servir el contenido.</p>
+<p>En el mismo ejemplo, el evaluador podría no encontrar la cabecera <code>X-Powered-By</code> u obtener una respuesta como la siguiente:</p>
+<pre><code class="language-html">HTTP/1.1 200 OK
+Server: nginx/1.0.14
+Date: Sat, 07 Sep 2013 08:19:15 GMT
+Content-Type: text/html;charset=ISO-8859-1
+Connection: close
+Vary: Accept-Encoding
+X-Powered-By: Blood, sweat and tears
+</code></pre>
+<p>A veces hay más cabeceras HTTP que apuntan a un determinado framework. En el siguiente ejemplo, según la información de la petición HTTP, se puede ver que la cabecera <code>X-Powered-By</code> contiene la versión de PHP. Sin embargo, la cabecera <code>X-Generator</code> señala que el framework utilizado es en realidad <code>Swiftlet</code>, lo que ayuda a un evaluador de penetración a ampliar sus vectores de ataque. Al realizar la identificación, hay que inspeccionar cuidadosamente cada cabecera HTTP en busca de este tipo de fugas.</p>
+<pre><code class="language-html">HTTP/1.1 200 OK
+Server: nginx/1.4.1
+Date: Sat, 07 Sep 2013 09:22:52 GMT
+Content-Type: text/html
+Connection: keep-alive
+Vary: Accept-Encoding
+X-Powered-By: PHP/5.4.16-1~dotdeb.1
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+X-Generator: Swiftlet
+</code></pre>
+<h4 id="cookies">Cookies</h4>
+<p>Otra forma similar y algo más confiable de determinar el framework web actual son las cookies específicas de cada framework.</p>
+<p>Considérense las siguientes cabeceras de respuesta HTTP de una aplicación Laravel:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+Cache-Control: no-cache, private
+Date: Sun, 13 Sep 2026 12:10:25 GMT
+Set-Cookie: XSRF-TOKEN=eyJpdiI6IkpyQWZUUUFjVXBPWWpkSjF3cHlJZnc9PSIsInZhbHVlIjoiZzZlVm1QWlMxRDlqVGpDVHlwdVVPa3BpWDhYd0F2NXlodm1jTmRSU2pFaUh1VUxvL3cyLzhNU2o1blBJSUpQS2srNnBQQUVpUlJJeW9wMkRvZXhqejBySnpGUVVzclllendrQzZDWDBUa0ZiVmVnNlRidDFwVExrdGRZekJyd1ciLCJtYWMiOiJjMjcyN2FjOThlNjEyMGY0YjZkYjEwNWJjZGI2YWE4MzJiNDZjZDg1NDQxN2U0YzcxMDg5NTJhOTVjODE5YzY2IiwidGFnIjoiIn0%3D; expires=Sun, 13 Sep 2026 14:10:26 GMT; Max-Age=7200; path=/; samesite=lax
+Set-Cookie: laravel_session=eyJpdiI6IlV4QkdjeWE2dGpzU2EyWEd4cDRHbXc9PSIsInZhbHVlIjoiMnlFWS9CcW9ncEFKODQzMFFxK0F6ekN4dStJbnF2b2NhaUlmRWVuRU81WFo2OHZwQTlYZ2owdGZlUVVLY29ScWRsZDllTTVVTXBuaE1SanBSak5JeU5NZFJnNFdZUmtOZnUwVTBUYndRbmpJdVRKdW9mZUtrMnRwRXg3TUxiM2MiLCJtYWMiOiI5NDU1ODY2Y2Q5NjhjMGI4NWZkNmZjNjI1NTI1ZDNiNTJjMDU3MTc3ZjAyZDc2YjlmZGE4OTM5NjFhNTY3ZTE3IiwidGFnIjoiIn0%3D; expires=Sun, 13 Sep 2026 14:10:26 GMT; Max-Age=7200; path=/; httponly; samesite=lax
+content-length: 88805
+</code></pre>
+<p>La cookie <code>laravel_session</code>, junto con la cookie <code>XSRF-TOKEN</code> que la acompaña y que se usa para la protección contra CSRF, se ha establecido automáticamente, lo que da información sobre el framework en uso. En la sección <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework@cookies-1">Cookies</a> se presenta una lista de nombres de cookies comunes. Aún existen limitaciones al confiar en este mecanismo de identificación: es posible cambiar el nombre de las cookies. Por ejemplo, en Laravel esto podría hacerse mediante el valor <code>cookie</code> en <code>config/session.php</code>:</p>
+<pre><code class="language-php">/*
+|--------------------------------------------------------------------------
+| Session Cookie Name
+|--------------------------------------------------------------------------
+|
+| Here you may change the name of the cookie used to identify a session
+| instance by ID. The name specified here will get used every time a
+| new session cookie is created by the framework for every driver.
+|
+*/
+
+&#39;cookie&#39; =&gt; env(
+    &#39;SESSION_COOKIE&#39;,
+    Str::slug(env(&#39;APP_NAME&#39;, &#39;laravel&#39;), &#39;_&#39;).&#39;_session&#39;
+),
+</code></pre>
+<p>Sin embargo, es menos probable que se realicen estos cambios que modificaciones a la cabecera <code>X-Powered-By</code>, lo que hace que este enfoque de identificación sea más confiable.</p>
+<h4 id="html-source-code">Código fuente HTML</h4>
+<p>Esta técnica se basa en encontrar ciertos patrones en el código fuente de la página HTML. A menudo se puede encontrar mucha información que ayuda al evaluador a reconocer un componente específico. Uno de los marcadores comunes son los comentarios HTML que llevan directamente a la revelación del framework. Con más frecuencia se pueden encontrar ciertas rutas específicas del framework, es decir, enlaces a carpetas CSS o JS propias del framework. Finalmente, ciertas variables de script específicas también pueden apuntar a un determinado framework.</p>
+<p>En la captura de pantalla siguiente, se puede determinar fácilmente el framework en uso y su versión a partir de los marcadores mencionados. Las aplicaciones Angular, por ejemplo, añaden un atributo <code>ng-version</code> directamente en el elemento raíz de la página, revelando explícitamente la versión exacta del framework en uso.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-angular_html_source.png" alt="Ejemplo de framework Angular" loading="lazy"><br><em>Figura 4.1.8-1: Ejemplo del código fuente HTML de un framework Angular</em></p>
+<p>Con frecuencia esta información se ubica en la sección <code>&lt;head&gt;</code> de las respuestas HTTP, en etiquetas <code>&lt;meta&gt;</code> o al final de la página. No obstante, se deben analizar las respuestas completas, ya que pueden ser útiles para otros fines, como la inspección de otros comentarios útiles y campos ocultos. A veces, los desarrolladores web pueden no ocultar lo suficiente la información sobre los frameworks o componentes utilizados. Todavía es posible tropezar con algo como esto al final de la página, como un pie de página &quot;Proudly published with Ghost&quot; que revela que el sitio se ejecuta en la plataforma de publicación <a href="https://ghost.org/" target="_blank" rel="noopener">Ghost</a>:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-ghost_bottom_page.png" alt="Pie de página de Ghost" loading="lazy"><br><em>Figura 4.1.8-2: Pie de página de Ghost</em></p>
+<h3 id="specific-files-and-folders">Archivos y carpetas específicos</h3>
+<p>Existe otro enfoque que ayuda mucho a un atacante o evaluador a identificar aplicaciones o componentes con gran precisión. Cada componente de una aplicación web tiene su estructura específica de archivos y carpetas en el servidor. Se ha señalado que se puede ver la ruta específica en el código fuente de la página HTML, pero a veces no se presentan allí de forma explícita y aun así pueden residir en el servidor.</p>
+<p>Para descubrirlos se utiliza una técnica conocida como navegación forzada (forced browsing) o &quot;dirbusting&quot;. El dirbusting consiste en realizar fuerza bruta contra un objetivo con nombres de carpetas y archivos conocidos y monitorear las respuestas HTTP para enumerar el contenido del servidor. Esta información puede utilizarse tanto para encontrar archivos predeterminados y atacarlos, como para identificar la aplicación web (fingerprinting). El dirbusting puede hacerse de varias maneras; el ejemplo siguiente muestra un ataque de dirbusting exitoso contra un objetivo basado en WordPress con la ayuda de una lista definida y de la funcionalidad intruder de Burp Suite.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-wordpress_dirbusting.png" alt="Dirbusting con Burp" loading="lazy"><br><em>Figura 4.1.8-3: Dirbusting con Burp</em></p>
+<p>Podemos ver que, para algunas carpetas específicas de WordPress (por ejemplo, <code>/wp-includes/</code>, <code>/wp-admin/</code> y <code>/wp-content/</code>), las respuestas HTTP son 403 (Forbidden), 302 (Found, redirección a <code>wp-login.php</code>) y 200 (OK) respectivamente. Esto es un buen indicador de que el objetivo funciona con WordPress. De la misma manera es posible aplicar dirbusting a diferentes carpetas de plugins de la aplicación y a sus versiones. En la captura de pantalla siguiente se puede ver un archivo <code>readme.txt</code> típico de un plugin de WordPress, accesible en <code>/wp-content/plugins/&lt;plugin-name&gt;/readme.txt</code>, que proporciona información sobre el plugin en uso y revela su versión exacta, potencialmente vulnerable, mediante el campo <code>Stable tag</code>.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-wordpress_plugin_readme_disclosure.png" alt="Revelación del readme de un plugin de WordPress" loading="lazy"><br><em>Figura 4.1.8-4: Revelación del readme de un plugin de WordPress</em></p>
+<p>Consejo: antes de comenzar con el dirbusting, revisa primero el archivo <code>robots.txt</code>. A veces también se pueden encontrar allí carpetas específicas de la aplicación y otra información sensible. En la captura de pantalla siguiente se presenta un ejemplo de dicho archivo <code>robots.txt</code>.</p>
+<pre><code class="language-text">User-agent: *
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+</code></pre>
+<p>Los archivos y carpetas específicos son diferentes para cada aplicación. Si la aplicación o el componente identificado es de código abierto, puede ser valioso configurar una instalación temporal durante las pruebas de penetración para comprender mejor qué infraestructura o funcionalidad se presenta y qué archivos podrían quedar en el servidor. Sin embargo, ya existen varias listas de archivos útiles; un ejemplo notable son las <a href="https://github.com/fuzzdb-project/fuzzdb" target="_blank" rel="noopener">listas de palabras de archivos/carpetas predecibles de FuzzDB</a>.</p>
+<h4 id="file-extensions">Extensiones de archivo</h4>
+<p>Las URL pueden incluir extensiones de archivo que también ayudan a identificar la plataforma o tecnología web.</p>
+<p>Por ejemplo, el antiguo wiki de OWASP utilizaba PHP:</p>
+<pre><code class="language-text">https://example.owasp.org/index.php?title=Fingerprint_Web_Application_Framework&amp;action=edit&amp;section=4
+</code></pre>
+<p>Estas son algunas extensiones de archivos web comunes y las tecnologías asociadas:</p>
+<ul>
+<li><code>.php</code> -- PHP</li>
+<li><code>.aspx</code> -- Microsoft ASP.NET</li>
+<li><code>.jsp</code> -- Java Server Pages</li>
+</ul>
+<h4 id="error-messages">Mensajes de error</h4>
+<p>Como se puede ver en la siguiente captura de pantalla, la ruta del sistema de archivos listada apunta al uso de WordPress (<code>wp-content</code>). Además, los evaluadores deben tener en cuenta que WordPress está basado en PHP (<code>functions.php</code>).</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-wp_syntaxerror.png" alt="Error de análisis sintáctico de WordPress" loading="lazy"><br><em>Figura 4.1.8-5: Error de análisis sintáctico (parse error) de WordPress</em></p>
+<h2 id="common-identifiers">Identificadores comunes</h2>
+<h3 id="cookies-1">Cookies</h3>
+<div class="tabla"><table><thead><tr>
+<th>Framework</th>
+<th>Nombre de la cookie</th>
+</tr>
+</thead><tbody><tr>
+<td>WordPress</td>
+<td><code>wordpress_logged_in_*</code>, <code>wp-settings-*</code></td>
+</tr>
+<tr>
+<td>Laravel</td>
+<td><code>laravel_session</code></td>
+</tr>
+<tr>
+<td>Django</td>
+<td><code>sessionid</code>, <code>csrftoken</code></td>
+</tr>
+<tr>
+<td>Express.js (Node)</td>
+<td><code>connect.sid</code></td>
+</tr>
+<tr>
+<td>ASP.NET Core</td>
+<td><code>.AspNetCore.Session</code>, <code>.AspNetCore.Antiforgery.*</code></td>
+</tr>
+<tr>
+<td>phpBB</td>
+<td><code>phpbb3_*</code></td>
+</tr>
+<tr>
+<td>Drupal</td>
+<td><code>SESS*</code> / <code>SSESS*</code> (el nombre es un hash, sin prefijo fijo más allá de <code>SESS</code>/<code>SSESS</code>)</td>
+</tr>
+<tr>
+<td>CakePHP</td>
+<td><code>CAKEPHP</code> (configurable, este es el valor predeterminado)</td>
+</tr>
+<tr>
+<td>TYPO3</td>
+<td><code>fe_typo_user</code></td>
+</tr>
+<tr>
+<td>DNN Platform (DotNetNuke)</td>
+<td><code>DotNetNukeAnonymous</code></td>
+</tr>
+</tbody></table></div>
+<h3 id="html-source-code-1">Código fuente HTML</h3>
+<div class="tabla"><table><thead><tr>
+<th>Aplicación</th>
+<th>Palabra clave</th>
+</tr>
+</thead><tbody><tr>
+<td>WordPress</td>
+<td><code>&lt;meta name=&quot;generator&quot; content=&quot;WordPress X.X&quot; /&gt;</code></td>
+</tr>
+<tr>
+<td>phpBB</td>
+<td><code>&lt;body id=&quot;phpbb&quot;</code></td>
+</tr>
+<tr>
+<td>MediaWiki</td>
+<td><code>&lt;meta name=&quot;generator&quot; content=&quot;MediaWiki X.X&quot; /&gt;</code></td>
+</tr>
+<tr>
+<td>Joomla</td>
+<td><code>&lt;meta name=&quot;generator&quot; content=&quot;Joomla! - Open Source Content Management&quot; /&gt;</code></td>
+</tr>
+<tr>
+<td>Drupal</td>
+<td><code>&lt;meta name=&quot;Generator&quot; content=&quot;Drupal X (https://drupal.org)&quot; /&gt;</code></td>
+</tr>
+<tr>
+<td>Ghost</td>
+<td><code>&lt;meta name=&quot;generator&quot; content=&quot;Ghost X.X&quot; /&gt;</code></td>
+</tr>
+<tr>
+<td>DotNetNuke</td>
+<td><code>DNN Platform - [https://www.dnnsoftware.com](https://www.dnnsoftware.com)</code></td>
+</tr>
+<tr>
+<td>Angular</td>
+<td>atributo <code>ng-version=&quot;X.X.X&quot;</code> en el elemento raíz de la aplicación</td>
+</tr>
+<tr>
+<td>Next.js</td>
+<td><code>&lt;script id=&quot;__NEXT_DATA__&quot; type=&quot;application/json&quot;&gt;</code></td>
+</tr>
+</tbody></table></div>
+<h4 id="general-markers">Marcadores generales</h4>
+<ul>
+<li><code>%framework_name%</code></li>
+<li><code>powered by</code></li>
+<li><code>built upon</code></li>
+<li><code>running</code></li>
+</ul>
+<h4 id="specific-markers">Marcadores específicos</h4>
+<div class="tabla"><table><thead><tr>
+<th>Framework</th>
+<th>Palabra clave</th>
+</tr>
+</thead><tbody><tr>
+<td>Adobe ColdFusion</td>
+<td><code>&lt;!-- START headerTags.cfm</code></td>
+</tr>
+<tr>
+<td>Microsoft ASP.NET</td>
+<td><code>__VIEWSTATE</code></td>
+</tr>
+<tr>
+<td>ZK</td>
+<td><code>&lt;!-- ZK [.\d\s]+--&gt;</code>, scripts under <code>zkau/</code></td>
+</tr>
+<tr>
+<td>Indexhibit</td>
+<td><code>ndxz-studio</code> (en <code>&lt;link&gt;</code>/<code>&lt;a href&gt;</code>, o como <code>&lt;meta name=&quot;generator&quot; content=&quot;Indexhibit&quot;&gt;</code>)</td>
+</tr>
+<tr>
+<td>Next.js</td>
+<td><code>&lt;script id=&quot;__NEXT_DATA__&quot; type=&quot;application/json&quot;&gt;</code>, <code>x-powered-by: Next.js</code></td>
+</tr>
+<tr>
+<td>Nuxt</td>
+<td><code>&lt;div id=&quot;__nuxt&quot;</code>, <code>window.__NUXT__</code> en línea, rutas de script bajo <code>/_nuxt/</code></td>
+</tr>
+<tr>
+<td>htmx</td>
+<td>Objeto JS global <code>htmx</code>, src de script que coincide con <code>htmx.org@X.X.X</code></td>
+</tr>
+</tbody></table></div>
+<h3 id="whatweb">WhatWeb</h3>
+<p>Sitio: <a href="https://github.com/urbanadventurer/WhatWeb" target="_blank" rel="noopener">https://github.com/urbanadventurer/WhatWeb</a></p>
+<p>WhatWeb es una de las mejores herramientas de identificación de código abierto disponibles actualmente en el mercado y está incluida en la compilación predeterminada de <a href="https://www.kali.org/" target="_blank" rel="noopener">Kali Linux</a>. Lenguaje: Ruby. Las coincidencias para la identificación se realizan con:</p>
+<ul>
+<li>Cadenas de texto (distingue mayúsculas y minúsculas)</li>
+<li>Expresiones regulares</li>
+<li>Consultas de la Google Hack Database (conjunto limitado de palabras clave)</li>
+<li>Hashes MD5</li>
+<li>Reconocimiento de URL</li>
+<li>Patrones de etiquetas HTML</li>
+<li>Código Ruby personalizado para operaciones pasivas y agresivas</li>
+</ul>
+<p>En la siguiente captura de pantalla se presenta un ejemplo de salida:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/08-whatweb_sample.png" alt="Ejemplo de salida de Whatweb" loading="lazy"><br><em>Figura 4.1.8-6: Ejemplo de salida de Whatweb</em></p>
+<h2 id="remediation">Corrección</h2>
+<p>Aunque se pueden hacer esfuerzos por usar diferentes nombres de cookies (cambiando configuraciones), ocultar o cambiar las rutas de archivos y directorios (mediante reescritura o cambios en el código fuente), eliminar cabeceras conocidas, etc., tales esfuerzos se reducen a &quot;seguridad por oscuridad&quot;. Los propietarios o administradores de los sistemas deben reconocer que dichos esfuerzos solo ralentizan a los adversarios más rudimentarios. Quizás el tiempo y el esfuerzo se inviertan mejor en aumentar la concienciación de las partes interesadas y en mantener las soluciones.</p>
+<h2 id="tools">Herramientas</h2>
+<p>A continuación se presenta una lista de herramientas generales y bien conocidas. También hay muchas otras utilidades, así como herramientas de identificación basadas en frameworks.</p>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Documentos técnicos (Whitepapers)</h3>
+<ul>
+<li><a href="https://web.archive.org/web/20190526182734/https://net-square.com/httprint_paper.html" target="_blank" rel="noopener">Saumil Shah: &quot;An Introduction to HTTP fingerprinting&quot;</a></li>
+<li><a href="https://anantshri.info/articles/web_app_finger_printing.html" target="_blank" rel="noopener">Anant Shrivastava : &quot;Web Application Finger Printing&quot;</a></li>
+</ul>

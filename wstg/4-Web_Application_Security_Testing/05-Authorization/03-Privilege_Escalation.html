@@ -1,0 +1,161 @@
+<h1 id="privilege-escalation">Escalada de privilegios</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHZ-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Esta sección describe el problema de escalar privilegios de una etapa a otra. Durante esta fase, el evaluador debe verificar que un usuario no pueda modificar sus privilegios o roles dentro de la aplicación de maneras que permitan ataques de escalada de privilegios.</p>
+<p>La escalada de privilegios ocurre cuando un usuario obtiene acceso a más recursos o funcionalidades de los que normalmente se le permiten, y dicha elevación o cambios deberían haber sido impedidos por la aplicación. Esto suele deberse a una falla en la aplicación. El resultado es que la aplicación realiza acciones con más privilegios de los previstos por el desarrollador o el administrador del sistema.</p>
+<p>El grado de escalada depende de qué privilegios tiene autorizados el atacante y de qué privilegios se pueden obtener con una explotación exitosa. Por ejemplo, un error de programación que permite a un usuario obtener privilegios adicionales tras una autenticación exitosa limita el grado de escalada, porque el usuario ya está autorizado para tener algunos privilegios. Del mismo modo, un atacante remoto que obtiene privilegios de superusuario sin ninguna autenticación representa un mayor grado de escalada.</p>
+<p>Normalmente se habla de <em>escalada vertical</em> cuando es posible acceder a recursos concedidos a cuentas con más privilegios (por ejemplo, adquirir privilegios administrativos en la aplicación), y de <em>escalada horizontal</em> cuando es posible acceder a recursos concedidos a una cuenta configurada de manera similar (por ejemplo, en una aplicación de banca en línea, acceder a información de otro usuario).</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección relacionados con la manipulación de privilegios.</li>
+<li>Realizar fuzzing o intentar de otro modo evadir las medidas de seguridad.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="roleprivilege-manipulation">Manipulación de roles/privilegios</h3>
+<p>En cada parte de la aplicación donde un usuario puede crear información en la base de datos (por ejemplo, hacer un pago, agregar un contacto o enviar un mensaje), recibir información (estado de cuenta, detalles de pedidos, etc.) o eliminar información (eliminar usuarios, mensajes, etc.), es necesario registrar esa funcionalidad. El evaluador debe intentar acceder a tales funciones como otro usuario para verificar si es posible acceder a una función que el rol/privilegio del usuario no debería permitir (pero que podría estar permitida a otro usuario).</p>
+<h4 id="manipulation-of-user-group">Manipulación del grupo de usuario</h4>
+<p>Por ejemplo:
+El siguiente HTTP POST permite que el usuario que pertenece a <code>grp001</code> acceda al pedido n.º 0001:</p>
+<pre><code class="language-http">POST /user/viewOrder.jsp HTTP/1.1
+Host: www.example.com
+...
+
+groupID=grp001&amp;orderID=0001
+</code></pre>
+<p>Se debe verificar si un usuario que no pertenece a <code>grp001</code> puede modificar el valor de los parámetros <code>groupID</code> y <code>orderID</code> para obtener acceso a esos datos privilegiados.</p>
+<h4 id="manipulation-of-user-profile">Manipulación del perfil de usuario</h4>
+<p>Por ejemplo:
+La siguiente respuesta del servidor muestra un campo oculto en el HTML devuelto al usuario después de una autenticación exitosa.</p>
+<pre><code class="language-html">HTTP/1.1 200 OK
+Server: Netscape-Enterprise/6.0
+Date: Wed, 1 Apr 2006 13:51:20 GMT
+Set-Cookie: USER=aW78ryrGrTWs4MnOd32Fs51yDqp; path=/; domain=www.example.com
+Set-Cookie: SESSION=k+KmKeHXTgDi1J5fT7Zz; path=/; domain= www.example.com
+Cache-Control: no-cache
+Pragma: No-cache
+Content-length: 247
+Content-Type: text/html
+Expires: Thu, 01 Jan 1970 00:00:00 GMT
+Connection: close
+
+&lt;form  name=&quot;autoriz&quot; method=&quot;POST&quot; action = &quot;visual.jsp&quot;&gt;
+&lt;input type=&quot;hidden&quot; name=&quot;profile&quot; value=&quot;SysGuest&quot;&gt;\
+
+&lt;body onload=&quot;document.forms.autoriz.submit()&quot;&gt;
+&lt;/td&gt;
+&lt;/tr&gt;
+</code></pre>
+<p>¿Qué pasa si el evaluador modifica el valor de la variable <code>profile</code> a <code>SysAdmin</code>? ¿Es posible convertirse en <strong>administrador</strong>?</p>
+<h4 id="manipulation-of-condition-value">Manipulación del valor de una condición</h4>
+<p>Por ejemplo:
+En un entorno donde el servidor envía un mensaje de error contenido como valor de un parámetro específico dentro de un conjunto de códigos de respuesta, como el siguiente:</p>
+<pre><code class="language-text">@0`1`3`3``0`UC`1`Status`OK`SEC`5`1`0`ResultSet`0`PVValid`-1`0`0` Notifications`0`0`3`Command  Manager`0`0`0` StateToolsBar`0`0`0`
+StateExecToolBar`0`0`0`FlagsToolBar`0
+</code></pre>
+<p>El servidor otorga una confianza implícita al usuario. Cree que el usuario responderá con el mensaje anterior cerrando la sesión.</p>
+<p>En esta condición, se debe verificar que no sea posible escalar privilegios modificando los valores de los parámetros. En este ejemplo particular, al modificar el valor de <code>PVValid</code> de <code>-1</code> a <code>0</code> (sin condiciones de error), puede ser posible autenticarse como administrador en el servidor.</p>
+<h4 id="manipulation-of-ip-address">Manipulación de la dirección IP</h4>
+<p>Algunos sitios limitan el acceso o cuentan el número de intentos fallidos de inicio de sesión según la dirección IP.</p>
+<p>Por ejemplo:</p>
+<pre><code class="language-text">X-Forwarded-For: 8.1.1.1
+</code></pre>
+<p>En este caso, si el sitio usa el valor de <code>X-forwarded-For</code> como dirección IP del cliente, el evaluador puede cambiar el valor de IP de la cabecera HTTP <code>X-forwarded-For</code> para eludir la identificación del origen por IP.</p>
+<h3 id="vertical-bypass">Evasión vertical</h3>
+<p>Una evasión de autorización vertical es específica del caso en que un atacante obtiene un rol superior al suyo. Las pruebas de esta evasión se centran en verificar cómo se ha implementado el esquema de autorización vertical para cada rol. Para cada función, página, rol específico o petición que ejecuta la aplicación, es necesario verificar si es posible:</p>
+<ul>
+<li>Acceder a recursos que deberían ser accesibles solo a un usuario con un rol superior.</li>
+<li>Operar funciones sobre recursos que deberían ser operables solo por un usuario con una identidad de rol superior o específica.</li>
+</ul>
+<p>Para cada rol:</p>
+<ol>
+<li>Registrar un usuario.</li>
+<li>Establecer y mantener dos sesiones distintas basadas en los dos roles diferentes.</li>
+<li>Para cada petición, cambiar el identificador de sesión del original al identificador de sesión de otro rol y evaluar las respuestas de cada uno.</li>
+<li>Se considerará que una aplicación es vulnerable si la sesión con menos privilegios contiene los mismos datos o indica operaciones exitosas en funciones de mayor privilegio.</li>
+</ol>
+<h4 id="banking-site-roles-scenario">Escenario de roles en un sitio bancario</h4>
+<p>La siguiente tabla ilustra los roles del sistema en un sitio bancario. Cada rol está vinculado a permisos específicos para la funcionalidad del menú de eventos:</p>
+<div class="tabla"><table><thead><tr>
+<th>ROL</th>
+<th>PERMISO</th>
+<th>PERMISO ADICIONAL</th>
+</tr>
+</thead><tbody><tr>
+<td>Administrator</td>
+<td>Full Control</td>
+<td>Delete</td>
+</tr>
+<tr>
+<td>Manager</td>
+<td>Modify, Add, Read</td>
+<td>Add</td>
+</tr>
+<tr>
+<td>Staff</td>
+<td>Read, Modify</td>
+<td>Modify</td>
+</tr>
+<tr>
+<td>Customer</td>
+<td>Read Only</td>
+<td></td>
+</tr>
+</tbody></table></div>
+<p>Se considerará que la aplicación es vulnerable si:</p>
+<ol>
+<li>Un cliente (Customer) puede operar funciones de administrador, gerente o personal;</li>
+<li>Un usuario de personal (Staff) puede operar funciones de gerente o administrador;</li>
+<li>Un gerente (Manager) puede operar funciones de administrador.</li>
+</ol>
+<p>Supóngase que la función <code>deleteEvent</code> forma parte del menú de la cuenta de administrador de la aplicación, y que es posible acceder a ella solicitando la siguiente URL: <code>https://www.example.com/account/deleteEvent</code>. Entonces, al invocar la función <code>deleteEvent</code> se genera la siguiente petición HTTP:</p>
+<pre><code class="language-http">POST /account/deleteEvent HTTP/1.1
+Host: www.example.com
+[other HTTP headers]
+Cookie: SessionID=ADMINISTRATOR_USER_SESSION
+
+EventID=1000001
+</code></pre>
+<p>La respuesta válida:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[other HTTP headers]
+
+{&quot;message&quot;: &quot;Event was deleted&quot;}
+</code></pre>
+<p>El atacante puede intentar ejecutar la misma petición:</p>
+<pre><code class="language-http">POST /account/deleteEvent HTTP/1.1
+Host: www.example.com
+[other HTTP headers]
+Cookie: SessionID=CUSTOMER_USER_SESSION
+
+EventID=1000002
+</code></pre>
+<p>Si la respuesta a la petición del atacante contiene los mismos datos <code>{&quot;message&quot;: &quot;Event was deleted&quot;}</code>, la aplicación es vulnerable.</p>
+<h4 id="administrator-page-access">Acceso a la página de administrador</h4>
+<p>Supóngase que el menú de administrador forma parte de la cuenta de administrador.</p>
+<p>Se considerará que la aplicación es vulnerable si cualquier rol distinto del administrador puede acceder al menú de administrador. A veces los desarrolladores realizan la validación de autorización solo a nivel de la interfaz gráfica (GUI) y dejan las funciones sin validación de autorización, lo que puede dar lugar a una vulnerabilidad.</p>
+<h3 id="url-traversal">URL Traversal</h3>
+<p>Se debe intentar recorrer el sitio y comprobar si algunas páginas carecen de la verificación de autorización.</p>
+<p>Por ejemplo:</p>
+<pre><code class="language-text">/../.././userInfo.html
+</code></pre>
+<h3 id="whitebox">Caja blanca</h3>
+<p>Si la verificación de autorización de URL solo se realiza mediante coincidencia parcial de la URL, es probable que los evaluadores o hackers puedan eludir la autorización mediante técnicas de codificación de URL.</p>
+<p>Por ejemplo:</p>
+<pre><code class="language-text">startswith(), endswith(), contains(), indexOf()
+</code></pre>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Privilege_escalation" target="_blank" rel="noopener">Wikipedia - Privilege Escalation</a></li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li>RAGE (Relational Attack Graph Exchange): formato NDJSON portable y taxonomía para modelar rutas de ataque de identidad/acceso y cadenas de escalada de privilegios, especialmente útil cuando la aplicación se apoya en IAM en la nube o en entornos de múltiples cuentas. Véase <a href="https://rage.fail/" target="_blank" rel="noopener">RAGE</a>.</li>
+</ul>

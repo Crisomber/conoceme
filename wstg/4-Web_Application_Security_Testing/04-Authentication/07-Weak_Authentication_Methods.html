@@ -1,0 +1,36 @@
+<h1 id="weak-authentication-methods">Métodos de autenticación débiles</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El mecanismo de autenticación más extendido y más fácil de administrar es una contraseña estática. La contraseña representa las llaves del reino, pero con frecuencia los usuarios la subvierten en nombre de la usabilidad. En cada uno de los recientes ataques de alto perfil que han revelado credenciales de usuarios, se lamenta que las contraseñas más comunes sigan siendo: <code>123456</code>, <code>password</code> y <code>qwerty</code>.</p>
+<p>Además, las aplicaciones pueden utilizar credenciales alternativas que se tratan igual que una contraseña pero que son considerablemente más débiles, como fechas de nacimiento, números de seguro social, PIN o preguntas de seguridad. En algunos escenarios, estas credenciales más fáciles de adivinar pueden ser el único valor proporcionado por el usuario para la autenticación.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Determinar la resistencia de la aplicación frente a la adivinación de contraseñas por fuerza bruta usando diccionarios de contraseñas disponibles, evaluando los requisitos de longitud, complejidad, reutilización y vigencia de las contraseñas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<ol>
+<li>¿Qué caracteres están permitidos y prohibidos para usar dentro de una contraseña? ¿Se exige al usuario utilizar caracteres de diferentes conjuntos, como letras minúsculas y mayúsculas, dígitos y símbolos especiales?</li>
+<li>¿Con qué frecuencia puede un usuario cambiar su contraseña? ¿Qué tan rápido puede un usuario cambiar su contraseña después de un cambio previo? Los usuarios pueden eludir los requisitos de historial de contraseñas cambiando su contraseña 5 veces seguidas para que, tras el último cambio, vuelvan a tener configurada su contraseña inicial.</li>
+<li>¿Cuándo debe un usuario cambiar su contraseña?<ul>
+<li>Tanto <a href="https://pages.nist.gov/800-63-4/sp800-63b.html" target="_blank" rel="noopener">NIST</a> como <a href="https://www.ncsc.gov.uk/collection/passwords/updating-your-approach#PasswordGuidance:UpdatingYourApproach-Don'tenforceregularpasswordexpiry" target="_blank" rel="noopener">NCSC</a> recomiendan <strong>no</strong> forzar la expiración periódica de contraseñas, aunque puede ser exigida por estándares como PCI DSS.</li>
+</ul>
+</li>
+<li>¿Con qué frecuencia puede un usuario reutilizar una contraseña? ¿La aplicación mantiene un historial de las últimas 8 contraseñas utilizadas por el usuario?</li>
+<li>¿Qué tan diferente debe ser la nueva contraseña respecto de la anterior?</li>
+<li>¿Se impide al usuario utilizar su nombre de usuario u otra información de la cuenta (como su nombre o apellido) en la contraseña?</li>
+<li>¿Cuáles son las longitudes mínima y máxima de contraseña que se pueden establecer, y son adecuadas para la sensibilidad de la cuenta y de la aplicación?</li>
+<li>¿Es posible establecer contraseñas comunes como <code>Password1</code> o <code>123456</code>?</li>
+<li>¿La aplicación elige la credencial por el usuario, como un número de seguro social o una fecha de nacimiento? ¿La credencial que se utiliza en lugar de una contraseña estándar es fácil de obtener, predecible o susceptible a ataques de fuerza bruta?</li>
+</ol>
+<h2 id="remediation">Corrección</h2>
+<p>Para mitigar el riesgo de que contraseñas fáciles de adivinar faciliten el acceso no autorizado existen dos soluciones: introducir controles de autenticación adicionales (es decir, autenticación de dos factores) o introducir una política de contraseñas robusta. La más sencilla y económica es la introducción de una política de contraseñas robusta que garantice la longitud, la complejidad, la reutilización y la vigencia de las contraseñas; aunque idealmente ambas deberían implementarse.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/www-community/attacks/Brute_force_attack" target="_blank" rel="noopener">Brute Force Attacks</a></li>
+</ul>

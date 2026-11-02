@@ -1,0 +1,52 @@
+<h1 id="ability-to-forge-requests">Capacidad de falsificar peticiones</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La falsificación de peticiones es un método que usan los atacantes para eludir la GUI del frontend de la aplicación y enviar información directamente para su procesamiento en el backend. El objetivo del atacante es enviar peticiones HTTP POST/GET a través de un proxy de interceptación con valores de datos que la lógica de negocio de la aplicación no admite, no protege o no espera. Algunos ejemplos de peticiones falsificadas incluyen explotar parámetros adivinables o predecibles, o exponer características y funcionalidades &quot;ocultas&quot;, como habilitar la depuración o presentar pantallas o ventanas especiales que son muy útiles durante el desarrollo pero que pueden filtrar información o eludir la lógica de negocio.</p>
+<p>Las vulnerabilidades relacionadas con la capacidad de falsificar peticiones son únicas de cada aplicación y se diferencian de la validación de datos de la lógica de negocio en que su enfoque es romper el flujo de trabajo de la lógica de negocio.</p>
+<p>Las aplicaciones deben contar con comprobaciones lógicas que impidan que el sistema acepte peticiones falsificadas que puedan dar a los atacantes la oportunidad de explotar la lógica de negocio, el proceso o el flujo de la aplicación. La falsificación de peticiones no es nada nuevo; el atacante usa un proxy de interceptación para enviar peticiones HTTP POST/GET a la aplicación. Mediante la falsificación de peticiones, los atacantes pueden eludir la lógica de negocio o el proceso encontrando, prediciendo y manipulando parámetros para hacer que la aplicación crea que un proceso o tarea se ha realizado o no.</p>
+<p>Además, las peticiones falsificadas pueden permitir subvertir el flujo programático o de la lógica de negocio invocando características o funcionalidades &quot;ocultas&quot;, como la depuración que usaban inicialmente los desarrolladores y evaluadores, a veces denominadas <a href="https://en.wikipedia.org/wiki/Easter_egg_(media)" target="_blank" rel="noopener">&quot;Easter egg&quot;</a>. &quot;Un Easter egg es una broma interna intencional, un mensaje oculto o una característica en una obra como un programa de computadora, una película, un libro o un crucigrama. Según el diseñador de juegos Warren Robinett, el término fue acuñado en Atari por el personal que fue alertado de la presencia de un mensaje secreto que Robinett había ocultado en su juego Adventure, que ya estaba ampliamente distribuido. Se ha dicho que el nombre evoca la idea de una tradicional búsqueda de huevos de Pascua.&quot;</p>
+<h3 id="example-1">Ejemplo 1</h3>
+<p>Supóngase que un sitio de comercio electrónico de teatro permite a los usuarios seleccionar su entrada, aplicar un descuento único del 10 % para personas mayores sobre toda la venta, ver el subtotal y efectuar la venta. Si un atacante puede ver a través de un proxy que la aplicación tiene un campo oculto (con valor 1 o 0) que la lógica de negocio usa para determinar si ya se ha aplicado un descuento o no, el atacante puede enviar el valor 1 o &quot;no se ha aplicado ningún descuento&quot; varias veces para aprovechar el mismo descuento múltiples veces.</p>
+<h3 id="example-2">Ejemplo 2</h3>
+<p>Supóngase que un videojuego en línea otorga tokens por los puntos obtenidos al encontrar tesoros piratas, piratas y por cada nivel completado. Estos tokens pueden canjearse luego por premios. Además, los puntos de cada nivel tienen un multiplicador igual al nivel. Si un atacante pudiera ver a través de un proxy que la aplicación tiene un campo oculto usado durante el desarrollo y las pruebas para llegar rápidamente a los niveles más altos del juego, podría llegar rápidamente a los niveles más altos y acumular rápidamente puntos no ganados.</p>
+<p>Asimismo, si un atacante pudiera ver a través de un proxy que la aplicación tiene un campo oculto usado durante el desarrollo y las pruebas para habilitar un log que indicaba dónde estaban otros jugadores en línea o los tesoros ocultos con relación al atacante, entonces podría ir rápidamente a esos lugares y sumar puntos.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la documentación del proyecto buscando campos con funcionalidad adivinable, predecible u oculta.</li>
+<li>Insertar datos lógicamente válidos para eludir el flujo normal de trabajo de la lógica de negocio.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="through-identifying-guessable-values">Mediante la identificación de valores adivinables</h3>
+<ul>
+<li>Usando un proxy de interceptación, observar los HTTP POST/GET buscando alguna indicación de que los valores se incrementan a intervalos regulares o son fáciles de adivinar.</li>
+<li>Si se descubre que algún valor es adivinable, se puede cambiar ese valor y obtener una visibilidad inesperada.</li>
+</ul>
+<h3 id="through-identifying-hidden-options">Mediante la identificación de opciones ocultas</h3>
+<ul>
+<li>Usando un proxy de interceptación, observar los HTTP POST/GET buscando alguna indicación de características ocultas, como la depuración (debug), que puedan activarse o habilitarse.</li>
+<li>Si se encuentra alguna, intentar adivinar y cambiar estos valores para obtener una respuesta o un comportamiento distinto de la aplicación.</li>
+</ul>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/04-Exposed_Session_Variables">Exposed Session Variables</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">Cross Site Request Forgery (CSRF)</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Account Enumeration and Guessable User Account</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La aplicación debe ser lo bastante inteligente y estar diseñada con una lógica de negocio que impida que los atacantes predigan y manipulen parámetros para subvertir el flujo programático o de la lógica de negocio, o que exploten funcionalidades ocultas o no documentadas, como la depuración.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Easter_egg_(media)" target="_blank" rel="noopener">Easter egg</a></li>
+<li><a href="https://lifehacker.com/371083/top-10-software-easter-eggs" target="_blank" rel="noopener">Top 10 Software Easter Eggs</a></li>
+</ul>

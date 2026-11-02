@@ -1,0 +1,46 @@
+<h1 id="insecure-direct-object-references">Referencias directas inseguras a objetos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHZ-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las Referencias Directas Inseguras a Objetos (IDOR) ocurren cuando una aplicación proporciona acceso directo a objetos basándose en una entrada suministrada por el usuario. Como resultado de esta vulnerabilidad, los atacantes pueden evadir la autorización y acceder directamente a recursos del sistema, por ejemplo registros de bases de datos o archivos.
+Las Referencias Directas Inseguras a Objetos permiten a los atacantes evadir la autorización y acceder directamente a los recursos modificando el valor de un parámetro que se usa para apuntar directamente a un objeto. Tales recursos pueden ser entradas de bases de datos pertenecientes a otros usuarios, archivos del sistema, etc. Esto se debe a que la aplicación toma una entrada suministrada por el usuario y la utiliza para recuperar un objeto sin realizar suficientes comprobaciones de autorización.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos donde pueden ocurrir referencias a objetos.</li>
+<li>Evaluar las medidas de control de acceso y si son vulnerables a IDOR.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Para probar esta vulnerabilidad, el evaluador primero debe mapear todas las ubicaciones de la aplicación donde la entrada del usuario se utiliza para referenciar objetos directamente. Por ejemplo, ubicaciones donde la entrada del usuario se usa para acceder a una fila de la base de datos, un archivo, páginas de la aplicación, etc. A continuación, el evaluador debe modificar el valor del parámetro usado para referenciar objetos y evaluar si es posible recuperar objetos pertenecientes a otros usuarios o evadir de algún otro modo la autorización.</p>
+<p>La mejor manera de probar las referencias directas a objetos es contar con al menos dos (a menudo más) usuarios que cubran distintos objetos y funciones propios. Por ejemplo, dos usuarios con acceso a objetos diferentes (como información de compras, mensajes privados, etc.) y (si es relevante) usuarios con distintos privilegios (por ejemplo, usuarios administradores) para ver si existen referencias directas a la funcionalidad de la aplicación. Al contar con varios usuarios, el evaluador ahorra un tiempo valioso de prueba al adivinar distintos nombres de objetos, ya que puede intentar acceder a objetos que pertenecen al otro usuario.</p>
+<p>A continuación se presentan varios escenarios típicos de esta vulnerabilidad y los métodos para probar cada uno:</p>
+<h3 id="the-value-of-a-parameter-is-used-directly-to-retrieve-a-database-record">El valor de un parámetro se usa directamente para recuperar un registro de la base de datos</h3>
+<p>Petición de ejemplo:</p>
+<pre><code class="language-text">https://foo.bar/somepage?invoice=12345
+</code></pre>
+<p>En este caso, el valor del parámetro <em>invoice</em> se usa como índice en una tabla de facturas de la base de datos. La aplicación toma el valor de este parámetro y lo usa en una consulta a la base de datos. Luego la aplicación devuelve la información de la factura al usuario.</p>
+<p>Dado que el valor de <em>invoice</em> entra directamente en la consulta, al modificar el valor del parámetro es posible recuperar cualquier objeto de factura, sin importar a qué usuario pertenezca. Para probar este caso, el evaluador debe obtener el identificador de una factura perteneciente a un usuario de prueba diferente (asegurándose de que no debería poder ver esa información según la lógica de negocio de la aplicación) y luego comprobar si es posible acceder a objetos sin autorización.</p>
+<h3 id="the-value-of-a-parameter-is-used-directly-to-perform-an-operation-in-the-system">El valor de un parámetro se usa directamente para realizar una operación en el sistema</h3>
+<p>Petición de ejemplo:</p>
+<pre><code class="language-text">https://foo.bar/changepassword?user=someuser
+</code></pre>
+<p>En este caso, el valor del parámetro <code>user</code> se usa para indicar a la aplicación para qué usuario debe cambiar la contraseña. En muchos casos este paso formará parte de un asistente o de una operación de varios pasos. En el primer paso la aplicación recibirá una petición que indica de qué usuario se cambiará la contraseña y, en el siguiente paso, el usuario proporcionará una nueva contraseña (sin pedir la actual).</p>
+<p>El parámetro <code>user</code> se usa para referenciar directamente el objeto del usuario para el que se realizará la operación de cambio de contraseña. Para probar este caso, el evaluador debe intentar proporcionar un nombre de usuario de prueba distinto al que tiene la sesión iniciada y comprobar si es posible modificar la contraseña de otro usuario.</p>
+<h3 id="the-value-of-a-parameter-is-used-directly-to-retrieve-a-file-system-resource">El valor de un parámetro se usa directamente para recuperar un recurso del sistema de archivos</h3>
+<p>Petición de ejemplo:</p>
+<pre><code class="language-text">https://foo.bar/showImage?img=img00011
+</code></pre>
+<p>En este caso, el valor del parámetro <code>file</code> se usa para indicar a la aplicación qué archivo pretende recuperar el usuario. Al proporcionar el nombre o identificador de un archivo diferente (por ejemplo file=image00012.jpg), el atacante podrá recuperar objetos pertenecientes a otros usuarios.</p>
+<p>Para probar este caso, el evaluador debe obtener una referencia a la que el usuario no debería poder acceder e intentar acceder a ella usándola como valor del parámetro <code>file</code>. Nota: Esta vulnerabilidad suele explotarse junto con una vulnerabilidad de directory/path traversal (véase <a href="#/4-Web_Application_Security_Testing/05-Authorization/01-Directory_Traversal_File_Include">Path Traversal</a>)</p>
+<h3 id="the-value-of-a-parameter-is-used-directly-to-access-application-functionality">El valor de un parámetro se usa directamente para acceder a la funcionalidad de la aplicación</h3>
+<p>Petición de ejemplo:</p>
+<pre><code class="language-text">https://foo.bar/accessPage?menuitem=12
+</code></pre>
+<p>En este caso, el valor del parámetro <code>menuitem</code> se usa para indicar a la aplicación a qué elemento del menú (y, por lo tanto, a qué funcionalidad de la aplicación) intenta acceder el usuario. Supóngase que el usuario debe estar restringido y por ello solo tiene enlaces disponibles para acceder a los elementos de menú 1, 2 y 3. Al modificar el valor del parámetro <code>menuitem</code> es posible evadir la autorización y acceder a funcionalidad adicional de la aplicación. Para probar este caso, el evaluador identifica una ubicación donde la funcionalidad de la aplicación se determina mediante la referencia a un elemento de menú, mapea los valores de los elementos de menú a los que puede acceder el usuario de prueba dado y luego intenta con otros elementos de menú.</p>
+<p>En los ejemplos anteriores basta con modificar un solo parámetro. Sin embargo, a veces la referencia al objeto puede estar dividida entre más de un parámetro, y las pruebas deben ajustarse en consecuencia.</p>
+<h2 id="references">Referencias</h2>
+<p><a href="https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/" target="_blank" rel="noopener">A01:2025 Broken Access Control</a></p>

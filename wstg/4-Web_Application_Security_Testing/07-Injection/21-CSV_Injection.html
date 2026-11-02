@@ -1,0 +1,161 @@
+<h1 id="csv-injection">Inyección CSV</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-21</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La inyección CSV (también conocida como Formula Injection) ocurre cuando una aplicación incrusta entradas no confiables, controladas por el usuario, en exportaciones CSV (u otras compatibles con hojas de cálculo) y el archivo resultante se abre en un programa de hojas de cálculo (p. ej., Microsoft Excel, LibreOffice Calc). Las aplicaciones de hojas de cálculo pueden interpretar ciertos valores de celda como fórmulas, lo que puede conducir a problemas de seguridad como el engaño al usuario (flujos de tipo phishing), la manipulación de la salida de la hoja de cálculo o la exfiltración de datos. En algunos entornos, la inyección de fórmulas puede escalarse a un mayor impacto mediante &quot;gadgets&quot; de hojas de cálculo y funcionalidades heredadas (p. ej., comportamientos de DDE / Dynamic Data Exchange), pudiendo llegar a la ejecución de comandos en la estación de trabajo que abre el archivo, lo que típicamente depende de la configuración del cliente y/o de la interacción del usuario.</p>
+<p>Una característica clave de este problema es que la vulnerabilidad a menudo se manifiesta solo cuando un usuario (p. ej., un administrador, personal de finanzas o de soporte) abre el archivo exportado en una aplicación de hojas de cálculo.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las funcionalidades de exportación CSV/hoja de cálculo que incluyen entradas no confiables.</li>
+<li>Verificar si los valores controlados por el atacante se interpretan como fórmulas cuando la exportación se abre en aplicaciones de hojas de cálculo comunes.</li>
+<li>Comprobar si la inyección de separadores/comillas puede mover un prefijo peligroso al inicio de una celda.</li>
+<li>Validar si las mitigaciones siguen siendo efectivas en Microsoft Excel después de guardar y volver a abrir el CSV.</li>
+<li>Evaluar el impacto práctico según quién abre la exportación y cómo se utiliza.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="formula-triggering-prefixes">Prefijos que activan fórmulas</h3>
+<p>Las celdas que comienzan con los siguientes caracteres pueden ser interpretadas como fórmulas por el software de hojas de cálculo:</p>
+<ul>
+<li>Igual (<code>=</code>)</li>
+<li>Más (<code>+</code>)</li>
+<li>Menos (<code>-</code>)</li>
+<li>Arroba (<code>@</code>)</li>
+<li>Tabulador (<code>0x09</code>)</li>
+<li>Retorno de carro (<code>0x0D</code>)</li>
+<li>Salto de línea (<code>0x0A</code>)</li>
+<li>Variantes de ancho completo (doble byte) como <code>＝</code>, <code>＋</code>, <code>－</code>, <code>＠</code> (dependiendo de la configuración regional o del comportamiento de la aplicación)</li>
+</ul>
+<blockquote>
+<p>Importante (comportamiento de Excel): Microsoft Excel puede eliminar las comillas o los caracteres de escape de las celdas CSV cuando un archivo se guarda y se vuelve a abrir. Como resultado, algunas mitigaciones sugeridas comúnmente pueden fallar tras guardar y volver a abrir, y las fórmulas previamente escapadas pueden volver a activarse.</p>
+</blockquote>
+<p>Tenga en cuenta también que no es suficiente asegurar que la entrada no confiable <em>en su conjunto</em> no comience con un carácter peligroso. Los atacantes pueden inyectar separadores y comillas para iniciar una nueva celda, colocando el carácter peligroso al comienzo de una celda.</p>
+<h3 id="identify-csv-export-functionality-and-data-sources">Identificar la funcionalidad de exportación CSV y las fuentes de datos</h3>
+<p>Se localizan las funcionalidades que generan contenido CSV/TSV o de &quot;exportar a hoja de cálculo&quot;:</p>
+<ul>
+<li>Informes (usuarios, transacciones, registros de auditoría, tickets)</li>
+<li>Paneles de administración que exportan listas</li>
+<li>Archivos adjuntos de correo electrónico generados por la aplicación</li>
+<li>Exportaciones programadas / integraciones</li>
+</ul>
+<p>Se identifican las fuentes de datos no confiables que pueden terminar en la exportación:</p>
+<ul>
+<li>Perfiles de usuario (nombre, correo electrónico, empresa)</li>
+<li>Campos de texto libre (comentarios, asuntos de tickets, notas)</li>
+<li>Datos externos importados/integrados (webhooks, sincronización con CRM, feeds de socios)</li>
+</ul>
+<p>Se documenta qué roles pueden activar la exportación y qué roles probablemente la abrirán.</p>
+<h3 id="place-benign-detectable-formula-like-values-into-candidate-fields">Colocar valores benignos y detectables similares a fórmulas en los campos candidatos</h3>
+<p>Se utilizan payloads inofensivos para detectar la evaluación de fórmulas (evitando payloads que ejecuten comandos o realicen accesos a la red no controlados).
+Se prueban valores que comiencen con cada carácter que activa fórmulas:</p>
+<ul>
+<li><code>=1+1</code></li>
+<li><code>+1+1</code></li>
+<li><code>-1+1</code></li>
+<li><code>@SUM(1,1)</code></li>
+<li><code>=HYPERLINK(&quot;http://example.invalid/leak?test=1&quot;, &quot;Click Me&quot;)</code></li>
+</ul>
+<p>Notas:</p>
+<ul>
+<li>El caso de <code>HYPERLINK()</code> es útil para demostrar un impacto realista (flujos de engaño/tipo phishing, o posible exposición de metadatos cuando se hace clic en un enlace o se abre). Durante las pruebas se debe usar un endpoint controlado (p. ej., un listener local o un host de pruebas interno).</li>
+<li>No se debe usar infraestructura externa de un &quot;atacante real&quot; en la validación.</li>
+</ul>
+<p>También se prueban variantes con caracteres de control y Unicode (cuando el manejo de la entrada lo permita):</p>
+<ul>
+<li>Un valor que comienza con un carácter de tabulador seguido de <code>=1+1</code> (TAB + <code>=1+1</code>)</li>
+<li>Variantes con prefijo de ancho completo (p. ej., <code>＝1+1</code>)</li>
+</ul>
+<h3 id="test-separator-and-quote-cell-breakout-scenarios">Probar escenarios de &quot;salida de celda&quot; con separadores y comillas</h3>
+<p>Dado que CSV está basado en celdas, se prueba si es posible inyectar contenido que inicie una nueva celda y que luego comience con un carácter peligroso. Esto depende de:</p>
+<ul>
+<li>El separador de campos (comúnmente <code>,</code> o <code>;</code>)</li>
+<li>Las reglas de comillado y escape</li>
+<li>La generación y codificación del CSV del lado de la aplicación</li>
+</ul>
+<p>Ejemplos de patrones de prueba <em>benignos</em> (se debe ajustar el separador al formato de exportación real):</p>
+<ul>
+<li>Un valor que contenga una comilla y un separador destinados a crear una nueva celda, y luego <code>=1+1</code></li>
+<li>Un valor que contenga directamente un separador (si el exportador no lo entrecomilla), y luego <code>=1+1</code></li>
+</ul>
+<p>El objetivo es ver si el CSV resultante contiene alguna celda cuyo primer carácter sea uno de los prefijos que activan fórmulas. Esto se verifica inspeccionando la salida CSV en bruto en un editor de texto.</p>
+<h3 id="export-and-verify-in-spreadsheet-applications">Exportar y verificar en aplicaciones de hojas de cálculo</h3>
+<ul>
+<li>Se exporta/descarga el CSV.</li>
+<li>Se abre en al menos una aplicación de hojas de cálculo utilizada en el entorno objetivo (Excel y/o LibreOffice, etc.).</li>
+<li>Se confirma si la celda se interpreta como una fórmula:<ul>
+<li>La hoja de cálculo muestra el resultado calculado (p. ej., <code>2</code>) en lugar de la cadena literal (p. ej., <code>=1+1</code>), y/o</li>
+<li>La barra de fórmulas muestra una fórmula en lugar de texto plano.</li>
+</ul>
+</li>
+</ul>
+<p>Se registra:</p>
+<ul>
+<li>Nombre/versión de la aplicación (p. ej., Microsoft Excel)</li>
+<li>Cómo se abrió el archivo (doble clic frente al asistente de importación)</li>
+<li>Si la configuración regional influyó en el análisis</li>
+</ul>
+<h3 id="excel-savere-open-regression-test-mitigation-reliability">Prueba de regresión de guardar/reabrir en Excel (fiabilidad de la mitigación)</h3>
+<p>Si la aplicación afirma escapar/entrecomillar los valores:</p>
+<ul>
+<li>Se abre el CSV exportado en Microsoft Excel.</li>
+<li>Se guarda el archivo (p. ej., como CSV).</li>
+<li>Se cierra y se vuelve a abrir.</li>
+<li>Se vuelve a comprobar si los valores previamente &quot;neutralizados&quot; se convirtieron en fórmulas activas.</li>
+</ul>
+<p>Este paso es crítico porque Excel puede normalizar o eliminar ciertos comportamientos de escape/comillado tras guardar y volver a abrir.</p>
+<h3 id="assess-impact">Evaluar el impacto</h3>
+<p>Se evalúa el riesgo práctico con base en:</p>
+<ul>
+<li>Quién abre el archivo (roles con privilegios frente a usuarios finales)</li>
+<li>Si las exportaciones se comparten externamente</li>
+<li>Si se confía en los valores de la hoja de cálculo para tomar decisiones (p. ej., totales, indicadores, estados)</li>
+<li>Si las fórmulas podrían engañar a los usuarios o activar comportamientos de la hoja de cálculo en su entorno</li>
+</ul>
+<p>Se proporciona una ruta de reproducción clara:</p>
+<ol>
+<li>Dónde se introduce la entrada</li>
+<li>Cómo se genera la exportación</li>
+<li>Qué programa la interpreta como fórmula</li>
+<li>Evidencia (captura de pantalla o descripción) de que ocurre la evaluación</li>
+</ol>
+<h3 id="higher-impact-validation-optional-strictly-controlled">Validación de mayor impacto (opcional, estrictamente controlada)</h3>
+<p>Algunos casos del mundo real muestran que la inyección de fórmulas escala más allá del simple cálculo/engaño (p. ej., mediante funcionalidades heredadas de hojas de cálculo como DDE). Este comportamiento depende en gran medida del entorno.</p>
+<h2 id="remediation">Corrección</h2>
+<p>No existe una estrategia universal de saneamiento de CSV que sea segura para todas las aplicaciones de hojas de cálculo y los consumidores posteriores. Para los CSV destinados a ser vistos por personas en software de hojas de cálculo, se debe aplicar un enfoque de defensa en profundidad:</p>
+<ul>
+<li><p>Asegurar que ninguna celda comience con caracteres que activan fórmulas (<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>) ni con las variantes de control/Unicode relevantes.</p>
+</li>
+<li><p>Considerar el saneamiento por campo (sugerido comúnmente):</p>
+<ul>
+<li>Envolver cada celda en comillas dobles</li>
+<li>Anteponer una comilla simple a cada celda</li>
+<li>Escapar las comillas dobles duplicándolas<br>Nota: esto puede dejar de ser fiable en Microsoft Excel después de guardar y volver a abrir.</li>
+</ul>
+</li>
+<li><p>Mitigación resistente a Excel (comportamiento observado):</p>
+<ul>
+<li>Si una celda comienza con <code>=</code>, <code>+</code>, <code>-</code> o <code>@</code>, anteponer al contenido un carácter de tabulador (<code>0x09</code>) dentro de un campo entrecomillado (p. ej., <code>&quot;\t=1+1&quot;</code>).<br>Contrapartida: el tabulador pasa a formar parte de los datos subyacentes y puede afectar a las importaciones programáticas posteriores.</li>
+</ul>
+</li>
+</ul>
+<p>Siempre se debe validar la mitigación elegida frente a las aplicaciones de hojas de cálculo y los flujos de trabajo dentro del alcance.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>Proxy interceptor (p. ej., Burp Suite, ZAP) para inyectar valores controlados y reproducir el flujo exacto de exportación.</li>
+<li>Software de hojas de cálculo para la validación en un entorno aislado (p. ej., Microsoft Excel, LibreOffice Calc).</li>
+<li>Un listener HTTP seguro (local o en un host de pruebas interno) para observar clics/peticiones al validar el comportamiento de <code>HYPERLINK()</code>.</li>
+<li>Un editor de texto para inspeccionar el CSV en bruto y confirmar si alguna celda comienza con un prefijo que activa fórmulas.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/www-community/attacks/CSV_Injection" target="_blank" rel="noopener">OWASP CSV Injection</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/1236.html" target="_blank" rel="noopener">CWE-1236: Improper Neutralization of Formula Elements in a CSV File</a></li>
+<li><a href="https://hackerone.com/reports/72785" target="_blank" rel="noopener">HackerOne Report #72785: CSV Injection</a></li>
+<li><a href="https://hackerone.com/reports/118582" target="_blank" rel="noopener">HackerOne Report #118582: CSV Injection</a></li>
+<li><a href="https://hackerone.com/reports/1748961" target="_blank" rel="noopener">HackerOne Report #1748961: CSV Injection</a></li>
+<li><a href="https://hackerone.com/reports/244292" target="_blank" rel="noopener">HackerOne Report #244292: CSV Injection</a></li>
+</ul>

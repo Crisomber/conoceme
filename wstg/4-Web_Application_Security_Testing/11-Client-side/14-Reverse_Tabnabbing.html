@@ -1,0 +1,40 @@
+<h1 id="reverse-tabnabbing">Reverse Tabnabbing</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-14</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p><a href="https://owasp.org/www-community/attacks/Reverse_Tabnabbing" target="_blank" rel="noopener">Reverse Tabnabbing</a> es un ataque que puede utilizarse para redirigir a los usuarios a páginas de phishing. Normalmente es posible porque el atributo <code>target</code> de la etiqueta <code>&lt;a&gt;</code> está establecido en <code>_blank</code>, lo que hace que el enlace se abra en una nueva pestaña. Cuando el atributo <code>rel=&#39;noopener noreferrer&#39;</code> no se usa en la misma etiqueta <code>&lt;a&gt;</code>, la página recién abierta puede influir en la página original y redirigirla a un dominio controlado por el atacante.</p>
+<p>Dado que el usuario estaba en el dominio original cuando se abrió la nueva pestaña, es menos probable que note que la página ha cambiado, especialmente si la página de phishing es idéntica al dominio original. Por lo tanto, cualquier credencial introducida en el dominio controlado por el atacante terminará en poder de este.</p>
+<p>Los enlaces abiertos mediante la función de JavaScript <code>window.open</code> también son vulnerables a este ataque.</p>
+<p><em>NOTA: Este es un problema heredado que no afecta a los <a href="https://caniuse.com/mdn-html_elements_a_implicit_noopener" target="_blank" rel="noopener">navegadores modernos</a>. Las versiones antiguas de navegadores populares (por ejemplo, las versiones anteriores a Google Chrome 88), así como Internet Explorer, son vulnerables a este ataque.</em></p>
+<h3 id="example">Ejemplo</h3>
+<p>Imagine una aplicación web en la que se permite a los usuarios insertar una URL en su perfil. Si la aplicación es vulnerable a reverse tabnabbing, un usuario malicioso podrá proporcionar un enlace a una página que tenga el siguiente código:</p>
+<pre><code class="language-html">&lt;html&gt;
+ &lt;body&gt;
+  &lt;script&gt;
+    window.opener.location = &quot;https://example.org&quot;;
+  &lt;/script&gt;
+&lt;b&gt;Error loading...&lt;/b&gt;
+ &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Al hacer clic en el enlace se abrirá una nueva pestaña mientras la pestaña original se redirige a &quot;example.org&quot;. Suponiendo que &quot;example.org&quot; se parezca a la aplicación web vulnerable, es menos probable que el usuario note el cambio y es más probable que introduzca información sensible en la página.</p>
+<h2 id="how-to-test">Cómo probar</h2>
+<ul>
+<li>Revisar el código fuente HTML de la aplicación para ver si los enlaces con <code>target=&quot;_blank&quot;</code> usan las palabras clave <code>noopener</code> y <code>noreferrer</code> en el atributo <code>rel</code>. Si no es así, es probable que la aplicación sea vulnerable a reverse tabnabbing. Un enlace de este tipo se vuelve explotable si apunta a un sitio de terceros que ha sido comprometido por el atacante, o si está controlado por el usuario.</li>
+<li>Buscar áreas donde un atacante pueda insertar enlaces, es decir, controlar el argumento <code>href</code> de una etiqueta <code>&lt;a&gt;</code>. Intentar insertar un enlace a una página que tenga el código fuente dado en el ejemplo anterior y comprobar si el dominio original se redirige. Esta prueba puede hacerse en IE si otros navegadores no funcionan.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Se recomienda asegurarse de que el atributo HTML <code>rel</code> esté establecido con las palabras clave <code>noreferrer</code> y <code>noopener</code> en todos los enlaces.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#tabnabbing" target="_blank" rel="noopener">Tabnabbing - HTML5 Cheat Sheet</a></li>
+<li><a href="https://dev.to/ben/the-targetblank-vulnerability-by-example" target="_blank" rel="noopener">The target=&quot;_blank&quot; vulnerability by example</a></li>
+<li><a href="https://mathiasbynens.github.io/rel-noopener/" target="_blank" rel="noopener">About rel=noopener</a></li>
+<li><a href="https://medium.com/@jitbit/target-blank-the-most-underestimated-vulnerability-ever-96e328301f4c" target="_blank" rel="noopener">Target=”_blank” - the most underestimated vulnerability ever</a></li>
+<li><a href="https://www.ibm.com/support/pages/security-bulletin-reverse-tabnabbing-vulnerability-affects-ibm-business-automation-workflow-and-ibm-business-process-manager-bpm-cve-2020-4490-0" target="_blank" rel="noopener">Reverse tabnabbing vulnerability affects IBM Business Automation Workflow and IBM Business Process Manager</a></li>
+</ul>

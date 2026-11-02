@@ -1,0 +1,129 @@
+<h1 id="2-introduction">2. Introducción</h1>
+<h2 id="purpose-and-scope">Propósito y alcance</h2>
+<p>La Guía de Pruebas de Seguridad Web de OWASP (WSTG, por sus siglas en inglés) es un marco integral, de código abierto y mantenido por la comunidad, junto con un conjunto de técnicas prácticas para probar la seguridad de las aplicaciones web y los servicios web. No es una lista de verificación rígida ni un estándar de cumplimiento, sino una referencia de metodología y técnicas diseñada para adaptarse al modelo de amenazas, la tolerancia al riesgo y las prácticas de desarrollo de tu organización.</p>
+<blockquote>
+<p>&quot;La seguridad no debería ser un arte oscuro ni un secreto cerrado que solo unos pocos puedan practicar.&quot; - Eoin Keary</p>
+</blockquote>
+<p>La guía cubre:</p>
+<ul>
+<li>Aplicaciones web tradicionales y servicios modernos nativos de la nube.</li>
+<li>Configuración de infraestructura, despliegues en la nube y contenedorización.</li>
+<li>Controles de identidad, autenticación, autorización y gestión de sesiones.</li>
+<li>Validación de entrada, codificación y manejo de la salida.</li>
+<li>Manejo de errores y gestión de excepciones.</li>
+<li>Implementaciones criptográficas.</li>
+<li>Lógica de negocio y seguridad de los flujos de trabajo.</li>
+<li>Tecnologías del lado del cliente y seguridad de la interfaz de usuario.</li>
+<li>Seguridad de las API y puntos de integración.</li>
+</ul>
+<p>La guía no reemplaza: marcos formales de riesgo como el <a href="https://csrc.nist.gov/projects/risk-management/" target="_blank" rel="noopener">NIST Risk Management Framework</a>, metodologías integrales de modelado de amenazas, orientación detallada de corrección (para eso consulta la <a href="https://cheatsheetseries.owasp.org/" target="_blank" rel="noopener">OWASP Cheat Sheet Series</a>), la revisión integral de seguridad del código fuente (que requiere acceso de caja blanca y un conocimiento de la arquitectura que va más allá de las pruebas), las políticas de seguridad específicas de cada organización, ni las pruebas especializadas de aplicaciones de IA/LLM (consulta la <a href="https://owasp.org/www-project-ai-testing-guide/" target="_blank" rel="noopener">OWASP AI Testing Guide</a> y el <a href="https://genai.owasp.org/initiatives/top-10-for-llm-and-genai/" target="_blank" rel="noopener">OWASP Top 10 for LLM Applications</a>).</p>
+<h2 id="why-web-application-security-testing-matters">Por qué importan las pruebas de seguridad de aplicaciones web</h2>
+<p>Las pruebas de seguridad de aplicaciones web se han vuelto críticas para gestionar el riesgo en el panorama de amenazas actual. Varias fuerzas impulsan esta urgencia:</p>
+<h3 id="economic-impact">Impacto económico</h3>
+<p>El <a href="https://www.ibm.com/reports/data-breach" target="_blank" rel="noopener">IBM Cost of a Data Breach Report 2026</a> concluyó que el costo promedio global de una filtración de datos ha alcanzado los 4,99 millones de dólares (USD), y que en Estados Unidos las filtraciones promedian 11,5 millones de dólares (USD). Los ataques impulsados por IA, presentes ya en más de una cuarta parte de las filtraciones reportadas, añaden en promedio 1 millón de dólares (USD) por filtración. Más allá de los costos directos, las filtraciones causan interrupciones operativas, multas regulatorias, daño a la reputación y pérdida de la confianza de los clientes.</p>
+<h3 id="expanding-attack-surface">Superficie de ataque en expansión</h3>
+<p>El modelo tradicional de seguridad basado en el perímetro ya no aplica. Las aplicaciones modernas exponen riesgos en:</p>
+<ul>
+<li>API públicas y microservicios</li>
+<li>Infraestructura nativa de la nube y funciones serverless</li>
+<li>Integraciones de terceros y dependencias de código abierto</li>
+<li>Código del lado del cliente que se ejecuta en navegadores y aplicaciones móviles</li>
+<li>Riesgos de la cadena de suministro, incluidos paquetes comprometidos y procesos de compilación manipulados</li>
+</ul>
+<p>Un programa de pruebas integral debe abordar todas estas superficies.</p>
+<h3 id="pace-of-development-vs-pace-of-threats">Ritmo del desarrollo frente al ritmo de las amenazas</h3>
+<p>Dos fuerzas opuestas generan urgencia:</p>
+<ol>
+<li><p>El desarrollo asistido por IA acelera la producción de código. Una mayor velocidad de código, si no se acompaña de disciplina de seguridad, aumenta la probabilidad de que se introduzcan vulnerabilidades clásicas (fallos de inyección, autenticación rota, errores de lógica de negocio) más rápido de lo que las pruebas tradicionales pueden detectarlas.</p>
+</li>
+<li><p>Las herramientas de prueba potenciadas por IA aceleran ciertas tareas de detección. Las herramientas de pruebas dinámicas y estáticas de seguridad de aplicaciones (DAST/SAST) impulsadas por aprendizaje automático pueden encontrar vulnerabilidades comunes y conocidas con mayor eficiencia. Sin embargo, estas herramientas no reemplazan el análisis humano experto para fallos de lógica de negocio, elusión de autorización y riesgos específicos del contexto que requieren comprender el comportamiento previsto de la aplicación. Además, los ataques asistidos por IA permiten a los adversarios sondear las defensas con mayor rapidez y adaptarse a las contramedidas casi en tiempo real, lo que sin duda aumentará el ritmo de las filtraciones.</p>
+</li>
+</ol>
+<p>La solución no es elegir entre las pruebas humanas y las herramientas, sino combinar ambas: escaneo automatizado para lo más fácil de encontrar, junto con pruebas manuales dirigidas (quizás incluso complementadas con IA) y revisión de código para encontrar fallos de diseño y de lógica.</p>
+<h2 id="who-should-use-this-guide">Quién debe usar esta guía</h2>
+<p>El WSTG está diseñado para:</p>
+<ul>
+<li>Evaluadores de penetración y consultores de seguridad que realizan evaluaciones de aplicaciones.</li>
+<li>Equipos internos de seguridad y de aseguramiento de la calidad que prueban el software durante todo el desarrollo.</li>
+<li>Desarrolladores e ingenieros de DevSecOps que integran las pruebas de seguridad en los pipelines de CI/CD.</li>
+<li>Arquitectos de seguridad que diseñan estrategias de pruebas y programas de cumplimiento.</li>
+<li>Auditores y oficiales de cumplimiento que validan los controles de seguridad de las aplicaciones.</li>
+<li>Product owners y gerentes de ingeniería que definen el alcance, asignan recursos y priorizan los esfuerzos de prueba.</li>
+</ul>
+<p>Entre las audiencias secundarias se encuentran los desarrolladores de herramientas y las organizaciones que ejecutan programas públicos de bug bounty. Las técnicas de prueba y la taxonomía de esta guía son igualmente aplicables a las pruebas internas, a las pruebas de penetración de terceros y a los compromisos de divulgación coordinada / bug bounty. Las diferencias residen en la autorización, las reglas de compromiso y la forma en que se reportan y corrigen los resultados.</p>
+<h2 id="core-principles-of-effective-security-testing">Principios fundamentales de las pruebas de seguridad efectivas</h2>
+<p>Las pruebas de seguridad efectivas se basan en estos principios:</p>
+<h3 id="no-silver-bullet">No existe una bala de plata</h3>
+<p>Las herramientas automatizadas (DAST, SAST, escaneo de dependencias) son necesarias y valiosas, pero por sí solas son insuficientes. Incluso las herramientas de escaneo de seguridad de aplicaciones más sofisticadas no pueden igualar el razonamiento y la creatividad de un evaluador de seguridad experimentado. Las herramientas destacan en encontrar vulnerabilidades conocidas basadas en firmas; no comprenden la lógica de negocio ni el contexto. La seguridad es un proceso de mejora continua, no un producto que se pueda &quot;comprar&quot; una sola vez.</p>
+<h3 id="continuous-security-testing">Pruebas de seguridad continuas</h3>
+<p>El enfoque tradicional, que consiste en probar únicamente después de que el desarrollo está &quot;completo&quot;, es un desperdicio e ineficaz. El costo de corregir un error de seguridad crece exponencialmente a medida que avanza hacia las etapas posteriores: un fallo detectado durante el diseño cuesta una fracción de uno detectado en producción. Las prácticas modernas integran las pruebas de seguridad a lo largo de todo el ciclo de vida del desarrollo:</p>
+<ul>
+<li>Durante la revisión del diseño y la arquitectura (modelado de amenazas).</li>
+<li>Durante el desarrollo (revisión segura del código, pruebas de seguridad a nivel unitario).</li>
+<li>Durante la integración y las pruebas del sistema (pruebas de penetración, pruebas de aceptación de seguridad).</li>
+<li>En producción (monitoreo continuo, pruebas de regresión de seguridad).</li>
+</ul>
+<p>Los pipelines de integración continua y despliegue continuo (CI/CD) ofrecen la oportunidad de automatizar las comprobaciones de seguridad básicas (SAST, escaneo de dependencias) en cada compilación, manteniendo la seguridad presente en la mente de todo el equipo.</p>
+<h3 id="risk-and-impact-based-prioritization">Priorización basada en el riesgo y el impacto</h3>
+<p>Hay que priorizar el esfuerzo de prueba según el riesgo, no según la cantidad de hallazgos. Una sola elusión crítica de autorización que afecte los datos de los usuarios es más importante que decenas de hallazgos de cross-site scripting (XSS) de bajo riesgo. Desarrolla un modelo de riesgo adaptado a tu aplicación (por ejemplo, la confidencialidad y la integridad de los datos de los clientes pueden predominar sobre la disponibilidad) y concentra las pruebas en los controles y las superficies más críticos para ese riesgo.</p>
+<h3 id="balanced-testing-approach">Enfoque de pruebas equilibrado</h3>
+<p>Ninguna técnica de prueba por sí sola es suficiente. Un programa maduro combina:</p>
+<ul>
+<li>Inspección manual y revisión del diseño: para evaluar las políticas, la arquitectura y el proceso de seguridad.</li>
+<li>Modelado de amenazas: para identificar posibles vectores de ataque en las primeras etapas del ciclo de vida.</li>
+<li>Revisión del código fuente: para encontrar fallos sutiles (errores de lógica de negocio, debilidades criptográficas, condiciones de carrera) que las herramientas a menudo pasan por alto o que son difíciles de detectar desde una perspectiva de caja negra.</li>
+<li>Pruebas de penetración: para validar que las vulnerabilidades realmente se pueden explotar y comprender su impacto en el mundo real.</li>
+<li>Escaneo automatizado (SAST, DAST, SCA): para identificar a escala vulnerabilidades comunes y conocidas.</li>
+</ul>
+<p>El esfuerzo relativo dedicado a cada técnica debe variar según la fase del SDLC: énfasis en la revisión manual y el modelado de amenazas al principio, y en la automatización y las pruebas después.</p>
+<h3 id="clear-actionable-reporting">Informes claros y accionables</h3>
+<p>Los hallazgos de las pruebas deben ser comprensibles y accionables para los desarrolladores y las partes interesadas del negocio. Un informe debe:</p>
+<ul>
+<li>Explicar <em>qué</em> se probó y <em>cómo</em> se probó (para que los resultados puedan reproducirse).</li>
+<li>Describir la <em>causa raíz</em> de cada problema (para que, con suerte, sea menos probable que se repita en el futuro).</li>
+<li>Proporcionar <em>orientación concreta de corrección</em> o referencias a guías de codificación segura (para que los desarrolladores sepan qué corregir).</li>
+<li>Asignar una <em>calificación de severidad o riesgo</em> para ayudar a priorizar el esfuerzo de corrección.</li>
+<li>Comunicar claramente el <em>impacto en el negocio</em> para que las partes interesadas no técnicas comprendan por qué importa la corrección.</li>
+</ul>
+<h3 id="adaptability-to-your-context">Adaptabilidad a tu contexto</h3>
+<p>No existe un enfoque de pruebas que sirva para todos los casos. La profundidad y la amplitud de las pruebas deben adaptarse a la arquitectura de tu aplicación, la sensibilidad de los datos, el modelo de amenazas y la tolerancia al riesgo. Una pequeña herramienta interna requiere un rigor de pruebas diferente al de una aplicación financiera de cara al cliente. Un equipo de DevSecOps maduro puede adelantar las pruebas a pipelines automatizados; un equipo nuevo en las pruebas de seguridad puede comenzar con enfoques más ligeros basados en listas de verificación y madurar desde ahí. El WSTG proporciona el marco y la flexibilidad para ayudar en una variedad de arquitecturas de aplicaciones.</p>
+<h2 id="how-the-guide-is-organized">Cómo está organizada la guía</h2>
+<p>Este documento está estructurado de la siguiente manera:</p>
+<ul>
+<li>Esta Introducción: establece el contexto, el alcance y los principios.</li>
+<li>El marco de pruebas de OWASP: explica cómo se integra el marco de pruebas con las fases de desarrollo (definir, diseñar, desarrollar, probar, desplegar, mantener); cubre las prácticas de integración continua, el diseño de programas de bug bounty y los flujos de trabajo de pruebas potenciados por IA.</li>
+<li>Categorías de pruebas de seguridad de aplicaciones web: proporciona procedimientos concretos de cómo probar para cada área principal de pruebas (por ejemplo, autenticación, validación de entrada, lógica de negocio).</li>
+<li>Informes: orientación sobre los formatos de los informes de pruebas, la evaluación de la severidad y la comunicación de los resultados a distintas audiencias.</li>
+<li>Apéndices: herramientas de pruebas, lecturas sugeridas, historial de versiones.</li>
+</ul>
+<p>Los lectores nuevos en las pruebas de seguridad deben comenzar aquí y luego avanzar a la <a href="#/3-The_OWASP_Testing_Framework/README">Sección 3</a> para comprender cuándo y cómo encajan las pruebas en las prácticas modernas de desarrollo. Los profesionales que buscan procedimientos de prueba específicos deben ir directamente a la <a href="#/4-Web_Application_Security_Testing/README">Sección 4</a>.</p>
+<h2 id="how-to-reference-wstg-scenarios">Cómo referenciar los escenarios del WSTG</h2>
+<p>Cada escenario tiene un identificador con el formato <code>WSTG-&lt;category&gt;-&lt;number&gt;</code>, donde: &#39;category&#39; es una cadena de 4 caracteres en mayúsculas que identifica el tipo de prueba o debilidad, y &#39;number&#39; es un valor numérico con ceros a la izquierda del 01 al 99. Por ejemplo: <code>WSTG-INFO-02</code> es la segunda prueba de Recopilación de información.</p>
+<p>Los identificadores pueden cambiar entre versiones, por lo que es preferible que otros documentos, informes o herramientas utilicen el formato: <code>WSTG-&lt;version&gt;-&lt;category&gt;-&lt;number&gt;</code>, donde: &#39;version&#39; es la etiqueta de la versión sin signos de puntuación. Por ejemplo: <code>WSTG-v42-INFO-02</code> se entendería como una referencia específica a la segunda prueba de Recopilación de información de la versión 4.2.</p>
+<p>Si se usan identificadores sin incluir el elemento <code>&lt;version&gt;</code>, se debe asumir que se refieren al contenido más reciente de la Guía de Pruebas de Seguridad Web. Obviamente, a medida que la guía crece y cambia, esto se vuelve problemático, razón por la cual los redactores o desarrolladores deben incluir el elemento de versión.</p>
+<h3 id="linking">Enlaces</h3>
+<p>Los enlaces a los escenarios de la Guía de Pruebas de Seguridad Web deben hacerse con enlaces versionados, no con <code>stable</code> ni <code>latest</code>, que sin duda cambiarán con el tiempo. No obstante, la intención del equipo del proyecto es que los enlaces versionados no cambien. Por ejemplo: <code>https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server</code>. Nota: el elemento <code>v42</code> se refiere a la versión 4.2.</p>
+<h2 id="feedback-and-comments">Comentarios y sugerencias</h2>
+<p>Como todos los proyectos de OWASP, damos la bienvenida a los comentarios y las contribuciones. Si descubres un error, un vacío en la cobertura, una referencia desactualizada o una técnica que debería añadirse o revisarse, por favor abre un issue o envía un pull request en el <a href="https://github.com/OWASP/wstg" target="_blank" rel="noopener">repositorio de GitHub del WSTG</a>. Esta guía es documentación viva mantenida por la comunidad, y tu aporte ayuda a mantenerla precisa y relevante. Valoramos especialmente los reportes del mundo real sobre pruebas que funcionan y pruebas que no, para que la guía siga siendo práctica para los profesionales.</p>
+<h2 id="related-owasp-projects">Proyectos de OWASP relacionados</h2>
+<p>La Guía de Pruebas de Seguridad Web es una parte de un conjunto más amplio de proyectos de OWASP que apoyan la construcción y la prueba de aplicaciones seguras:</p>
+<ul>
+<li><a href="https://owasp.org/www-project-application-security-verification-standard/" target="_blank" rel="noopener">OWASP Application Security Verification Standard (ASVS)</a>: un catálogo de requisitos funcionales de seguridad que proporciona la línea base de &quot;qué probar&quot;. ASVS v5.0 (publicada en mayo de 2025) incluye arquitecturas modernas nativas de la nube y definiciones de controles más claras.</li>
+<li><a href="https://owasp.org/Top10/2025/" target="_blank" rel="noopener">OWASP Top 10 (2025)</a> y <a href="https://owasp.org/www-project-api-security/" target="_blank" rel="noopener">OWASP API Security Top 10 (2023)</a>: clasificaciones consensuadas de los riesgos de seguridad más críticos para las aplicaciones web y las API. Ayudan a priorizar el enfoque de las pruebas.</li>
+<li><a href="https://genai.owasp.org/initiatives/top-10-for-llm-and-genai/" target="_blank" rel="noopener">OWASP Top 10 for Large Language Model Applications</a> y <a href="https://owasp.org/www-project-ai-testing-guide/" target="_blank" rel="noopener">OWASP AI Testing Guide</a>: orientación especializada para probar aplicaciones de IA y basadas en LLM, incluidos los riesgos de prompt injection, alucinación y envenenamiento de modelos.</li>
+<li><a href="https://owaspai.org/" target="_blank" rel="noopener">OWASP AI Exchange</a>: una base de conocimiento y un marco impulsados por la comunidad para comprender y gestionar los riesgos de seguridad de la IA, incluida la gobernanza de la IA, las evaluaciones de riesgos y los modelos de amenazas específicos de la IA.</li>
+<li><a href="https://owasp.org/www-project-mobile-app-security/" target="_blank" rel="noopener">OWASP Mobile Application Security (MASVS/MASTG)</a>: estándar de verificación de seguridad y guía de pruebas para aplicaciones iOS y Android.</li>
+<li><a href="https://www.opencre.org/" target="_blank" rel="noopener">OWASP Open Common Requirements Enumeration (OpenCRE)</a>: un marco de mapeo de referencia que vincula requisitos de seguridad, métodos de prueba y controles entre múltiples estándares y marcos (ASVS, NIST, ISO, CWE, etc.), lo que ayuda a contextualizar la guía del WSTG dentro del panorama de seguridad más amplio.</li>
+<li><a href="https://owaspsamm.org/model/" target="_blank" rel="noopener">OWASP Software Assurance Maturity Model (SAMM)</a>: marco para evaluar y mejorar las prácticas de seguridad de aplicaciones de una organización a lo largo de todo el SDLC.</li>
+<li><a href="https://owasp.org/www-project-threat-dragon/" target="_blank" rel="noopener">OWASP Threat Dragon</a> y <a href="https://owasp.org/www-project-pytm/" target="_blank" rel="noopener">Pythonic Threat Modeling (pytm)</a>: herramientas y metodologías para construir y documentar modelos de amenazas.</li>
+<li><a href="https://cheatsheetseries.owasp.org/" target="_blank" rel="noopener">OWASP Cheat Sheet Series</a>: orientación concisa y autorizada sobre temas específicos de seguridad (por ejemplo, autenticación, criptografía, seguridad de API) con ejemplos de código y mejores prácticas.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.ibm.com/reports/data-breach" target="_blank" rel="noopener">IBM Cost of a Data Breach Report 2026</a></li>
+<li><a href="https://www.nist.gov/cyberframework" target="_blank" rel="noopener">NIST Cybersecurity Framework</a></li>
+<li><a href="https://csrc.nist.gov/projects/risk-management/" target="_blank" rel="noopener">NIST Risk Management Framework (RMF)</a></li>
+<li><a href="https://www.first.org/cvss/" target="_blank" rel="noopener">Common Vulnerability Scoring System (CVSS) v3.1</a></li>
+<li><a href="https://github.com/OWASP/wstg/tree/master/checklists" target="_blank" rel="noopener">OWASP Testing Guide Checklists</a></li>
+</ul>
+<p>Para una lista completa de lecturas sugeridas, herramientas y contexto histórico, consulta los Apéndices A, B y E.</p>

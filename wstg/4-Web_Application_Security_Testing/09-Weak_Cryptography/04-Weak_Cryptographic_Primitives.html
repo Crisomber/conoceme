@@ -1,0 +1,137 @@
+<h1 id="weak-cryptographic-primitives">Primitivas criptográficas débiles</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CRYP-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El uso incorrecto de algoritmos de cifrado puede resultar en exposición de datos sensibles, filtración de claves, autenticación rota, sesiones inseguras y ataques de suplantación (spoofing). Hay algunos algoritmos de cifrado o hash que se sabe que son débiles y cuyo uso no se recomienda, como MD5 y RC4.</p>
+<p>Además de elegir correctamente algoritmos de cifrado o hash seguros, el uso correcto de los parámetros también importa para el nivel de seguridad. Por ejemplo, el modo ECB (Electronic Code Book) en general no debe utilizarse.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Proporcionar una guía para la identificación de usos e implementaciones débiles de cifrado o hash.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="basic-security-checklist">Lista de verificación básica de seguridad</h3>
+<ul>
+<li>Al usar AES128 o AES256, el IV (vector de inicialización) debe ser aleatorio e impredecible. Consulte <a href="https://csrc.nist.gov/pubs/fips/140-3/final" target="_blank" rel="noopener">FIPS 140-3, Security Requirements for Cryptographic Modules</a>, sección de pruebas de generación de números aleatorios. Por ejemplo, en Java, <code>java.util.Random</code> se considera un generador de números aleatorios débil. Se debe usar <code>java.security.SecureRandom</code> en lugar de <code>java.util.Random</code>.</li>
+<li>Para el cifrado asimétrico, se debe usar criptografía de curva elíptica (ECC), con preferencia por una curva segura como <code>Curve25519</code>.<ul>
+<li>Si no se puede usar ECC, se debe usar cifrado RSA con una clave de al menos 2048 bits.</li>
+</ul>
+</li>
+<li>Cuando se use RSA en firmas, se recomienda el relleno PSS.</li>
+<li>No se deben usar algoritmos de hash/cifrado débiles como MD5, RC4, DES, Blowfish, SHA1, RSA o DSA de 1024 bits, ECDSA (curvas elípticas) de 160 bits, ni 2TDEA (triple DES de dos claves) de 80/112 bits.</li>
+<li>Requisitos mínimos de longitud de clave:</li>
+</ul>
+<pre><code class="language-text">Key exchange: Diffie-Hellman key exchange with minimum 2048 bits
+Message Integrity: HMAC-SHA2
+Message Hash: SHA2 256 bits
+Asymmetric encryption: RSA 2048 bits
+Symmetric-key algorithm: AES 128 bits
+Password Hashing: PBKDF2, Scrypt, Bcrypt
+ECDH, ECDSA: 256 bits
+</code></pre>
+<ul>
+<li>En los usos de SSH, no se debe utilizar el modo CBC.</li>
+<li>Cuando se utilice un algoritmo de cifrado simétrico, no se debe utilizar el modo ECB (Electronic Code Book).</li>
+<li>Cuando se use PBKDF2 para hacer hash de contraseñas, se recomienda que el parámetro de iteraciones sea superior a 10000. <a href="https://pages.nist.gov/800-63-4/sp800-63b.html" target="_blank" rel="noopener">NIST</a> también sugiere al menos 10,000 iteraciones de la función hash. Además, está prohibido usar la función hash MD5 con PBKDF2, como en PBKDF2WithHmacMD5.</li>
+</ul>
+<h3 id="source-code-review">Revisión de código fuente</h3>
+<ul>
+<li><p>Buscar las siguientes palabras clave para identificar el uso de algoritmos débiles: <code>MD4, MD5, RC4, RC2, DES, Blowfish, SHA-1, ECB</code></p>
+</li>
+<li><p>Para implementaciones en Java, la siguiente API está relacionada con el cifrado. Se deben revisar los parámetros de la implementación del cifrado. Por ejemplo,</p>
+</li>
+</ul>
+<pre><code class="language-java">SecretKeyFactory(SecretKeyFactorySpi keyFacSpi, Provider provider, String algorithm)
+SecretKeySpec(byte[] key, int offset, int len, String algorithm)
+Cipher c = Cipher.getInstance(&quot;DES/CBC/PKCS5Padding&quot;);
+</code></pre>
+<ul>
+<li>Para el cifrado RSA, se sugieren los siguientes modos de relleno.</li>
+</ul>
+<pre><code class="language-text">RSA/ECB/OAEPWithSHA-1AndMGF1Padding (2048)
+RSA/ECB/OAEPWithSHA-256AndMGF1Padding (2048)
+</code></pre>
+<ul>
+<li>Buscar <code>ECB</code>; no se permite su uso en el relleno.</li>
+<li>Revisar si se utiliza un IV (vector inicial) diferente.</li>
+</ul>
+<pre><code class="language-java">// Use a different IV value for every encryption
+byte[] newIv = ...;
+s = new GCMParameterSpec(s.getTLen(), newIv);
+cipher.init(..., s);
+...
+</code></pre>
+<ul>
+<li>Buscar <code>IvParameterSpec</code> y comprobar si el valor del IV se genera de forma diferente y aleatoria.</li>
+</ul>
+<pre><code class="language-java"> IvParameterSpec iv = new IvParameterSpec(randBytes);
+ SecretKeySpec skey = new SecretKeySpec(key.getBytes(), &quot;AES&quot;);
+ Cipher cipher = Cipher.getInstance(&quot;AES/CBC/PKCS5Padding&quot;);
+ cipher.init(Cipher.ENCRYPT_MODE, skey, iv);
+</code></pre>
+<ul>
+<li>En Java, buscar MessageDigest para comprobar si se usa un algoritmo de hash débil (MD5 o CRC). Por ejemplo:</li>
+</ul>
+<p><code>MessageDigest md5 = MessageDigest.getInstance(&quot;MD5&quot;);</code></p>
+<ul>
+<li>Para las firmas, no se deben usar SHA1 ni MD5. Por ejemplo:</li>
+</ul>
+<p><code>Signature sig = Signature.getInstance(&quot;SHA1withRSA&quot;);</code></p>
+<ul>
+<li>Buscar <code>PBKDF2</code>. Para generar el valor hash de la contraseña, se sugiere usar <code>PBKDF2</code>. Se deben revisar los parámetros para generar el valor hash de <code>PBKDF2</code>.</li>
+</ul>
+<p>Las iteraciones deben ser superiores a <strong>10000</strong>, y el valor de <strong>salt</strong> debe generarse como <strong>valor aleatorio</strong>.</p>
+<pre><code class="language-java">private static byte[] pbkdf2(char[] password, byte[] salt, int iterations, int bytes)
+    throws NoSuchAlgorithmException, InvalidKeySpecException
+  {
+       PBEKeySpec spec = new PBEKeySpec(password, salt, iterations, bytes * 8);
+       SecretKeyFactory skf = SecretKeyFactory.getInstance(PBKDF2_ALGORITHM);
+       return skf.generateSecret(spec).getEncoded();
+   }
+</code></pre>
+<ul>
+<li>Información sensible codificada de forma fija (hard-coded):</li>
+</ul>
+<pre><code class="language-text">User related keywords: name, root, su, sudo, admin, superuser, login, username, uid
+Key related keywords: public key, AK, SK, secret key, private key, passwd, password, pwd, share key, shared key, crypto, base64
+Other common sensitive keywords: sysadmin, root, privilege, pass, key, code, master, admin, uname, session, token, Oauth, privatekey, shared secret
+</code></pre>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>Los escáneres de vulnerabilidades como Nessus, Nmap (scripts) u OpenVAS pueden escanear el uso o la aceptación de cifrado débil en protocolos como SNMP, TLS, SSH, SMTP, etc.</li>
+<li>Se pueden usar herramientas de análisis estático de código para realizar la revisión de código fuente, como klocwork, Fortify, Coverity o CheckMark, para los siguientes casos.</li>
+</ul>
+<pre><code class="language-text">CWE-261: Weak Cryptography for Passwords
+CWE-323: Reusing a Nonce, Key Pair in Encryption
+CWE-326: Inadequate Encryption Strength
+CWE-327: Use of a Broken or Risky Cryptographic Algorithm
+CWE-328: Reversible One-Way Hash
+CWE-329: Not Using a Random IV with CBC Mode
+CWE-330: Use of Insufficiently Random Values
+CWE-347: Improper Verification of Cryptographic Signature
+CWE-354: Improper Validation of Integrity Check Value
+CWE-547: Use of Hard-coded, Security-relevant Constants
+CWE-780: Use of RSA Algorithm without OAEP
+</code></pre>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://csrc.nist.gov/publications/fips" target="_blank" rel="noopener">NIST FIPS Standards</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Initialization_vector" target="_blank" rel="noopener">Wikipedia: Initialization Vector</a></li>
+<li><a href="https://cmu-sei.github.io/secure-coding-standards/sei-cert-oracle-coding-standard-for-java/rules/miscellaneous-msc/msc02-j" target="_blank" rel="noopener">Secure Coding - Generating Strong Random Numbers</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Optimal_asymmetric_encryption_padding" target="_blank" rel="noopener">Optimal Asymmetric Encryption Padding</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html" target="_blank" rel="noopener">Cryptographic Storage Cheat Sheet</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html" target="_blank" rel="noopener">Password Storage Cheat Sheet</a></li>
+<li><a href="https://cmu-sei.github.io/secure-coding-standards/sei-cert-oracle-coding-standard-for-java/recommendations/miscellaneous-msc/msc61-j" target="_blank" rel="noopener">Secure Coding - Do not use insecure or weak cryptographic algorithms</a></li>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Insecure_Randomness" target="_blank" rel="noopener">Insecure Randomness</a></li>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Insufficient_Entropy" target="_blank" rel="noopener">Insufficient Entropy</a></li>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Insufficient_Session-ID_Length" target="_blank" rel="noopener">Insufficient Session-ID Length</a></li>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Using_a_broken_or_risky_cryptographic_algorithm" target="_blank" rel="noopener">Using a broken or risky cryptographic algorithm</a></li>
+<li><a href="https://docs.oracle.com/javase/8/docs/api/javax/crypto/Cipher.html" target="_blank" rel="noopener">Javax.crypto.cipher API</a></li>
+<li>ISO 18033-1:2015 - Encryption Algorithms</li>
+<li>ISO 18033-2:2015 - Asymmetric Ciphers</li>
+<li>ISO 18033-3:2015 - Block Ciphers</li>
+</ul>

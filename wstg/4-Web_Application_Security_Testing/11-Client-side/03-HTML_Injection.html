@@ -1,0 +1,49 @@
+<h1 id="html-injection">Inyección de HTML</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La inyección de HTML es un tipo de vulnerabilidad de inyección que ocurre cuando un usuario puede controlar un punto de entrada y es capaz de inyectar código HTML arbitrario en una página web vulnerable. Esta vulnerabilidad puede tener muchas consecuencias, como la divulgación de las cookies de sesión de un usuario, que podrían usarse para suplantar a la víctima, o, de forma más general, puede permitir al atacante modificar el contenido de la página que ven las víctimas.</p>
+<p>Esta vulnerabilidad ocurre cuando la entrada del usuario no se sanea correctamente y la salida no se codifica. Una inyección permite al atacante enviar una página HTML maliciosa a una víctima. El navegador objetivo no podrá distinguir (confiar en) las partes legítimas de las partes maliciosas de la página y, en consecuencia, analizará y ejecutará la página completa en el contexto de la víctima.</p>
+<p>Existe una amplia gama de métodos y atributos que pueden usarse para renderizar contenido HTML. Si a estos métodos se les proporciona una entrada no confiable, existe un alto riesgo de vulnerabilidad de inyección de HTML. Por ejemplo, se puede inyectar código HTML malicioso mediante el método de JavaScript <code>innerHTML</code>, normalmente utilizado para renderizar código HTML insertado por el usuario. Si las cadenas no se sanean correctamente, el método puede habilitar la inyección de HTML. Una función de JavaScript que puede usarse con este fin es <code>document.write()</code>.</p>
+<p>El siguiente ejemplo muestra un fragmento de código vulnerable que permite que una entrada sin validar se use para crear HTML dinámico en el contexto de la página:</p>
+<pre><code class="language-js">var userposition=location.href.indexOf(&quot;user=&quot;);
+var user=location.href.substring(userposition+5);
+document.getElementById(&quot;Welcome&quot;).innerHTML=&quot; Hello, &quot;+user;
+</code></pre>
+<p>El siguiente ejemplo muestra código vulnerable que usa la función <code>document.write()</code>:</p>
+<pre><code class="language-js">var userposition=location.href.indexOf(&quot;user=&quot;);
+var user=location.href.substring(userposition+5);
+document.write(&quot;&lt;h1&gt;Hello, &quot; + user +&quot;&lt;/h1&gt;&quot;);
+</code></pre>
+<p>En ambos ejemplos, esta vulnerabilidad puede explotarse con una entrada como:</p>
+<pre><code class="language-text">https://vulnerable.site/page.html?user=&lt;img%20src=&#39;aaa&#39;%20onerror=alert(1)&gt;
+</code></pre>
+<p>Esta entrada añadirá una etiqueta de imagen a la página que ejecutará código JavaScript arbitrario insertado por el usuario malicioso en el contexto HTML.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar puntos de inyección de HTML y evaluar la gravedad del contenido inyectado.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Considere el siguiente código HTML y script:</p>
+<pre><code class="language-html">&lt;script src=&quot;../js/jquery-1.7.1.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+function setMessage(){
+    var t=location.hash.slice(1);
+    $(&quot;div[id=&quot;+t+&quot;]&quot;).text(&quot;The DOM is now loaded and can be manipulated.&quot;);
+}
+$(document).ready(setMessage  );
+$(window).bind(&quot;hashchange&quot;,setMessage)
+&lt;/script&gt;
+&lt;body&gt;
+    &lt;script src=&quot;../js/embed.js&quot;&gt;&lt;/script&gt;
+    &lt;span&gt;&lt;a href=&quot;#message&quot; &gt; Show Here&lt;/a&gt;&lt;div id=&quot;message&quot;&gt;Showing Message1&lt;/div&gt;&lt;/span&gt;
+    &lt;span&gt;&lt;a href=&quot;#message1&quot; &gt; Show Here&lt;/a&gt;&lt;div id=&quot;message1&quot;&gt;Showing Message2&lt;/div&gt;
+    &lt;span&gt;&lt;a href=&quot;#message2&quot; &gt; Show Here&lt;/a&gt;&lt;div id=&quot;message2&quot;&gt;Showing Message3&lt;/div&gt;
+&lt;/body&gt;
+</code></pre>
+<p>Es posible inyectar código HTML.</p>

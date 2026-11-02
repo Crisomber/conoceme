@@ -1,0 +1,44 @@
+<h1 id="human-ai-collaborative-testing">Pruebas colaborativas humano-IA</h1>
+<h2 id="overview">Descripción general</h2>
+<p>&quot;Pruebas colaborativas humano-IA&quot; es un término de trabajo que describe cómo las pruebas de seguridad modernas pueden integrar herramientas de IA conservando la experiencia y el juicio humanos. No es una nueva filosofía de pruebas, sino el reconocimiento de que las herramientas de IA están acelerando ciertas actividades de prueba (generación de candidatos, encadenamiento de peticiones, triaje, normalización de informes), mientras que la habilidad fundamental de saber qué probar, por qué y cómo interpretar los resultados sigue siendo exclusivamente humana.</p>
+<p>Esto no cambia las categorías ni las técnicas de prueba del WSTG (cubiertas en la <a href="#/4-Web_Application_Security_Testing/README">Sección 4</a>). Describe la rapidez y la repetibilidad con que ahora se pueden ejecutar esas técnicas. Esta sección no cubre las pruebas de aplicaciones de IA o de Large Language Models (LLM) en sí mismas; ese es el dominio de la <a href="https://owasp.org/www-project-ai-testing-guide/" target="_blank" rel="noopener">OWASP AI Testing Guide</a> y del <a href="https://genai.owasp.org/initiatives/top-10-for-llm-and-genai/" target="_blank" rel="noopener">OWASP Top 10 for Large Language Model Applications</a>. Lo que sigue trata de probar <em>con</em> herramientas de IA, no de probar <em>sistemas</em> de IA.</p>
+<h2 id="case-in-point-the-http-terminator">Un caso concreto: el HTTP Terminator</h2>
+<p>En agosto de 2026, el sistema &quot;HTTP Terminator&quot; de PortSwigger Research generó 30.000 vectores de HTTP request smuggling, los probó contra objetivos autorizados y descubrió una nueva clase de vulnerabilidad (&quot;shared-parser confusion&quot;) que los humanos no habían publicado previamente. La idea clave: los hallazgos solo se volvieron valiosos porque un experto humano diseñó la metodología de investigación, restringió a la IA con código determinista para evitar la explosión combinatoria y filtró los resultados para separar las vulnerabilidades reales de los falsos positivos. Esto ejemplifica la colaboración humano-IA: la IA acelera la escala y el descubrimiento; la experiencia humana aporta la estrategia, la validación y la responsabilidad. Consulta <a href="https://portswigger.net/research/http-terminator" target="_blank" rel="noopener">Can AI Do Novel Security Research? Meet the HTTP Terminator</a> para la presentación técnica completa.</p>
+<h2 id="what-changes-and-what-doesnt">Qué cambia y qué no</h2>
+<p><strong>Qué cambia</strong>: la repetibilidad, la automatización y la velocidad. Un evaluador humano que ejecuta una sola corrida manual de fuzzing tarda horas. Un fuzzer asistido por IA puede ejecutar millones de mutaciones y marcar las respuestas más interesantes en el mismo tiempo. Un evaluador que encadena manualmente pasos de reconocimiento tarda días. Un sistema de IA puede orquestar múltiples pasos y probar variaciones en horas.</p>
+<p><strong>Qué no cambia</strong>: el juicio, la responsabilidad y el alcance. Un evaluador sigue teniendo que decidir qué aplicación probar, qué datos sondear, qué resultados importan y qué se reporta. El marco de pruebas, las categorías y los estándares de informes del WSTG permanecen sin cambios. Una herramienta de IA no puede decidir si un hallazgo está dentro del alcance, si viola las reglas de compromiso o si el negocio acepta el riesgo.</p>
+<h2 id="where-ai-assists-today">Dónde ayuda la IA hoy</h2>
+<p>Las herramientas de seguridad modernas potenciadas por aprendizaje automático o por modelos de lenguaje de gran tamaño están mejorando tareas específicas:</p>
+<ul>
+<li><strong>Generación de candidatos y payloads a gran escala</strong>: generar miles de payloads de fuzzing, variantes de inyección SQL o intentos de inyección de comandos. Un evaluador humano revisa cuáles candidatos tienen más probabilidades de ser interesantes.</li>
+<li><strong>Triaje de anomalías y respuestas</strong>: clasificar miles de respuestas de la aplicación por similitud, identificar comportamientos inusuales (mensajes de error, tiempos, códigos de estado) y marcar las respuestas que se desvían de la línea base.</li>
+<li><strong>Encadenamiento y orquestación</strong>: automatizar secuencias de ataque de varios pasos (p. ej., enumerar usuarios, luego intentar un password spray y después escalar privilegios) sin ejecución manual paso a paso.</li>
+<li><strong>Redacción y normalización de informes</strong>: generar descripciones iniciales de los hallazgos, normalizar las calificaciones de severidad entre herramientas y estructurar los hallazgos en un formato consistente para su revisión.</li>
+</ul>
+<p>En cada caso, un evaluador humano debe validar el resultado antes de tratar cualquier cosa como un hallazgo confirmado o incluirla en un informe.</p>
+<h2 id="the-humans-role">El papel del humano</h2>
+<p>La experiencia humana en las pruebas asistidas por IA incluye:</p>
+<ul>
+<li><strong>Diseño del alcance y de la metodología</strong>: definir qué probar, por qué y cómo (la estrategia de investigación del ejemplo del HTTP Terminator).</li>
+<li><strong>Dirección y restricción de la herramienta</strong>: instruir y restringir a la herramienta de IA (p. ej., &quot;prueba estos parámetros con este conjunto de payloads, pero detente si superas este tiempo de respuesta&quot;).</li>
+<li><strong>Validación y filtrado de resultados</strong>: revisar los hallazgos generados por la IA, descartar los falsos positivos, confirmar la explotabilidad y evaluar el impacto en el mundo real.</li>
+<li><strong>Responsabilidad</strong>: el evaluador humano es dueño de la decisión de reportar (o no reportar) cada hallazgo. Una herramienta de IA puede sugerir, pero solo un humano puede autorizar.</li>
+<li><strong>Contexto y juicio</strong>: comprender el comportamiento previsto de la aplicación, su lógica de negocio y su modelo de amenazas; todo lo que una herramienta de IA no puede inferir solo con el escaneo.</li>
+</ul>
+<h2 id="risks-and-limitations">Riesgos y limitaciones</h2>
+<p>Las pruebas asistidas por IA introducen nuevos riesgos:</p>
+<ul>
+<li><strong>Falsos positivos y alucinaciones</strong>: una herramienta de IA puede clasificar erróneamente respuestas benignas como problemas de seguridad, o sugerir vectores de ataque que en realidad no funcionan. Valida siempre los hallazgos antes de reportarlos.</li>
+<li><strong>Confiar en exceso en el triaje automatizado</strong>: las puntuaciones de severidad o prioridad de una herramienta de IA son sugerencias, no hechos. Una vulnerabilidad crítica de lógica de negocio podría puntuar más bajo que un XSS cosmético en el algoritmo.</li>
+<li><strong>Prompt injection y entradas adversarias</strong>: si una herramienta de pruebas ingiere las respuestas de la aplicación como parte de su propio razonamiento o de la entrada de su prompt, un atacante podría elaborar respuestas diseñadas para engañar a la herramienta (p. ej., incrustando instrucciones en los mensajes de error). Valida que tus herramientas no sean vulnerables a esto.</li>
+<li><strong>Opacidad de las herramientas</strong>: algunas herramientas de IA son de caja negra (no se puede ver por qué se marcó un hallazgo). Prefiere las herramientas que explican su razonamiento, y valida siempre los hallazgos a mano si no puedes entender la lógica de la herramienta.</li>
+<li><strong>Políticas de los programas sobre reportes generados por IA</strong>: los programas de bug bounty y las iniciativas de divulgación de vulnerabilidades definen cada vez más políticas sobre los envíos generados o asistidos por IA. Algunos exigen la divulgación explícita de la participación de la IA, otros rechazan por completo los reportes redactados por IA, y algunos expulsan a los participantes que envían contenido generado por IA sin declararlo. Revisa siempre los términos del programa antes de enviar un hallazgo asistido por IA.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://portswigger.net/blog/can-ai-invent-new-attack-techniques-new-research-from-james-kettle-and-portswigger-research" target="_blank" rel="noopener">Can AI invent new attack techniques? New research from James Kettle and PortSwigger Research</a></li>
+<li><a href="https://www.hackerone.com/resources/reports/hacker-powered-security-report-2025" target="_blank" rel="noopener">HackerOne 2025 Hacker-Powered Security Report</a></li>
+<li><a href="https://owasp.org/www-project-ai-testing-guide/" target="_blank" rel="noopener">OWASP AI Testing Guide</a></li>
+<li><a href="https://owaspai.org/" target="_blank" rel="noopener">OWASP AI Exchange</a></li>
+<li><a href="https://genai.owasp.org/initiatives/top-10-for-llm-and-genai/" target="_blank" rel="noopener">OWASP Top 10 for Large Language Model Applications</a></li>
+</ul>

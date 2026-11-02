@@ -1,0 +1,43 @@
+<h1 id="user-registration-process">Proceso de registro de usuarios</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-IDNT-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Algunos sitios web ofrecen un proceso de registro de usuarios que automatiza (o semiautomatiza) el aprovisionamiento del acceso al sistema para los usuarios. Los requisitos de identidad para el acceso varían desde la identificación positiva hasta ninguno en absoluto, según los requisitos de seguridad del sistema. Muchas aplicaciones públicas automatizan por completo el proceso de registro y aprovisionamiento porque el tamaño de la base de usuarios hace imposible gestionarlo manualmente. Sin embargo, muchas aplicaciones corporativas aprovisionan a los usuarios de forma manual, por lo que este caso de prueba puede no aplicar.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Verificar que los requisitos de identidad para el registro de usuarios estén alineados con los requisitos de negocio y de seguridad.</li>
+<li>Validar el proceso de registro.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Verificar que los requisitos de identidad para el registro de usuarios estén alineados con los requisitos de negocio y de seguridad:</p>
+<ol>
+<li>¿Puede cualquier persona registrarse para obtener acceso?</li>
+<li>¿Los registros son revisados por una persona antes del aprovisionamiento, o se otorgan automáticamente si se cumplen los criterios?</li>
+<li>¿Puede la misma persona o identidad registrarse varias veces?</li>
+<li>¿Pueden los usuarios registrarse para distintos roles o permisos?</li>
+<li>¿Qué prueba de identidad se requiere para que un registro sea exitoso?</li>
+<li>¿Se verifican las identidades registradas?</li>
+</ol>
+<p>Validar el proceso de registro:</p>
+<ol>
+<li>¿Puede la información de identidad falsificarse o simularse fácilmente?</li>
+<li>¿Puede manipularse el intercambio de información de identidad durante el registro?</li>
+</ol>
+<h3 id="example">Ejemplo</h3>
+<p>En el siguiente ejemplo de WordPress, el único requisito de identificación es una dirección de correo electrónico a la que tenga acceso quien se registra.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-wordpress_registration_page.jpg" alt="Página de registro de WordPress" loading="lazy"><br><em>Figura 4.3.2-1: Página de registro de WordPress</em></p>
+<p>En contraste, en el siguiente ejemplo de Google los requisitos de identificación incluyen nombre, fecha de nacimiento, país, número de teléfono móvil, dirección de correo electrónico y respuesta a un CAPTCHA. Aunque solo dos de ellos pueden verificarse (la dirección de correo electrónico y el número móvil), los requisitos de identificación son más estrictos que los de WordPress.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-google_registration_page.jpg" alt="Página de registro de Google" loading="lazy"><br><em>Figura 4.3.2-2: Página de registro de Google</em></p>
+<p>Algunas aplicaciones también pueden otorgar automáticamente roles privilegiados a los usuarios cuando registran una cuenta con una dirección de correo electrónico de un dominio de confianza. Si la propiedad de la dirección de correo no se valida como parte del proceso de registro, esto podría permitir a un atacante obtener acceso a una cuenta privilegiada registrando un nuevo usuario en ese dominio.</p>
+<p>Alternativamente, si solo realizan una coincidencia parcial del dominio, podría ser posible registrar una cuenta privilegiada utilizando otros dominios similares. Por ejemplo, si la aplicación comprueba direcciones de correo que terminan en <code>example.org</code>, podría ser posible usar el dominio <code>notexample.org</code>; o si comprueba que la dirección contenga <code>@example.org</code>, podría ser posible usar <code>@example.org.attacker.com</code>.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Implementar requisitos de identificación y verificación que correspondan a los requisitos de seguridad de la información que protegen las credenciales.</p>
+<h2 id="tools">Herramientas</h2>
+<p>Un proxy HTTP puede ser una herramienta útil para probar este control.</p>
+<h2 id="references">Referencias</h2>
+<p><a href="https://mashable.com/2011/06/09/user-registration-design/" target="_blank" rel="noopener">User Registration Design</a></p>

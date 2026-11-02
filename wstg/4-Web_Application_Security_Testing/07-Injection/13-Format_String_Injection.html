@@ -1,0 +1,96 @@
+<h1 id="format-string-injection">Inyección de cadenas de formato</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-13</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Una cadena de formato es una secuencia de caracteres terminada en nulo que además contiene especificadores de conversión que se interpretan o convierten en tiempo de ejecución. Si el código del lado del servidor <a href="https://www.invicti.com/blog/web-security/string-concatenation-format-string-vulnerabilities" target="_blank" rel="noopener">concatena la entrada de un usuario con una cadena de formato</a>, un atacante puede añadir especificadores de conversión adicionales para provocar un error en tiempo de ejecución, divulgación de información o un desbordamiento de búfer.</p>
+<p>El peor caso de vulnerabilidades de cadenas de formato se da en lenguajes que no comprueban los argumentos y que además incluyen un especificador <code>%n</code> que escribe en memoria. Estas funciones, si un atacante las explota modificando una cadena de formato, podrían causar <a href="https://en.wikipedia.org/wiki/Uncontrolled_format_string" target="_blank" rel="noopener">divulgación de información y ejecución de código</a>:</p>
+<ul>
+<li>C y C++ <a href="https://en.cppreference.com/w/c/io/fprintf" target="_blank" rel="noopener">printf</a> y métodos similares fprintf, sprintf, snprintf</li>
+<li>Perl <a href="https://perldoc.perl.org/functions/printf.html" target="_blank" rel="noopener">printf</a> y sprintf</li>
+</ul>
+<p>Estas funciones de cadenas de formato no pueden escribir en memoria, pero los atacantes aún pueden provocar divulgación de información cambiando las cadenas de formato para que muestren valores que los desarrolladores no pretendían enviar:</p>
+<ul>
+<li>Python <a href="https://docs.python.org/3/library/stdtypes.html#str.format" target="_blank" rel="noopener">str.format</a> puede ser abusado inyectando cadenas de formato que alcancen <a href="https://lucumr.pocoo.org/2016/12/29/careful-with-str-format/" target="_blank" rel="noopener">otras variables</a> en el contexto de formateo</li>
+</ul>
+<p>Las siguientes funciones de cadenas de formato pueden causar errores en tiempo de ejecución si el atacante añade especificadores de conversión:</p>
+<ul>
+<li>Java <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html#format%28java.util.Locale%2Cjava.lang.String%2Cjava.lang.Object...%29" target="_blank" rel="noopener">String.format</a> y <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/io/PrintStream.html#format%2528java.util.Locale%252Cjava.lang.String%252Cjava.lang.Object...%2529" target="_blank" rel="noopener">PrintStream.format</a></li>
+<li>PHP <a href="https://www.php.net/manual/es/function.printf.php" target="_blank" rel="noopener">printf</a></li>
+</ul>
+<p>El patrón de código que causa una vulnerabilidad de cadena de formato es una llamada a una función de formato de cadenas que contiene entrada del usuario sin sanear. El siguiente ejemplo muestra cómo un <code>printf</code> de depuración podría hacer vulnerable a un programa:</p>
+<p>El ejemplo en C:</p>
+<pre><code class="language-c">char *userName = /* input from user controlled field */;
+
+printf(&quot;DEBUG Current user: &quot;);
+// Vulnerable debugging code
+printf(userName);
+</code></pre>
+<p>El ejemplo en Java:</p>
+<pre><code class="language-java">final String userName = /* input from user controlled field */;
+
+System.out.printf(&quot;DEBUG Current user: &quot;);
+// Vulnerable code:
+System.out.printf(userName);
+</code></pre>
+<p>En este ejemplo particular, si el atacante estableciera su <code>userName</code> con uno o más especificadores de conversión, habría un comportamiento no deseado. El ejemplo en C <a href="https://www.defcon.org/images/defcon-18/dc-18-presentations/Haas/DEFCON-18-Haas-Adv-Format-String-Attacks.pdf" target="_blank" rel="noopener">imprimiría el contenido de la memoria</a> si <code>userName</code> contuviera <code>%p%p%p%p%p</code>, y puede corromper el contenido de la memoria si hay un <code>%n</code> en la cadena. En el ejemplo de Java, un <code>username</code> que contenga cualquier especificador que necesite una entrada (incluidos <code>%x</code> o <code>%s</code>) haría que el programa fallara con <code>IllegalFormatException</code>. Aunque los ejemplos siguen estando sujetos a otros problemas, la vulnerabilidad puede corregirse mediante los argumentos de printf <code>printf(&quot;DEBUG Current user: %s&quot;, userName)</code>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar si inyectar especificadores de conversión de cadenas de formato en campos controlados por el usuario provoca un comportamiento no deseado de la aplicación.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las pruebas incluyen el análisis del código y la inyección de especificadores de conversión como entrada del usuario en la aplicación bajo prueba.</p>
+<h3 id="static-analysis">Análisis estático</h3>
+<p>Las herramientas de análisis estático pueden encontrar vulnerabilidades de cadenas de formato tanto en el código como en binarios. Ejemplos de herramientas incluyen:</p>
+<ul>
+<li>C y C++: <a href="https://dwheeler.com/flawfinder/" target="_blank" rel="noopener">Flawfinder</a></li>
+<li>Java: regla de FindSecurityBugs <a href="https://find-sec-bugs.github.io/bugs.htm#FORMAT_STRING_MANIPULATION" target="_blank" rel="noopener">FORMAT_STRING_MANIPULATION</a></li>
+<li>PHP: String formatter Analyzer en <a href="https://github.com/ovr/phpsa/blob/master/docs/05_Analyzers.md#function_string_formater" target="_blank" rel="noopener">phpsa</a></li>
+</ul>
+<h3 id="manual-code-inspection">Inspección manual del código</h3>
+<p>El análisis estático puede pasar por alto casos más sutiles, incluidas las cadenas de formato generadas por código complejo. Para buscar vulnerabilidades manualmente en una base de código, un evaluador puede buscar todas las llamadas en la base de código que acepten una cadena de formato y rastrearlas hacia atrás para asegurarse de que una entrada no confiable no pueda cambiar la cadena de formato.</p>
+<h3 id="conversion-specifier-injection">Inyección de especificadores de conversión</h3>
+<p>Los evaluadores pueden comprobarlo a nivel de pruebas unitarias o de pruebas del sistema completo enviando especificadores de conversión en cualquier entrada de cadena. Se debe aplicar <a href="https://owasp.org/www-community/Fuzzing" target="_blank" rel="noopener">fuzzing</a> al programa usando todos los especificadores de conversión de todos los lenguajes que utiliza el sistema bajo prueba. Consulte la página <a href="https://owasp.org/www-community/attacks/Format_string_attack" target="_blank" rel="noopener">OWASP Format string attack</a> para ver posibles entradas a utilizar. Si la prueba falla, el programa se bloqueará o mostrará una salida inesperada. Si la prueba pasa, el intento de enviar un especificador de conversión debería ser bloqueado, o la cadena debería atravesar el sistema sin problemas, como cualquier otra entrada válida.</p>
+<p>Los ejemplos de las siguientes subsecciones tienen una URL de esta forma:</p>
+<p><code>https://vulnerable_host/userinfo?username=x</code></p>
+<ul>
+<li>El valor controlado por el usuario es <code>x</code> (para el parámetro <code>username</code>).</li>
+</ul>
+<h4 id="manual-injection">Inyección manual</h4>
+<p>Los evaluadores pueden realizar una prueba manual usando un navegador web u otras herramientas de depuración de APIs web. Se navega a la aplicación o sitio web de modo que la consulta contenga especificadores de conversión. Hay que considerar que la mayoría de los especificadores de conversión necesitan <a href="https://tools.ietf.org/html/rfc3986#section-2.1" target="_blank" rel="noopener">codificación</a> si se envían dentro de una URL, porque contienen caracteres especiales como <code>%</code> y <code>{</code>. La prueba puede introducir una cadena de especificadores <code>%s%s%s%n</code> navegando con la siguiente URL:</p>
+<p><code>https://vulnerable_host/userinfo?username=%25s%25s%25s%25n</code></p>
+<p>Si el sitio web es vulnerable, el navegador o la herramienta debería recibir un error, que puede incluir un tiempo de espera agotado o un código de retorno HTTP 500.</p>
+<p>El código Java devuelve el error</p>
+<p><code>java.util.MissingFormatArgumentException: Format specifier &#39;%s&#39;</code></p>
+<p>Dependiendo de la implementación de C, el proceso puede bloquearse por completo con <code>Segmentation Fault</code>.</p>
+<h4 id="tool-assisted-fuzzing">Fuzzing asistido por herramientas</h4>
+<p>Las herramientas de fuzzing, incluida <a href="https://github.com/xmendez/wfuzz" target="_blank" rel="noopener">wfuzz</a>, pueden automatizar las pruebas de inyección. Para wfuzz, se comienza con un archivo de texto (fuzz.txt en este ejemplo) con una entrada por línea:</p>
+<p>fuzz.txt:</p>
+<pre><code class="language-text">alice
+%s%s%s%n
+%p%p%p%p%p
+{event.__init__.__globals__[CONFIG][SECRET_KEY]}
+</code></pre>
+<p>El archivo <code>fuzz.txt</code> contiene lo siguiente:</p>
+<ul>
+<li>Una entrada válida <code>alice</code> para verificar que la aplicación puede procesar una entrada normal</li>
+<li>Dos cadenas con especificadores de conversión de tipo C</li>
+<li>Un especificador de conversión de Python para intentar leer variables globales</li>
+</ul>
+<p>Para enviar el archivo de entrada de fuzzing a la aplicación web bajo prueba, se usa el siguiente comando:</p>
+<p><code>wfuzz -c -z file,fuzz.txt,urlencode https://vulnerable_host/userinfo?username=FUZZ</code></p>
+<p>En la llamada anterior, el argumento <code>urlencode</code> habilita el escape apropiado para las cadenas y <code>FUZZ</code> (con letras mayúsculas) le indica a la herramienta dónde introducir las entradas.</p>
+<p>Un ejemplo de salida es el siguiente</p>
+<pre><code class="language-text">ID           Response   Lines    Word     Chars       Payload
+===================================================================
+
+000000002:   500        0 L      5 W      142 Ch      &quot;%25s%25s%25s%25n&quot;
+000000003:   500        0 L      5 W      137 Ch      &quot;%25p%25p%25p%25p%25p&quot;
+000000004:   200        0 L      1 W      48 Ch       &quot;%7Bevent.__init__.__globals__%5BCONFIG%5D%5BSECRET_KEY%5D%7D&quot;
+000000001:   200        0 L      1 W      5 Ch        &quot;alice&quot;
+</code></pre>
+<p>El resultado anterior valida la debilidad de la aplicación ante la inyección de especificadores de conversión de tipo C <code>%s</code> y <code>%p</code>.</p>

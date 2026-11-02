@@ -1,0 +1,258 @@
+<h1 id="oauth-authorization-server-weaknesses">Debilidades del servidor de autorización OAuth</h1>
+<h2 id="summary">Resumen</h2>
+<p>OAuth almacena las identidades de los usuarios y sus correspondientes derechos de acceso en el servidor de autorización (Authorization Server, AS). El AS desempeña un papel crucial durante el flujo de OAuth, ya que concede a los clientes acceso a los recursos. Para poder hacerlo de forma segura, debe validar correctamente los parámetros que forman parte del flujo de OAuth.</p>
+<p>No validar los parámetros puede conducir a la toma de control de cuentas, al acceso no autorizado a recursos y a la elevación de privilegios.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar debilidades en el servidor de autorización.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Para probar las debilidades del AS, el objetivo será:</p>
+<ol>
+<li>Obtener las credenciales utilizadas para la autorización.</li>
+<li>Concederse acceso a recursos arbitrarios mediante forced browsing.</li>
+<li>Evadir la autorización.</li>
+</ol>
+<h3 id="insufficient-redirect-uri-validation">Validación insuficiente del Redirect URI</h3>
+<p>Si el <code>redirect_uri</code> no se valida correctamente, se puede construir un enlace que contenga una URL que apunte a un servidor controlado por un atacante. Esto puede usarse para engañar al AS y hacer que envíe un código de autorización al atacante. En el siguiente ejemplo, se usa <code>client.evil.com</code> como <code>redirect_uri</code> falsificado.</p>
+<pre><code class="language-text">https://as.example.com/authorize?client_id=example-client&amp;redirect_uri=http%3A%2F%client.evil.com%2F&amp;state=example&amp;response_mode=fragment&amp;response_type=code&amp;scope=openid&amp;nonce=example
+</code></pre>
+<p>Si un usuario abre este enlace en el user agent, el AS redirigirá al user agent a la URL maliciosa.</p>
+<p>Un atacante puede capturar el valor de <code>code</code> pasado en la URL falsificada y luego enviarlo al endpoint de tokens del AS.</p>
+<p>La siguiente petición ilustra una petición de autorización que envía el <code>redirect_uri</code> al servidor de autorización. El cliente <code>client.example.com</code> envía una petición de autorización al AS <code>as.example.com</code> con el URI de redirección codificado en URL <code>http%3A%2F%2Fclient.example.com%2F</code>.</p>
+<pre><code class="language-http">GET /authorize
+    ?redirect_uri=http%3A%2F%2Fclient.example.com%2F
+    &amp;client_id=example-client
+    &amp;errorPath=%2Ferror
+    &amp;scope=openid%20profile%20email
+    &amp;response_type=code
+    &amp;response_mode=query
+    &amp;state=example
+    &amp;nonce=example
+    &amp;code_challenge=example
+    &amp;code_challenge_method=S256 HTTP/1.1
+Host: as.example.com
+</code></pre>
+<p>El AS responde con una redirección que contiene el código de autorización. Este puede intercambiarse por un token de acceso en la petición de token. Como se muestra a continuación, la URL en la cabecera <code>Location</code> es el URI dado en el parámetro <code>redirect_uri</code> anterior.</p>
+<pre><code class="language-http">HTTP/1.1 302 Found
+Date: Mon, 18 Oct 2021 20:46:44 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 340
+Location: https://client.example.com/?code=example&amp;state=example
+</code></pre>
+<p>Para probar si el AS es vulnerable a una validación insuficiente del redirect URI, se debe capturar el tráfico con un proxy interceptor HTTP como ZAP.</p>
+<ol>
+<li>Iniciar el flujo de OAuth y pausarlo en la petición de autorización.</li>
+<li>Cambiar el valor del <code>redirect_uri</code> y observar la respuesta.</li>
+<li>Investigar la respuesta e identificar si el AS aceptó el parámetro <code>redirect_uri</code> arbitrario.</li>
+</ol>
+<p>Si el AS redirige al user agent al <code>redirect_uri</code> que se especificó, el AS no valida correctamente el <code>redirect_uri</code>.</p>
+<p>Además, véase la sección <code>Common Filter Bypass</code> en <a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery">Server-Side Request Forgery</a> para identificar evasiones comunes de la validación del redirect URI.</p>
+<h3 id="authorization-code-injection">Inyección de código de autorización</h3>
+<p>Durante el intercambio de código en el flujo Authorization Code, el AS emite un código al cliente, que luego se intercambia en el endpoint de tokens para obtener un token de autorización y un refresh token.</p>
+<p>Se deben realizar las siguientes pruebas contra el AS:</p>
+<ol>
+<li>Enviar un código válido para otro <code>client_id</code>.</li>
+<li>Enviar un código válido para otro propietario del recurso.</li>
+<li>Enviar un código válido para otro <code>redirect_uri</code>.</li>
+<li>Reenviar el código más de una vez (repetición del código).</li>
+</ol>
+<h4 id="public-clients">Clientes públicos</h4>
+<p>La petición enviada al endpoint de tokens contiene el código de autorización, que se intercambia por el token. Se debe capturar esta petición con un proxy interceptor HTTP como ZAP y reenviarla con valores modificados.</p>
+<pre><code class="language-http">POST /oauth/token HTTP/1.1
+Host: as.example.com
+[...]
+
+{
+    &quot;errorPath&quot;:&quot;/error&quot;,
+    &quot;client_id&quot;:&quot;example-client&quot;,
+    &quot;code&quot;:&quot;INJECT_CODE_HERE&quot;,
+    &quot;grant_type&quot;:&quot;authorization_code&quot;,
+    &quot;redirect_uri&quot;:&quot;https://client.example.com&quot;
+}
+</code></pre>
+<p>Si el AS responde con un <code>access_token</code>, el código se inyectó con éxito.</p>
+<h4 id="test-confidential-clients">Probar clientes confidenciales</h4>
+<p>Como el flujo de OAuth para clientes confidenciales está protegido además por un secreto de cliente, no es posible enviar directamente un código de autorización al endpoint de tokens. En su lugar, se inyecta el código de autorización en el cliente. Este código inyectado se enviará entonces en la petición de token, emitida por el cliente confidencial junto con el secreto del cliente.</p>
+<p>Primero, se captura un código de autorización del AS:</p>
+<ol>
+<li>Iniciar el flujo de código de autorización con el usuario Alice. Pausar cuando se reciba un código del AS.</li>
+<li>No enviar el código al cliente y anotar el código y el state correspondiente.</li>
+</ol>
+<p>Luego, se inyecta el código:</p>
+<ol>
+<li>Iniciar el flujo de código de autorización con el usuario Mallory e inyectar en el proceso los valores de código y state obtenidos previamente para el usuario Alice.</li>
+<li>Cuando el ataque tiene éxito, el cliente debería estar ahora en posesión de un <code>authorization_token</code> que concede acceso a los recursos propiedad del usuario Alice.</li>
+</ol>
+<pre><code class="language-http">GET /callback?code=INJECT_CODE_HERE&amp;state=example HTTP/1.1
+Host: client.example.com
+[...]
+</code></pre>
+<h3 id="pkce-downgrade-attack">Ataque de degradación de PKCE</h3>
+<p>En determinadas circunstancias, la extensión PKCE puede eliminarse del flujo de código de autorización. Esto puede dejar a los clientes públicos vulnerables a ataques que la extensión PKCE mitiga.</p>
+<p>Esto puede ocurrir cuando:</p>
+<ul>
+<li>El AS no admite PKCE.</li>
+<li>El AS no valida correctamente PKCE.</li>
+</ul>
+<p>Ambos casos pueden probarse con un proxy interceptor HTTP como ZAP. Se deben realizar las siguientes pruebas:</p>
+<ol>
+<li>Enviar la petición de autorización sin los parámetros <code>code_challenge=sha256(xyz)</code> y <code>code_challenge_method</code>.</li>
+<li>Enviar la petición de autorización con un valor vacío para el parámetro <code>code_challenge=sha256(xyz)</code>.</li>
+<li>Enviar la petición de autorización con un valor falsificado para el parámetro <code>code_challenge=sha256(xyz)</code></li>
+</ol>
+<p>El siguiente ejemplo resalta los valores que se deben modificar:</p>
+<pre><code class="language-http">GET /authorize
+    ?redirect_uri=http%3A%2F%client.example.com
+    &amp;client_id=example-client
+    &amp;errorPath=%2Ferror
+    &amp;scope=openid%20profile%20email
+    &amp;response_type=code
+    &amp;response_mode=web_message
+    &amp;state=example-state
+    &amp;nonce=example-nonce
+    &amp;code_challenge=MODIFY_OR_OMIT_THIS
+    &amp;code_challenge_method=MODIFY_OR_OMIT_THIS
+    &amp;prompt=none HTTP/1.1
+Host: as.example.com
+[...]
+</code></pre>
+<p>El AS debe verificar el valor de <code>code_verifier</code> en el intercambio de tokens. Para probarlo:</p>
+<ol>
+<li>Enviar la petición de token sin el <code>code_verifier</code>.</li>
+<li>Enviar la petición de token con un <code>code_verifier</code> vacío.</li>
+<li>Enviar la petición de token con un <code>code_verifier</code> válido para un código de autorización diferente.</li>
+</ol>
+<pre><code class="language-http">POST /oauth/token HTTP/1.1
+Host: as.example.com
+[...]
+
+{
+&quot;client_id&quot;:&quot;example-client&quot;,
+&quot;code_verifier&quot;:&quot;MODIFY_OR_OMIT_THIS&quot;,
+&quot;code&quot;:&quot;example&quot;,
+&quot;grant_type&quot;:&quot;authorization_code&quot;,
+&quot;redirect_uri&quot;:&quot;https://client.example.com&quot;
+}
+</code></pre>
+<h3 id="consent-page-cross-site-request-forgery">Cross-Site Request Forgery en la página de consentimiento</h3>
+<p>Los ataques CSRF se describen en <a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">CSRF</a>. OAuth puede ser atacado con CSRF.</p>
+<p>Para prevenir ataques CSRF, OAuth utiliza el parámetro <code>state</code> como token anti-CSRF.</p>
+<p>Otras medidas también pueden prevenir ataques CSRF. El flujo PKCE mitiga CSRF. Un valor <code>nonce</code> también puede actuar como token anti-CSRF.</p>
+<p>Se debe probar cada petición que contenga uno de los parámetros anti-CSRF utilizados por OAuth conforme a las pruebas descritas en los casos de prueba de <a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">CSRF</a>.</p>
+<p>La página de consentimiento se muestra a un usuario para verificar que este consiente que el cliente acceda al recurso en su nombre. Atacar la página de consentimiento con CSRF puede conceder a un cliente arbitrario acceso a un recurso en nombre del usuario. Los pasos de este flujo son:</p>
+<ol>
+<li>El cliente genera un parámetro state y lo envía con la petición de consentimiento.</li>
+<li>El user agent muestra la página de consentimiento.</li>
+<li>El propietario del recurso concede acceso al cliente.</li>
+<li>El consentimiento se envía al AS junto con los scopes aceptados.</li>
+</ol>
+<p>Se debe usar un proxy interceptor HTTP como ZAP para probar si el parámetro state se valida correctamente.</p>
+<pre><code class="language-http">POST /u/consent?state=Tampered_State HTTP/1.1
+Host: as.example.com
+[...]
+
+state=MODIFY_OR_OMIT_THIS
+&amp;audience=https%3A%2F%2Fas.example.com%2Fuserinfo
+&amp;scope%5B%5D=profile
+&amp;scope%5B%5D=email
+&amp;action=accept
+</code></pre>
+<h3 id="clickjacking">Clickjacking</h3>
+<p>El clickjacking se describe en <a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a>. Cuando la página de consentimiento es propensa a clickjacking y el atacante posee el <code>client_id</code> (para clientes públicos, o el secreto del cliente para clientes confidenciales), el atacante puede falsificar el consentimiento del usuario y obtener acceso al recurso solicitado a través de un cliente malicioso.</p>
+<h4 id="how-to-test-1">Cómo probar</h4>
+<p>Para que este ataque tenga éxito, el atacante necesita cargar la página de autorización en un iframe.</p>
+<p>La siguiente página HTML puede usarse para cargar la página de autorización en un iframe:</p>
+<pre><code class="language-html">&lt;html&gt;
+    &lt;head&gt;
+        &lt;title&gt;Clickjack test page&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;iframe src=&quot;https://as.example.com/auth/realms/example/login-actions/required-action?execution=OAUTH_GRANT&amp;client_id=example-client&quot; width=&quot;500&quot; height=&quot;500&quot;&gt;&lt;/iframe&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Si se carga con éxito, el sitio es vulnerable a clickjacking.</p>
+<p>Véase <a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a> para una descripción detallada de cómo puede llevarse a cabo un ataque de este tipo.</p>
+<h3 id="token-lifetime">Duración de los tokens</h3>
+<p>OAuth tiene dos tipos de tokens: el access token y el refresh token. Un access token debe tener una validez limitada en el tiempo. Eso significa que es de corta duración: una buena duración depende de la aplicación y puede ser de 5 a 15 minutos.</p>
+<p>El refresh token debe ser válido por un período más largo. Debe ser un token de un solo uso que se reemplaza cada vez que se ha usado.</p>
+<h4 id="test-access-token-lifetime-validation">Probar la validación de la duración del access token</h4>
+<p>Cuando se usa un JSON Web Token (JWT) como access token, es posible obtener la validez del access token a partir del JWT decodificado. Esto se describe en <a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">Testing JSON Web Tokens</a>. Es posible que el AS no valide correctamente la duración del JWT.</p>
+<p>Para probar la duración del access token, se debe usar un proxy interceptor HTTP como ZAP. Se intercepta una petición a un endpoint que contenga un access token. Se coloca esta petición en el repeater y se deja transcurrir el tiempo objetivo. La validez de un access token debe ser de entre 5 y 15 minutos, según la sensibilidad de los recursos.</p>
+<p>Estas peticiones pueden verse como el siguiente ejemplo. El token también podría transportarse de otras maneras, por ejemplo, en una cookie.</p>
+<pre><code class="language-http">GET /userinfo HTTP/1.1
+Host: as.example.com
+[...]
+Authorization: Bearer eyJhbGciOiJkaXIiL[...]
+</code></pre>
+<p>Se debe probar la validación de la duración enviando la petición después de que hayan transcurrido distintos lapsos de tiempo, por ejemplo, después de 5 minutos, 10 minutos y 30 minutos.</p>
+<p>Este proceso puede optimizarse automatizando los pasos y registrando la respuesta del servidor. Cuando se recibe una respuesta con estado HTTP 403 (en lugar de estado HTTP 200), esto puede indicar que el access token ya no es válido.</p>
+<h4 id="test-refresh-token-lifetime-validation">Probar la validación de la duración del refresh token</h4>
+<p>Los refresh tokens tienen un período de validez más largo que los access tokens. Debido a su larga validez, deben invalidarse después de usarse en un intercambio por un access token.</p>
+<p>Los refresh tokens se emiten en la misma petición de token en la que se entrega el access token al cliente.</p>
+<p>Se debe usar un proxy interceptor HTTP como ZAP. Se prepara la prueba de la siguiente manera:</p>
+<ol>
+<li>Obtener un refresh token válido.</li>
+<li>Capturar la petición que se usa para intercambiar el refresh token por un nuevo access token.</li>
+<li>Enviar la petición capturada al repeater de peticiones.</li>
+</ol>
+<p>En el siguiente ejemplo, el refresh token se envía como parte del cuerpo del POST.</p>
+<pre><code class="language-http">POST /token HTTP/1.1
+Host: as.example.com
+Cookie: [...]
+[...]
+
+grant_type=refresh_token
+&amp;refresh_token=eyJhbGciOiJIUz[...]
+&amp;client_id=example-client
+</code></pre>
+<p>Se deben realizar las siguientes pruebas:</p>
+<ol>
+<li>Enviar el refresh token y determinar si el AS entrega un access token.</li>
+<li>Repetir los pasos con el mismo refresh token para evaluar cuántas veces se acepta un mismo refresh token.</li>
+</ol>
+<p>Cuando se usa un JWT como refresh token, es posible obtener la validez del refresh token a partir del JWT decodificado. Esto se describe en <a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">Testing JSON Web Tokens</a>. El refresh token puede ser válido por un período más largo, pero debe tener una fecha de expiración.</p>
+<p>Se puede obtener seguridad adicional con un mecanismo de detección de robo. Si un refresh token se usa en un intercambio de tokens más allá de su validez (o duración), el AS invalida todos los refresh tokens. Para probar este mecanismo:</p>
+<ol>
+<li>Enviar el refresh token y determinar si el AS entrega un access token.</li>
+<li>Repetir los pasos con el mismo refresh token hasta que sea invalidado.</li>
+<li>Usar el refresh token de la última respuesta de token</li>
+</ol>
+<p>Si todos los refresh tokens que se emitieron al cliente para este propietario del recurso quedan invalidados, el AS cuenta con detección de robo de tokens.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">Cross Site Request Forgery</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/04-Client-side_URL_Redirect">Client-side URL Redirect</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery">Server-Side Request Forgery</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">Testing JSON Web Tokens</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/07-Cross_Origin_Resource_Sharing">Testing Cross Origin Resource Sharing</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La mayoría de los ataques contra el AS de OAuth pueden mitigarse validando la existencia y el contenido de los parámetros durante el intercambio del código de autorización y de tokens.</p>
+<p>Se deben restringir el período de validez y el uso permitido de credenciales como el código de autorización y el refresh token. Esto puede mitigar algunos tipos de ataques y también limita el uso de dichas credenciales por parte de un atacante, si llega a obtenerlas.</p>
+<p>Una configuración adecuada de mitigaciones de seguridad como CORS, tokens anti-CSRF y cabeceras anti-clickjacking puede mitigar o limitar el impacto de los ataques.</p>
+<ul>
+<li>Validar siempre que todos los parámetros estén presentes y validar sus valores.</li>
+<li>Usar la extensión PKCE para proteger adecuadamente el intercambio del código de autorización y de tokens.</li>
+<li>No permitir un mecanismo de respaldo (fallback) para funciones de seguridad como la extensión PKCE.</li>
+<li>Restringir la duración de las credenciales.</li>
+<li>Usar las credenciales una sola vez cuando sea posible, p. ej. el código de autorización.</li>
+<li>Configurar las mitigaciones de seguridad disponibles como CORS, tokens anti-CSRF y cabeceras anti-clickjacking.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/releases" target="_blank" rel="noopener">BurpSuite</a></li>
+<li><a href="https://github.com/portswigger/espresso" target="_blank" rel="noopener">EsPReSSO</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://oauth.net/articles/authentication/" target="_blank" rel="noopener">User Authentication with OAuth 2.0</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6749" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6750" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework: Bearer Token Usage</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6819" target="_blank" rel="noopener">OAuth 2.0 Threat Model and Security Considerations</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9700" target="_blank" rel="noopener">OAuth 2.0 Security Best Current Practice</a></li>
+<li><a href="https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce" target="_blank" rel="noopener">Authorization Code Flow with Proof Key for Code Exchange</a></li>
+</ul>

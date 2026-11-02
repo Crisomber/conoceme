@@ -1,0 +1,48 @@
+<h1 id="upload-of-unexpected-file-types">Carga de tipos de archivo inesperados</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-08</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los procesos de negocio de muchas aplicaciones permiten la carga y manipulación de datos que se envían mediante archivos. Pero el proceso de negocio debe comprobar los archivos y permitir solo ciertos tipos de archivo &quot;aprobados&quot;. Decidir qué archivos están &quot;aprobados&quot; lo determina la lógica de negocio y es específico de cada aplicación o sistema. El riesgo es que, al permitir que los usuarios carguen archivos, los atacantes puedan enviar un tipo de archivo inesperado que podría ejecutarse y afectar negativamente a la aplicación o al sistema mediante ataques que pueden desfigurar el sitio, ejecutar comandos remotos, explorar los archivos del sistema, explorar los recursos locales, atacar otros servidores o explotar vulnerabilidades locales, por nombrar solo algunos.</p>
+<p>Las vulnerabilidades relacionadas con la carga de tipos de archivo inesperados son particulares en cuanto a que la carga debería rechazar rápidamente un archivo si no tiene una extensión específica. Además, esto es distinto de la carga de archivos maliciosos en que, en la mayoría de los casos, un formato de archivo incorrecto puede no ser inherentemente &quot;malicioso&quot; por sí mismo, pero sí perjudicial para los datos guardados. Por ejemplo, si una aplicación acepta archivos de Windows Excel y se carga un archivo de base de datos similar, es posible que se lea, pero los datos extraídos pueden trasladarse a ubicaciones incorrectas.</p>
+<p>Es posible que la aplicación espere que se carguen solo ciertos tipos de archivo para su procesamiento, como archivos <code>.csv</code> o <code>.txt</code>. La aplicación puede no validar el archivo cargado por su extensión (validación de archivos de baja garantía) o por su contenido (validación de archivos de alta garantía). Esto puede producir resultados inesperados en el sistema o la base de datos dentro de la aplicación o el sistema, o dar a los atacantes métodos adicionales para explotar la aplicación o el sistema.</p>
+<h3 id="example">Ejemplo</h3>
+<p>Supóngase que una aplicación para compartir fotos permite a los usuarios cargar al sitio un archivo gráfico <code>.gif</code> o <code>.jpg</code>. ¿Qué pasa si un atacante puede cargar un archivo HTML con una etiqueta <code>&lt;script&gt;</code> o un archivo PHP? El sistema puede mover el archivo desde una ubicación temporal a la ubicación final, donde el código PHP ahora puede ejecutarse contra la aplicación o el sistema.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la documentación del proyecto en busca de los tipos de archivo que el sistema rechaza.</li>
+<li>Verificar que los tipos de archivo no deseados se rechazan y se gestionan de forma segura.</li>
+<li>Verificar que las cargas de archivos por lotes son seguras y no permiten eludir las medidas de seguridad establecidas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="specific-testing-method">Método de prueba específico</h3>
+<ul>
+<li>Estudiar los requisitos lógicos de las aplicaciones.</li>
+<li>Preparar una biblioteca de archivos &quot;no aprobados&quot; para la carga, que pueden incluir archivos como: jsp, exe o HTML con script.</li>
+<li>En la aplicación, navegar hasta el mecanismo de envío o carga de archivos.</li>
+<li>Enviar a carga los archivos &quot;no aprobados&quot; y verificar que se impide correctamente su carga</li>
+<li>Comprobar si el sitio solo realiza las comprobaciones del tipo de archivo en JavaScript del lado del cliente</li>
+<li>Comprobar si el sitio solo comprueba el tipo de archivo mediante el &quot;Content-Type&quot; de la petición HTTP.</li>
+<li>Comprobar si el sitio solo comprueba el tipo de archivo mediante la extensión del archivo.</li>
+<li>Comprobar si se puede acceder directamente a otros archivos cargados mediante una URL específica.</li>
+<li>Comprobar si el archivo cargado puede incluir inyección de código o de script.</li>
+<li>Comprobar si existe alguna verificación de la ruta de los archivos cargados. En particular, los atacantes pueden comprimir archivos con una ruta especificada en un ZIP, de modo que los archivos extraídos puedan colocarse en la ruta deseada tras cargar y descomprimir.</li>
+</ul>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/03-File_Extensions_Handling_for_Sensitive_Information">File Extensions Handling for Sensitive Information</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files">Test Upload of Malicious Files</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Las aplicaciones deben desarrollarse con mecanismos que solo acepten y manipulen archivos &quot;aceptables&quot; que el resto de la funcionalidad de la aplicación esté preparada para manejar y espere. Algunos ejemplos específicos incluyen: listas de denegación o listas de permitidos de extensiones de archivo, usar el &quot;Content-Type&quot; de la cabecera o usar un reconocedor de tipos de archivo, todo ello para permitir en el sistema solo los tipos de archivo especificados.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload" target="_blank" rel="noopener">OWASP - Unrestricted File Upload</a></li>
+<li><a href="https://www.computerweekly.com/answer/File-upload-security-best-practices-Block-a-malicious-file-upload" target="_blank" rel="noopener">File upload security best practices: Block a malicious file upload</a></li>
+<li><a href="https://stackoverflow.com/questions/602539/stop-people-uploading-malicious-php-files-via-forms" target="_blank" rel="noopener">Stop people uploading malicious PHP files via forms</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/434.html" target="_blank" rel="noopener">CWE-434: Unrestricted Upload of File with Dangerous Type</a></li>
+</ul>

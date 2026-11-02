@@ -1,0 +1,147 @@
+<h1 id="conduct-search-engine-reconnaissance-for-information-leakage">Reconocimiento mediante motores de búsqueda para detectar fuga de información</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Para que los motores de búsqueda funcionen, ciertos programas informáticos (o <code>robots</code>) obtienen regularmente datos (lo que se conoce como <a href="https://en.wikipedia.org/wiki/Web_crawler" target="_blank" rel="noopener">rastreo o crawling</a>) de miles de millones de páginas de la web. Estos programas encuentran contenido y funcionalidad web siguiendo enlaces de otras páginas o consultando mapas del sitio (sitemaps). Si un sitio utiliza un archivo especial llamado <code>robots.txt</code> para listar las páginas que no desea que los motores de búsqueda obtengan, las páginas allí listadas serán ignoradas. Esta es una descripción general básica; Google ofrece una explicación más detallada de <a href="https://support.google.com/webmasters/answer/70897?hl=en" target="_blank" rel="noopener">cómo funciona un motor de búsqueda</a>.</p>
+<p>Los evaluadores pueden usar los motores de búsqueda para realizar reconocimiento de sitios y aplicaciones web. El descubrimiento y reconocimiento mediante motores de búsqueda tiene elementos directos e indirectos: los métodos directos se relacionan con la búsqueda en los índices y en el contenido asociado de las cachés, mientras que los métodos indirectos consisten en obtener información sensible de diseño y configuración buscando en foros, grupos de noticias y sitios de licitaciones.</p>
+<p>Una vez que un robot de un motor de búsqueda ha terminado de rastrear, comienza a indexar el contenido web con base en etiquetas y atributos asociados, como <code>&lt;TITLE&gt;</code>, para devolver resultados de búsqueda relevantes. Si el archivo <code>robots.txt</code> no se actualiza durante la vida útil del sitio, y no se han usado metaetiquetas HTML en línea que indiquen a los robots que no indexen el contenido, es posible que los índices contengan contenido web que los propietarios no pretendían incluir. Los propietarios de sitios pueden usar el mencionado <code>robots.txt</code>, las metaetiquetas HTML, la autenticación y las herramientas que ofrecen los motores de búsqueda para eliminar dicho contenido.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar qué información sensible de diseño y configuración de la aplicación, el sistema o la organización está expuesta directamente (en el sitio de la organización) o indirectamente (a través de servicios de terceros).</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Utiliza un motor de búsqueda para buscar información potencialmente sensible. Esto puede incluir:</p>
+<ul>
+<li>diagramas y configuraciones de red;</li>
+<li>publicaciones y correos electrónicos archivados de administradores u otro personal clave;</li>
+<li>procedimientos de inicio de sesión y formatos de nombres de usuario;</li>
+<li>nombres de usuario, contraseñas y claves privadas;</li>
+<li>archivos de configuración de servicios de terceros o de la nube;</li>
+<li>contenido revelador de mensajes de error; y</li>
+<li>aplicaciones no públicas (versiones de desarrollo, pruebas, pruebas de aceptación de usuario (UAT) y preproducción (staging) de los sitios).</li>
+</ul>
+<h3 id="search-engines">Motores de búsqueda</h3>
+<p>No limites las pruebas a un solo proveedor de motor de búsqueda, ya que distintos motores pueden generar resultados diferentes. Los resultados de los motores de búsqueda pueden variar de varias maneras, según cuándo rastreó el motor el contenido por última vez y el algoritmo que utiliza para determinar las páginas relevantes. Considera usar los siguientes motores de búsqueda (listados en orden alfabético):</p>
+<ul>
+<li><a href="https://www.baidu.com/" target="_blank" rel="noopener">Baidu</a>, el motor de búsqueda <a href="https://en.wikipedia.org/wiki/Web_search_engine#Market_share" target="_blank" rel="noopener">más popular</a> de China.</li>
+<li><a href="https://www.bing.com/" target="_blank" rel="noopener">Bing</a>, un motor de búsqueda propiedad de Microsoft y operado por esta, y el segundo <a href="https://en.wikipedia.org/wiki/Web_search_engine#Market_share" target="_blank" rel="noopener">más popular</a> a nivel mundial. Admite <a href="https://help.bing.microsoft.com/#apex/18/en-US/10001/-1" target="_blank" rel="noopener">palabras clave de búsqueda avanzada</a>.</li>
+<li><a href="https://binsearch.info/" target="_blank" rel="noopener">binsearch.info</a>, un motor de búsqueda para grupos de noticias binarios de Usenet.</li>
+<li><a href="https://commoncrawl.org/" target="_blank" rel="noopener">Common Crawl</a>, &quot;un repositorio abierto de datos de rastreo web al que cualquiera puede acceder y que cualquiera puede analizar&quot;.</li>
+<li><a href="https://duckduckgo.com/" target="_blank" rel="noopener">DuckDuckGo</a>, un motor de búsqueda centrado en la privacidad que compila resultados de muchas <a href="https://help.duckduckgo.com/results/sources/" target="_blank" rel="noopener">fuentes</a> diferentes. Admite <a href="https://help.duckduckgo.com/duckduckgo-help-pages/results/syntax/" target="_blank" rel="noopener">sintaxis de búsqueda</a>.</li>
+<li><a href="https://www.google.com/" target="_blank" rel="noopener">Google</a>, que ofrece el motor de búsqueda <a href="https://en.wikipedia.org/wiki/Web_search_engine#Market_share" target="_blank" rel="noopener">más popular</a> del mundo y utiliza un sistema de clasificación para intentar devolver los resultados más relevantes. Admite <a href="https://support.google.com/websearch/answer/2466433" target="_blank" rel="noopener">operadores de búsqueda</a>.</li>
+<li><a href="https://archive.org/web/" target="_blank" rel="noopener">Internet Archive Wayback Machine</a>, &quot;que construye una biblioteca digital de sitios de internet y otros artefactos culturales en forma digital&quot;.</li>
+<li><a href="https://censys.com" target="_blank" rel="noopener">Censys</a> es un motor de búsqueda orientado a la seguridad que indexa infraestructura conectada a internet, incluidos servidores, certificados y servicios abiertos. Ofrece un nivel comunitario gratuito con créditos mensuales limitados y planes de pago para uso empresarial.</li>
+<li><a href="https://www.shodan.io/" target="_blank" rel="noopener">Shodan</a>, un servicio para buscar dispositivos y servicios conectados a internet. Las opciones de uso incluyen un plan gratuito limitado, así como planes de suscripción de pago.</li>
+</ul>
+<h3 id="search-operators">Operadores de búsqueda</h3>
+<p>Un operador de búsqueda es una palabra clave o sintaxis especial que amplía las capacidades de las consultas de búsqueda normales y puede ayudar a obtener resultados más específicos. Generalmente tienen la forma <code>operador:consulta</code>. Estos son algunos operadores de búsqueda de uso común:</p>
+<ul>
+<li><code>site:</code> limita la búsqueda al dominio indicado.</li>
+<li><code>inurl:</code> solo devuelve resultados que incluyen la palabra clave en la URL.</li>
+<li><code>intitle:</code> solo devuelve resultados que tienen la palabra clave en el título de la página.</li>
+<li><code>intext:</code> o <code>inbody:</code> busca la palabra clave únicamente en el cuerpo de las páginas.</li>
+<li><code>filetype:</code> coincide solo con un tipo de archivo específico, por ejemplo <code>.png</code> o <code>.php</code>.</li>
+</ul>
+<p>Por ejemplo, para encontrar el contenido web de owasp.org tal como lo indexa un motor de búsqueda típico, la sintaxis necesaria es:</p>
+<pre><code class="language-text">site:owasp.org
+</code></pre>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/01-google_site_operator_search_results.png" alt="Ejemplo de resultado de búsqueda con el operador site de Google" loading="lazy"><br><em>Figura 4.1.1-1: Ejemplo de resultado de búsqueda con el operador site de Google</em></p>
+<h4 id="internet-archive-wayback-machine">Internet Archive Wayback Machine</h4>
+<p><a href="https://archive.org/web/" target="_blank" rel="noopener">Internet Archive Wayback Machine</a> es la herramienta más completa para ver instantáneas históricas de páginas web. Mantiene un extenso archivo de páginas web que se remonta a 1996.</p>
+<p>Para ver versiones archivadas de un sitio, visita <code>https://web.archive.org/web/*/</code>
+seguido de la URL del objetivo:</p>
+<pre><code class="language-text">https://web.archive.org/web/*/owasp.org
+</code></pre>
+<p>Esto mostrará una vista de calendario con todas las instantáneas disponibles del sitio a lo largo del tiempo.</p>
+<h4 id="other-cached-content-services">Otros servicios de contenido en caché</h4>
+<p>Otros servicios para ver páginas web en caché o archivadas incluyen:</p>
+<ul>
+<li><a href="https://archive.ph" target="_blank" rel="noopener">archive.ph</a> (también conocido como archive.md): servicio de archivado bajo demanda que crea instantáneas permanentes.</li>
+<li><a href="https://cachedview.com/" target="_blank" rel="noopener">CachedView</a>: agrega páginas en caché de múltiples fuentes, incluidos datos históricos de la caché de Google, Wayback Machine y otras.</li>
+</ul>
+<h3 id="automated-archive-url-collection">Recopilación automatizada de URL de archivos históricos</h3>
+<p>Además de explorar la vista de calendario de Wayback Machine, los evaluadores suelen automatizar la recopilación de URL históricas. Estas URL con frecuencia revelan endpoints olvidados, rutas antiguas de API, archivos de respaldo y parámetros que ya no están enlazados desde la aplicación activa.</p>
+<ul>
+<li><a href="https://github.com/lc/gau" target="_blank" rel="noopener">gau</a>: agrega URL conocidas de AlienVault OTX, Wayback Machine y Common Crawl.</li>
+<li><a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">waybackurls</a>: obtiene las URL que Wayback Machine conoce para un dominio.</li>
+<li><a href="https://github.com/xnl-h4ck3r/waymore" target="_blank" rel="noopener">waymore</a>: amplía la cobertura a Wayback Machine, Common Crawl, AlienVault OTX, URLScan y VirusTotal, y también puede recuperar respuestas históricas.</li>
+</ul>
+<p>Ejemplo de flujo de trabajo:</p>
+<pre><code class="language-bash">gau example.com --verbose --threads 8 | tee gau.txt
+</code></pre>
+<pre><code class="language-text">WARN[0000] error reading config: Config file /Users/whoever/.gau.toml not found, using default config
+INFO[0000] fetching example.com                          page=0 provider=wayback
+INFO[0000] fetching example.com                          page=0 provider=urlscan
+INFO[0000] fetching example.com                          page=0 provider=otx
+https://code.example.com/team/content.git@
+https://code.example.com/team/content.git
+https://example.com/smoke-slug
+https://example.com/pay
+https://app.example.com
+...
+</code></pre>
+<pre><code class="language-bash">waybackurls example.com | tee wayback.txt
+</code></pre>
+<pre><code class="language-text">https://example.com/
+https://example.com/robots.txt
+https://example.com/sitemap.xml
+https://example.com/old-api/v1/users
+https://backup.example.com/db.sql
+...
+</code></pre>
+<pre><code class="language-bash">waymore -i example.com -mode U -o waymore.txt
+</code></pre>
+<pre><code class="language-text">waymore v0.10 by Xnl-h4ck3r
+[+] Getting URLs from Wayback Machine, Common Crawl, AlienVault OTX, URLScan and VirusTotal
+https://example.com/
+https://example.com/careers
+https://staging.example.com/login
+https://example.com/backup.zip
+...
+</code></pre>
+<p><a href="https://github.com/tomnomnom/unfurl" target="_blank" rel="noopener">unfurl</a> es útil para extraer componentes (claves, rutas, dominios, etc.) de las grandes listas de URL producidas por las herramientas anteriores.</p>
+<pre><code class="language-bash"># Expand and clean URLs (optional)
+cat gau.txt wayback.txt waymore.txt | unfurl --unique keys | sort -u &gt; urls.txt
+</code></pre>
+<pre><code class="language-text">db.sql
+login
+old-api
+robots.txt
+sitemap.xml
+...
+</code></pre>
+<p>La lista de URL resultante puede filtrarse por extensiones, parámetros o códigos de estado interesantes y alimentarse posteriormente a escáneres de descubrimiento de contenido o de vulnerabilidades. Valida siempre que los hosts y las rutas descubiertos sigan estando dentro del alcance.</p>
+<h3 id="google-hacking-or-dorking">Google Hacking o Dorking</h3>
+<p>La búsqueda con operadores puede ser una técnica de descubrimiento muy eficaz cuando se combina con la creatividad del evaluador. Los operadores pueden encadenarse para descubrir eficazmente tipos específicos de archivos e información sensible. Esta técnica, llamada <a href="https://en.wikipedia.org/wiki/Google_hacking" target="_blank" rel="noopener">Google hacking</a> o Dorking, también es posible con otros motores de búsqueda, siempre que admitan los operadores de búsqueda.</p>
+<p>Una base de datos de dorks, como la <a href="https://www.exploit-db.com/google-hacking-database" target="_blank" rel="noopener">Google Hacking Database</a>, es un recurso útil que puede ayudar a descubrir información específica.
+Los generadores de consultas asistidos por IA, como <a href="https://www.dorkgpt.com" target="_blank" rel="noopener">DorkGPT</a>, pueden traducir indicaciones en lenguaje natural a sintaxis de dorks de Google, lo que reduce el esfuerzo manual de construir operadores de búsqueda complejos.
+Algunas de las categorías de dorks disponibles en esta base de datos incluyen:</p>
+<ul>
+<li>Puntos de apoyo (Footholds)</li>
+<li>Archivos que contienen nombres de usuario</li>
+<li>Directorios sensibles</li>
+<li>Detección de servidores web</li>
+<li>Archivos vulnerables</li>
+<li>Servidores vulnerables</li>
+<li>Mensajes de error</li>
+<li>Archivos que contienen información valiosa</li>
+<li>Archivos que contienen contraseñas</li>
+<li>Información sensible de compras en línea</li>
+</ul>
+<h2 id="osint-correlation-tools">Herramientas de correlación OSINT</h2>
+<p>Más allá de los motores de búsqueda individuales, los evaluadores pueden usar frameworks OSINT dedicados para correlacionar y visualizar las relaciones entre las entidades descubiertas:</p>
+<p><a href="https://maltego.com" target="_blank" rel="noopener">Maltego</a> es una plataforma OSINT y de análisis de vínculos estándar en la industria que mapea las relaciones entre dominios, direcciones IP, direcciones de correo electrónico y organizaciones mediante transformaciones de datos automatizadas. Los evaluadores la utilizan para visualizar la superficie de ataque de una organización partiendo de una sola entidad para descubrir infraestructura relacionada y puntos de datos asociados. Hay una Community Edition gratuita disponible para uso no comercial.</p>
+<p>Otras herramientas OSINT modernas que se suelen usar junto con el reconocimiento mediante motores de búsqueda incluyen:</p>
+<ul>
+<li><a href="https://github.com/laramies/theHarvester" target="_blank" rel="noopener">theHarvester</a>: recolector de correos electrónicos, subdominios y nombres (OSINT).</li>
+<li><a href="https://github.com/owasp-amass/amass" target="_blank" rel="noopener">Amass</a> (modo pasivo): mapeo profundo de la superficie de ataque y descubrimiento de activos.</li>
+<li><a href="https://github.com/projectdiscovery/subfinder" target="_blank" rel="noopener">subfinder</a>: herramienta rápida de enumeración pasiva de subdominios.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Considera cuidadosamente la sensibilidad de la información de diseño y configuración antes de publicarla en línea.</p>
+<p>Revisa periódicamente la sensibilidad de la información de diseño y configuración existente que esté publicada en línea.</p>

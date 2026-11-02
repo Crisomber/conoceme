@@ -1,0 +1,155 @@
+<h1 id="directory-traversal-file-include">Inclusión de archivos y Directory Traversal</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHZ-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Muchas aplicaciones web utilizan y administran archivos como parte de su operación diaria. Si se emplean métodos de validación de entrada mal diseñados o mal implementados, un agresor podría explotar el sistema para leer o escribir archivos que no deberían ser accesibles. En ciertas situaciones, incluso podría ser posible ejecutar código arbitrario o comandos del sistema.</p>
+<p>Tradicionalmente, los servidores web y las aplicaciones web implementan mecanismos de autenticación para controlar el acceso a archivos y recursos. Los servidores web intentan confinar los archivos de los usuarios dentro de un &quot;directorio raíz&quot; o &quot;raíz de documentos web&quot;, que representa un directorio físico en el sistema de archivos. Los usuarios deben considerar este directorio como el directorio base dentro de la estructura jerárquica de la aplicación web.</p>
+<p>La definición de los privilegios se hace mediante Listas de Control de Acceso (ACL), que identifican qué usuarios o grupos pueden acceder, modificar o ejecutar un archivo específico en el servidor. Estos mecanismos están diseñados para impedir que usuarios maliciosos accedan a archivos sensibles (por ejemplo, el común archivo <code>/etc/passwd</code> en una plataforma tipo UNIX) o para evitar la ejecución de comandos del sistema.</p>
+<p>Muchas aplicaciones web utilizan scripts del lado del servidor para incluir distintos tipos de archivos. Es bastante común usar este método para administrar imágenes, plantillas, cargar textos estáticos, etc. Lamentablemente, estas aplicaciones exponen vulnerabilidades de seguridad si los parámetros de entrada (es decir, parámetros de formularios, valores de cookies) no se validan correctamente.</p>
+<p>En los servidores web y las aplicaciones web, este tipo de problema se manifiesta en los ataques de path traversal y de inclusión de archivos. Al explotar este tipo de vulnerabilidad, un atacante puede leer directorios o archivos que normalmente no podría leer, acceder a datos fuera de la raíz de documentos web o incluir scripts y otros tipos de archivos desde sitios externos.</p>
+<p>Para los fines de la Guía de Pruebas de OWASP, solo se considerarán las amenazas de seguridad relacionadas con aplicaciones web y no las amenazas a los servidores web (por ejemplo, el infame código de escape <code>%5c</code> en el servidor web Microsoft IIS). En la sección de referencias se ofrecen sugerencias de lectura adicional para los lectores interesados.</p>
+<p>Este tipo de ataque también se conoce como ataque punto-punto-barra (<code>../</code>), directory traversal, escalada de directorios (directory climbing) o retroceso (backtracking).</p>
+<p>Durante una evaluación, para descubrir fallas de path traversal e inclusión de archivos, los evaluadores deben realizar dos etapas distintas:</p>
+<ol>
+<li>Enumeración de vectores de entrada (una evaluación sistemática de cada vector de entrada)</li>
+<li>Técnicas de prueba (una evaluación metódica de cada técnica de ataque utilizada por un atacante para explotar la vulnerabilidad)</li>
+</ol>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección relacionados con path traversal.</li>
+<li>Evaluar las técnicas de evasión e identificar el alcance del path traversal.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="input-vectors-enumeration">Enumeración de vectores de entrada</h4>
+<p>Para determinar qué parte de la aplicación es vulnerable a la evasión de la validación de entrada, el evaluador debe enumerar todas las partes de la aplicación que aceptan contenido del usuario. Esto incluye también las consultas HTTP GET y POST y opciones comunes como la carga de archivos y los formularios HTML.</p>
+<p>A continuación se presentan algunos ejemplos de las comprobaciones que se deben realizar en esta etapa:</p>
+<ul>
+<li>¿Hay parámetros de la petición que podrían usarse para operaciones relacionadas con archivos?</li>
+<li>¿Hay extensiones de archivo inusuales?</li>
+<li>¿Hay nombres de variables interesantes?<ul>
+<li><code>https://example.com/getUserProfile.jsp?item=ikki.html</code></li>
+<li><code>https://example.com/index.php?file=content</code></li>
+<li><code>https://example.com/main.cgi?home=index.htm</code></li>
+</ul>
+</li>
+<li>¿Es posible identificar cookies utilizadas por la aplicación web para la generación dinámica de páginas o plantillas?<ul>
+<li><code>Cookie: ID=d9ccd3f4f9f18cc1:TM=2166255468:LM=1162655568:S=3cFpqbJgMSSPKVMV:TEMPLATE=flower</code></li>
+<li><code>Cookie: USER=1826cc8f:PSTYLE=GreenDotRed</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="testing-techniques">Técnicas de prueba</h4>
+<p>La siguiente etapa de las pruebas consiste en analizar las funciones de validación de entrada presentes en la aplicación web. Siguiendo el ejemplo anterior, la página dinámica llamada <code>getUserProfile.jsp</code> carga información estática desde un archivo y muestra el contenido a los usuarios. Un atacante podría insertar la cadena maliciosa <code>../../../../etc/passwd</code> para incluir el archivo de hashes de contraseñas de un sistema Linux/UNIX. Obviamente, este tipo de ataque solo es posible si falla el punto de control de validación; según los privilegios del sistema de archivos, la propia aplicación web debe ser capaz de leer el archivo.</p>
+<blockquote>
+<p>Nota: Para probar con éxito esta falla, el evaluador necesita conocer el sistema que se está probando y la ubicación de los archivos solicitados. No tiene sentido solicitar <code>/etc/passwd</code> a un servidor web IIS.</p>
+</blockquote>
+<pre><code class="language-text">https://example.com/getUserProfile.jsp?item=../../../../etc/passwd
+</code></pre>
+<p>Otro ejemplo común es incluir contenido de una fuente externa:</p>
+<pre><code class="language-text">https://example.com/index.php?file=https://www.owasp.org/malicioustxt
+</code></pre>
+<p>Lo mismo puede aplicarse a las cookies o a cualquier otro vector de entrada que se utilice para la generación dinámica de páginas.</p>
+<p>Se pueden encontrar más payloads de inclusión de archivos en <a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion" target="_blank" rel="noopener">PayloadsAllTheThings - File Inclusion</a></p>
+<p>Es importante tener en cuenta que distintos sistemas operativos utilizan distintos separadores de ruta</p>
+<ul>
+<li>SO tipo Unix:<ul>
+<li>directorio raíz: <code>/</code></li>
+<li>separador de directorios: <code>/</code></li>
+</ul>
+</li>
+<li>SO Windows:<ul>
+<li>directorio raíz: <code>&lt;drive letter&gt;:</code></li>
+<li>separador de directorios: <code>\</code> o <code>/</code></li>
+</ul>
+</li>
+<li>macOS clásico:<ul>
+<li>directorio raíz: <code>&lt;drive letter&gt;:</code></li>
+<li>separador de directorios: <code>:</code></li>
+</ul>
+</li>
+</ul>
+<p>Es un error común de los desarrolladores no prever todas las formas de codificación y, por ello, validar únicamente contenido con codificaciones básicas. Si al principio la cadena de prueba no tiene éxito, se debe intentar con otro esquema de codificación.</p>
+<p>Se pueden encontrar técnicas de codificación y payloads de directory traversal listos para usar en <a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal" target="_blank" rel="noopener">PayloadsAllTheThings - Directory Traversal</a></p>
+<h4 id="windows-specific-considerations">Consideraciones específicas de Windows</h4>
+<ul>
+<li>Shell de Windows: añadir cualquiera de los siguientes elementos a las rutas usadas en un comando de shell no produce ninguna diferencia en su funcionamiento:<ul>
+<li>Corchetes angulares <code>&lt;</code> y <code>&gt;</code> al final de la ruta</li>
+<li>Comillas dobles (cerradas correctamente) al final de la ruta</li>
+<li>Marcadores de directorio actual superfluos como <code>./</code> o <code>.\\</code></li>
+<li>Marcadores de directorio padre superfluos con elementos arbitrarios que pueden existir o no:<ul>
+<li><code>file.txt</code></li>
+<li><code>file.txt...</code></li>
+<li><code>file.txt&lt;spaces&gt;</code></li>
+<li><code>file.txt&quot;&quot;&quot;&quot;</code></li>
+<li><code>file.txt&lt;&lt;&lt;&gt;&gt;&gt;&lt;</code></li>
+<li><code>./././file.txt</code></li>
+<li><code>nonexistent/../file.txt</code></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>API de Windows: los siguientes elementos se descartan cuando se usan en cualquier comando de shell o llamada a la API en la que se tome una cadena como nombre de archivo:<ul>
+<li>puntos</li>
+<li>espacios</li>
+</ul>
+</li>
+<li>Rutas UNC de Windows: se usan para referenciar archivos en recursos compartidos SMB. A veces es posible lograr que una aplicación haga referencia a archivos en una ruta UNC remota. De ser así, el servidor SMB de Windows puede enviar al atacante las credenciales almacenadas, que pueden ser capturadas y descifradas. También pueden usarse con una dirección IP o nombre de dominio autorreferencial para evadir filtros, o para acceder a archivos en recursos compartidos SMB inaccesibles para el atacante pero accesibles desde el servidor web.<ul>
+<li><code>\\server_or_ip\path\to\file.abc</code></li>
+<li><code>\\?\server_or_ip\path\to\file.abc</code></li>
+</ul>
+</li>
+<li>Espacio de nombres de dispositivos de Windows NT: se usa para referirse al espacio de nombres de dispositivos de Windows. Ciertas referencias permiten acceder a sistemas de archivos usando una ruta diferente.<ul>
+<li>Puede ser equivalente a una letra de unidad como <code>c:\</code>, o incluso a un volumen de unidad sin letra asignada: <code>\\.\GLOBALROOT\Device\HarddiskVolume1\</code></li>
+<li>Se refiere a la primera unidad de disco de la máquina: <code>\\.\CdRom0\</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="white-box-testing">Pruebas de caja blanca</h3>
+<p>Cuando el análisis se realiza con un enfoque de caja blanca, los evaluadores deben seguir la misma metodología que en las pruebas de caja negra. Sin embargo, como pueden revisar el código fuente, es posible buscar los vectores de entrada de manera más fácil y precisa. Durante una revisión de código fuente, pueden usar herramientas simples (como el comando <em>grep</em>) para buscar uno o más patrones comunes dentro del código de la aplicación: funciones/métodos de inclusión, operaciones del sistema de archivos, etc.</p>
+<ul>
+<li><code>PHP: include(), include_once(), require(), require_once(), fopen(), readfile(), ...</code></li>
+<li><code>JSP/Servlet: java.io.File(), java.io.FileReader(), ...</code></li>
+<li><code>ASP: include file, include virtual, ...</code></li>
+</ul>
+<p>Usando motores de búsqueda de código en línea (por ejemplo, <a href="https://searchcode.com/" target="_blank" rel="noopener">Searchcode</a>), también puede ser posible encontrar fallas de path traversal en software de código abierto publicado en internet.</p>
+<p>Para PHP, los evaluadores pueden usar la siguiente expresión regular:</p>
+<pre><code class="language-text">(include|require)(_once)?\s*[&#39;&quot;(]?\s*\$_(GET|POST|COOKIE)
+</code></pre>
+<p>Con el método de caja blanca es posible descubrir vulnerabilidades que normalmente son más difíciles de descubrir, o incluso imposibles de encontrar durante una evaluación estándar de caja negra.</p>
+<p>Algunas aplicaciones web generan páginas dinámicas usando valores y parámetros almacenados en una base de datos. Puede ser posible insertar cadenas de path traversal especialmente diseñadas cuando la aplicación agrega datos a la base de datos. Este tipo de problema de seguridad es difícil de descubrir porque los parámetros dentro de las funciones de inclusión parecen internos y <strong>seguros</strong>, pero en realidad no lo son.</p>
+<p>Además, al revisar el código fuente es posible analizar las funciones que se supone que manejan entradas inválidas: algunos desarrolladores intentan modificar la entrada inválida para volverla válida, evitando advertencias y errores. Estas funciones suelen ser propensas a fallas de seguridad.</p>
+<p>Considérese una aplicación web con estas instrucciones:</p>
+<pre><code class="language-php">filename = Request.QueryString(&quot;file&quot;);
+Replace(filename, &quot;/&quot;,&quot;\&quot;);
+Replace(filename, &quot;..\&quot;,&quot;&quot;);
+</code></pre>
+<p>La falla se prueba mediante:</p>
+<pre><code class="language-text">file=....//....//boot.ini
+file=....\\....\\boot.ini
+file= ..\..\boot.ini
+</code></pre>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/wireghoul/dotdotpwn" target="_blank" rel="noopener">DotDotPwn - The Directory Traversal Fuzzer</a></li>
+<li><a href="https://github.com/xmendez/wfuzz/blob/master/wordlist/Injections/Traversal.txt" target="_blank" rel="noopener">Path Traversal Fuzz Strings (from WFuzz Tool)</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a> [La funcionalidad <a href="https://www.zaproxy.org/docs/desktop/addons/forced-browse/" target="_blank" rel="noopener">Forced Browse</a> de ZAP se basa en una continuación de DirBuster.]</li>
+<li><a href="https://portswigger.net" target="_blank" rel="noopener">Burp Suite</a></li>
+<li>Herramientas de codificación/decodificación</li>
+<li><a href="https://www.gnu.org/software/grep/" target="_blank" rel="noopener">Buscador de cadenas &quot;grep&quot;</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal" target="_blank" rel="noopener">PayloadsAllTheThings - Directory Traversal</a></li>
+<li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion" target="_blank" rel="noopener">PayloadsAllTheThings - File Inclusion</a></li>
+</ul>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://seclists.org/vulnwatch/2004/q4/33" target="_blank" rel="noopener">phpBB Attachment Mod Directory Traversal HTTP POST Injection</a></li>
+<li><a href="https://www.slideshare.net/BaronZor/windows-file-pseudonyms" target="_blank" rel="noopener">Windows File Pseudonyms: Pwnage and Poetry</a></li>
+</ul>

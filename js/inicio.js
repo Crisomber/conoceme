@@ -20,6 +20,14 @@ const CURSOS = [
     estado: "disponible",
   },
   {
+    titulo: "Guía OWASP de pruebas de seguridad web",
+    descripcion: "Traducción al español del OWASP WSTG: la metodología de referencia para evaluar la seguridad de aplicaciones web, prueba por prueba.",
+    icono: "SEC",
+    etiquetas: ["Ciberseguridad", "Pentesting", "OWASP"],
+    url: "wstg.html",
+    estado: "disponible",
+  },
+  {
     titulo: "Fundamentos de programación",
     descripcion: "Variables, condiciones, bucles y funciones: la base para cualquier lenguaje.",
     icono: "{ }",

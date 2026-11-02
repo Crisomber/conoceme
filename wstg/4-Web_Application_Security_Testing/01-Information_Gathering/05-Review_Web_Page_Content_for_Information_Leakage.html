@@ -1,0 +1,171 @@
+<h1 id="review-web-page-content-for-information-leakage">Revisión del contenido de las páginas web para detectar fuga de información</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-05</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Es muy común, e incluso recomendable, que los programadores incluyan comentarios y metadatos detallados en su código fuente. Sin embargo, los comentarios y metadatos incluidos en el código HTML podrían revelar información interna que no debería estar disponible para posibles atacantes. Se debe realizar una revisión de comentarios y metadatos para determinar si se está filtrando información. Además, algunas aplicaciones pueden filtrar información en el cuerpo de las respuestas de redirección.</p>
+<p>En las aplicaciones web modernas, el uso de JavaScript del lado del cliente para el frontend es cada vez más popular. Las tecnologías populares de construcción de frontend utilizan JavaScript del lado del cliente, como React, Angular o Vue. De manera similar a los comentarios y metadatos en el código HTML, muchos programadores también incluyen información sensible directamente en variables de JavaScript en el frontend. La información sensible puede incluir (entre otros): claves de API privadas (<em>por ejemplo</em>, una clave de API de Google Maps sin restricciones), direcciones IP internas, rutas sensibles (<em>por ejemplo</em>, rutas a páginas o funcionalidades de administración ocultas) o incluso credenciales. Esta información sensible puede filtrarse desde dicho código JavaScript del frontend. Se debe realizar una revisión para determinar si se ha filtrado información sensible que los atacantes pudieran utilizar con fines de abuso.</p>
+<p>En las aplicaciones web grandes, los problemas de rendimiento son una gran preocupación para los programadores. Los programadores han utilizado diferentes métodos para optimizar el rendimiento del frontend, entre ellos Syntactically Awesome Style Sheets (Sass), Sassy CSS (SCSS), webpack, etc. Con estas tecnologías, el código del frontend a veces se vuelve más difícil de entender y de depurar y, por ello, los programadores suelen desplegar archivos de mapas de código fuente (source maps) con fines de depuración. Un &quot;source map&quot; es un archivo especial que conecta una versión minificada/ofuscada de un recurso (CSS o JavaScript) con la versión original escrita por el autor. Los programadores todavía debaten si se deben llevar o no los archivos source map al entorno de producción. Sin embargo, es innegable que los archivos source map o los archivos de depuración, si se publican en el entorno de producción, harán que su código fuente sea más legible para las personas. Esto puede facilitar a los atacantes encontrar vulnerabilidades en el frontend o recopilar información sensible de él. Se debe realizar una revisión del código JavaScript para determinar si se exponen archivos de depuración desde el frontend. Dependiendo del contexto y la sensibilidad del proyecto, un experto en seguridad debe decidir si los archivos deben existir o no en el entorno de producción.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar los comentarios, metadatos y cuerpos de redirección de las páginas web para encontrar fugas de información.</li>
+<li>Reunir los archivos JavaScript y revisar el código JS para comprender mejor la aplicación y encontrar fugas de información.</li>
+<li>Identificar si existen archivos source map u otros archivos de depuración del frontend.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="review-web-page-comments-and-metadata">Revisión de comentarios y metadatos de las páginas web</h3>
+<p>Los desarrolladores suelen usar comentarios HTML para incluir información de depuración sobre la aplicación. A veces se olvidan de los comentarios y los dejan en los entornos de producción. Los evaluadores deben buscar comentarios HTML que comiencen con <code>&lt;!--</code>.</p>
+<p>Hay que revisar el código fuente HTML en busca de comentarios que contengan información sensible que pueda ayudar al atacante a obtener más información sobre la aplicación. Puede tratarse de código SQL, nombres de usuario y contraseñas, direcciones IP internas o información de depuración.</p>
+<pre><code class="language-html">...
+&lt;div class=&quot;table2&quot;&gt;
+  &lt;div class=&quot;col1&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;col2&quot;&gt;Mary&lt;/div&gt;
+  &lt;div class=&quot;col1&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;col2&quot;&gt;Peter&lt;/div&gt;
+  &lt;div class=&quot;col1&quot;&gt;3&lt;/div&gt;&lt;div class=&quot;col2&quot;&gt;Joe&lt;/div&gt;
+
+&lt;!-- Query: SELECT id, name FROM app.users WHERE active=&#39;1&#39; --&gt;
+
+&lt;/div&gt;
+...
+</code></pre>
+<p>El evaluador puede incluso encontrar algo como esto:</p>
+<pre><code class="language-html">&lt;!-- Use the DB administrator password for testing:  f@keP@a$$w0rD --&gt;
+</code></pre>
+<p>Hay que comprobar la información de versión de HTML para verificar números de versión válidos y las URL de las definiciones de tipo de datos (DTD).</p>
+<pre><code class="language-html">&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.01//EN&quot; &quot;https://www.w3.org/TR/html4/strict.dtd&quot;&gt;
+</code></pre>
+<ul>
+<li><code>strict.dtd</code>: DTD estricta predeterminada</li>
+<li><code>loose.dtd</code>: DTD flexible</li>
+<li><code>frameset.dtd</code>: DTD para documentos con conjuntos de marcos (frameset)</li>
+</ul>
+<p>Algunas etiquetas <code>META</code> no proporcionan vectores de ataque activos, pero permiten a un atacante perfilar una aplicación:</p>
+<pre><code class="language-html">&lt;META name=&quot;Author&quot; content=&quot;Andrew Muller&quot;&gt;
+</code></pre>
+<p>Una etiqueta <code>META</code> común (pero que no cumple con <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener">WCAG</a>) es <a href="https://en.wikipedia.org/wiki/Meta_refresh" target="_blank" rel="noopener">Refresh</a>.</p>
+<pre><code class="language-html">&lt;META http-equiv=&quot;Refresh&quot; content=&quot;15;URL=https://www.owasp.org/index.html&quot;&gt;
+</code></pre>
+<p>Un uso común de la etiqueta <code>META</code> es especificar palabras clave que un motor de búsqueda puede utilizar para mejorar la calidad de los resultados de búsqueda.</p>
+<pre><code class="language-html">&lt;META name=&quot;keywords&quot; lang=&quot;en-us&quot; content=&quot;OWASP, security, sunshine, lollipops&quot;&gt;
+</code></pre>
+<p>Aunque la mayoría de los servidores web gestionan la indexación de los motores de búsqueda mediante el archivo <code>robots.txt</code>, también puede gestionarse con etiquetas <code>META</code>. La etiqueta siguiente indicará a los robots que no indexen ni sigan los enlaces de la página HTML que contiene la etiqueta.</p>
+<pre><code class="language-html">&lt;META name=&quot;robots&quot; content=&quot;none&quot;&gt;
+</code></pre>
+<p><a href="https://www.w3.org/PICS/" target="_blank" rel="noopener">Platform for Internet Content Selection (PICS)</a> y <a href="https://www.w3.org/2007/powder/" target="_blank" rel="noopener">Protocol for Web Description Resources (POWDER)</a> proporcionan infraestructura para asociar metadatos con el contenido de internet.</p>
+<h3 id="identifying-javascript-code-and-gathering-javascript-files">Identificación del código JavaScript y recopilación de archivos JavaScript</h3>
+<p>Los programadores suelen incluir información sensible directamente en variables de JavaScript en el frontend. Los evaluadores deben revisar el código fuente HTML y buscar código JavaScript entre las etiquetas <code>&lt;script&gt;</code> y <code>&lt;/script&gt;</code>. También deben identificar los archivos JavaScript externos para revisar su código (los archivos JavaScript tienen la extensión <code>.js</code> y el nombre del archivo JavaScript normalmente se coloca en el atributo <code>src</code> (fuente) de una etiqueta <code>&lt;script&gt;</code>).</p>
+<p>Hay que revisar el código JavaScript en busca de cualquier fuga de información sensible que los atacantes pudieran usar para abusar del sistema o manipularlo. Se deben buscar valores como: claves de API, direcciones IP internas, rutas sensibles o credenciales. Por ejemplo:</p>
+<pre><code class="language-javascript">const myS3Credentials = {
+  accessKeyId: config(&#39;AWSS3AccessKeyID&#39;),
+  secretAccessKey: config(&#39;AWSS3SecretAccessKey&#39;),
+};
+</code></pre>
+<p>El evaluador puede incluso encontrar algo como esto:</p>
+<pre><code class="language-javascript">var conString = &quot;tcp://postgres:1234@localhost/postgres&quot;;
+</code></pre>
+<p>Cuando se encuentra una clave de API, los evaluadores pueden comprobar si las restricciones de la clave de API están definidas por servicio o por IP, referente HTTP (HTTP referrer), aplicación, SDK, etc.</p>
+<p>Por ejemplo, si los evaluadores encuentran una clave de API de Google Maps, pueden comprobar si esta clave de API está restringida por IP o restringida únicamente a las API de Google Maps. Si la clave de API de Google está restringida únicamente a las API de Google Maps, los atacantes aún pueden usar esa clave de API para consultar API de Google Maps sin restricciones, y el propietario de la aplicación tendrá que pagar por ello.</p>
+<pre><code class="language-html">&lt;script type=&quot;application/json&quot;&gt;
+...
+{&quot;GOOGLE_MAP_API_KEY&quot;:&quot;AIzaSyDUEBnKgwiqMNpDplT6ozE4Z0XxuAbqDi4&quot;, &quot;RECAPTCHA_KEY&quot;:&quot;6LcPscEUiAAAAHOwwM3fGvIx9rsPYUq62uRhGjJ0&quot;}
+...
+&lt;/script&gt;
+</code></pre>
+<p>En algunos casos, los evaluadores pueden encontrar rutas sensibles en el código JavaScript, como enlaces a páginas de administración internas u ocultas.</p>
+<pre><code class="language-html">&lt;script type=&quot;application/json&quot;&gt;
+...
+&quot;runtimeConfig&quot;:{&quot;BASE_URL_VOUCHER_API&quot;:&quot;https://staging-voucher.victim.net/api&quot;, &quot;BASE_BACKOFFICE_API&quot;:&quot;https://10.10.10.2/api&quot;, &quot;ADMIN_PAGE&quot;:&quot;/hidden_administrator&quot;}
+...
+&lt;/script&gt;
+</code></pre>
+<h4 id="javascript-and-client-side-source-analysis">Análisis de JavaScript y del código fuente del lado del cliente</h4>
+<p>Las aplicaciones modernas de una sola página y el código del lado del cliente extenso con frecuencia incrustan endpoints de API, indicadores de funcionalidades (feature flags) y, ocasionalmente, secretos. Después de reunir los archivos JavaScript (manualmente, mediante un proxy o con herramientas como Uproot), los evaluadores pueden extraer datos interesantes con:</p>
+<pre><code class="language-bash"># Example with jsluice
+jsluice urls bundle.js
+jsluice secrets bundle.js
+
+# Example with LinkFinder
+python linkfinder.py -i bundle.js -o cli
+</code></pre>
+<p>Hay que contrastar los endpoints y parámetros extraídos con los resultados de la recopilación de URL de archivos históricos (gau / waybackurls / waymore) y con las técnicas descritas en <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/06-Identify_Application_Entry_Points">Identify Application Entry Points</a>, así como con el capítulo <a href="#/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance">API Reconnaissance</a>.</p>
+<h3 id="identifying-source-map-files">Identificación de archivos source map</h3>
+<p>Los archivos source map normalmente se cargan cuando se abren las DevTools. Los evaluadores también pueden encontrar archivos source map agregando la extensión &quot;.map&quot; después de la extensión de cada archivo JavaScript externo. Por ejemplo, si un evaluador ve un archivo <code>/static/js/main.chunk.js</code>, puede comprobar su archivo source map visitando <code>/static/js/main.chunk.js.map</code>.</p>
+<p>Hay que revisar los archivos source map en busca de información sensible que pueda ayudar al atacante a obtener más información sobre la aplicación. Por ejemplo:</p>
+<pre><code class="language-json">{
+  &quot;version&quot;: 3,
+  &quot;file&quot;: &quot;static/js/main.chunk.js&quot;,
+  &quot;sources&quot;: [
+    &quot;/home/sysadmin/cashsystem/src/actions/index.js&quot;,
+    &quot;/home/sysadmin/cashsystem/src/actions/reportAction.js&quot;,
+    &quot;/home/sysadmin/cashsystem/src/actions/cashoutAction.js&quot;,
+    &quot;/home/sysadmin/cashsystem/src/actions/userAction.js&quot;,
+    &quot;...&quot;
+  ],
+  &quot;...&quot;
+}
+</code></pre>
+<p>Cuando los sitios cargan archivos source map, el código fuente del frontend se vuelve legible y más fácil de depurar.</p>
+<h3 id="identify-redirect-responses-which-leak-information">Identificación de respuestas de redirección que filtran información</h3>
+<p>Aunque en general no se espera que las respuestas de redirección contengan contenido web significativo, no hay garantía de que no puedan contenerlo. Así, aunque las respuestas de la serie 300 (redirección) suelen contener contenido del tipo &quot;redirecting to <code>https://example.com/</code>&quot;, también pueden filtrar contenido.</p>
+<p>Considérese una situación en la que una respuesta de redirección es el resultado de una comprobación de autenticación o autorización: si esa comprobación falla, el servidor puede responder redirigiendo al usuario de vuelta a una página &quot;segura&quot; o &quot;predeterminada&quot;, pero la propia respuesta de redirección aún puede contener contenido que no se muestra en el navegador y que, sin embargo, se transmite al cliente. Esto puede verse con las herramientas de desarrollo del navegador o mediante un proxy personal (como ZAP, Burp, Fiddler o Charles).</p>
+<h3 id="review-generated-files-for-metadata-leakage">Revisión de los archivos generados en busca de fuga de metadatos</h3>
+<p>Las aplicaciones web pueden generar archivos descargables como PDF, hojas de cálculo, facturas o informes. Estos archivos pueden contener metadatos incrustados que describen el software o las bibliotecas utilizados para crearlos.</p>
+<p>Campos de metadatos como <em>Producer</em>, <em>Creator</em>, <em>Application</em> o <em>Library Version</em> pueden revelar tecnologías del backend y números de versión específicos. Esta información puede ayudar a los atacantes a identificar la aplicación (fingerprinting) y a encontrar vulnerabilidades públicamente conocidas (CVE).</p>
+<p>Por ejemplo, un PDF generado puede exponer la biblioteca utilizada para crearlo:</p>
+<p><code>Producer: iText 2.1.7</code></p>
+<p>Un atacante podría entonces buscar vulnerabilidades conocidas que afecten a esa versión.</p>
+<h4 id="how-to-test-1">Cómo probar</h4>
+<p>Hay que descargar los archivos generados desde la aplicación e inspeccionar sus metadatos.</p>
+<p>Para archivos PDF:</p>
+<pre><code class="language-bash">exiftool file.pdf
+pdfinfo file.pdf
+strings file.pdf | grep -i producer
+</code></pre>
+<p>Ejemplo de salida:</p>
+<p><code>Producer: iText 2.1.7</code></p>
+<p>Para documentos de Office (DOCX, XLSX):</p>
+<pre><code class="language-bash">exiftool file.docx
+</code></pre>
+<p>Hay que revisar campos de metadatos como:</p>
+<ul>
+<li>Producer</li>
+<li>Creator</li>
+<li>Application</li>
+<li>Creation Tool</li>
+<li>Library Version</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.gnu.org/software/wget" target="_blank" rel="noopener">wget</a></li>
+<li>Función &quot;ver código fuente&quot; del navegador</li>
+<li>Los ojos (inspección visual)</li>
+<li><a href="https://curl.se/" target="_blank" rel="noopener">Curl</a></li>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+<li><a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">Waybackurls</a></li>
+<li><a href="https://github.com/lc/gau" target="_blank" rel="noopener">gau</a></li>
+<li><a href="https://github.com/xnl-h4ck3r/waymore" target="_blank" rel="noopener">waymore</a></li>
+<li>Extracción de endpoints y secretos de JavaScript:<ul>
+<li><a href="https://github.com/GerbenJavado/LinkFinder" target="_blank" rel="noopener">LinkFinder</a></li>
+<li><a href="https://github.com/xnl-h4ck3r/xnLinkFinder" target="_blank" rel="noopener">xnLinkFinder</a></li>
+<li><a href="https://github.com/BishopFox/jsluice" target="_blank" rel="noopener">jsluice</a></li>
+<li><a href="https://github.com/m4ll0k/SecretFinder" target="_blank" rel="noopener">SecretFinder</a> (u otras herramientas similares basadas en expresiones regulares)</li>
+</ul>
+</li>
+<li><a href="https://github.com/ozguralp/gmapsapiscanner/" target="_blank" rel="noopener">Google Maps API Scanner</a></li>
+<li><a href="https://exiftool.org/" target="_blank" rel="noopener">exiftool</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://github.com/streaak/keyhacks" target="_blank" rel="noopener">KeyHacks</a></li>
+<li><a href="https://ringzer0ctf.com/challenges/104" target="_blank" rel="noopener">RingZer0 Online CTF</a> - Challenge 104 &quot;Admin Panel&quot;.</li>
+</ul>
+<h3 id="whitepapers">Documentos técnicos (Whitepapers)</h3>
+<ul>
+<li><a href="https://www.w3.org/TR/1999/REC-html401-19991224" target="_blank" rel="noopener">HTML version 4.01</a></li>
+<li><a href="https://www.w3.org/TR/2010/REC-xhtml-basic-20101123/" target="_blank" rel="noopener">XHTML</a></li>
+<li><a href="https://html.spec.whatwg.org/multipage/" target="_blank" rel="noopener">WHATWG HTML Living Standard</a></li>
+</ul>

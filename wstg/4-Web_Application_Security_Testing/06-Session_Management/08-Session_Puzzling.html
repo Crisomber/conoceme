@@ -1,0 +1,39 @@
+<h1 id="session-puzzling">Session Puzzling</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-08</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La sobrecarga de variables de sesión (Session Variable Overloading, también conocida como Session Puzzling) es una vulnerabilidad a nivel de aplicación que puede permitir a un atacante realizar diversas acciones maliciosas, entre ellas:</p>
+<ul>
+<li>Eludir mecanismos eficaces de imposición de autenticación y suplantar a usuarios legítimos.</li>
+<li>Elevar los privilegios de una cuenta de usuario maliciosa, en un entorno que de otro modo se consideraría infalible.</li>
+<li>Saltarse fases de calificación en procesos de varias fases, incluso si el proceso incluye todas las restricciones a nivel de código comúnmente recomendadas.</li>
+<li>Manipular valores del lado del servidor mediante métodos indirectos que no se pueden predecir ni detectar.</li>
+<li>Ejecutar ataques tradicionales en ubicaciones que antes eran inalcanzables, o incluso consideradas seguras.</li>
+</ul>
+<p>Esta vulnerabilidad ocurre cuando una aplicación utiliza la misma variable de sesión para más de un propósito. Un atacante puede acceder potencialmente a las páginas en un orden no previsto por los desarrolladores, de modo que la variable de sesión se establece en un contexto y luego se utiliza en otro.</p>
+<p>Por ejemplo, un atacante podría usar la sobrecarga de variables de sesión para eludir los mecanismos de imposición de autenticación de aplicaciones que imponen la autenticación validando la existencia de variables de sesión que contienen valores relacionados con la identidad, que normalmente se almacenan en la sesión tras un proceso de autenticación exitoso. Esto significa que un atacante primero accede a una ubicación de la aplicación que establece el contexto de la sesión y luego accede a ubicaciones privilegiadas que examinan ese contexto.</p>
+<p>Por ejemplo, un vector de ataque de elusión de autenticación podría ejecutarse accediendo a un punto de entrada accesible públicamente (p. ej., una página de recuperación de contraseña) que rellena la sesión con una variable de sesión idéntica, basada en valores fijos o en datos de entrada originados por el usuario.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar todas las variables de sesión.</li>
+<li>Romper el flujo lógico de generación de la sesión.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Esta vulnerabilidad puede detectarse y explotarse enumerando todas las variables de sesión utilizadas por la aplicación y en qué contexto son válidas. En particular, esto es posible accediendo a una secuencia de puntos de entrada y luego examinando los puntos de salida. En el caso de las pruebas de caja negra este procedimiento es difícil y requiere algo de suerte, ya que cada secuencia diferente podría conducir a un resultado distinto.</p>
+<h4 id="examples">Ejemplos</h4>
+<p>Un ejemplo muy sencillo podría ser la funcionalidad de restablecimiento de contraseña que, en el punto de entrada, podría solicitar al usuario que proporcione alguna información identificativa, como el nombre de usuario o la dirección de correo electrónico. Esta página podría entonces rellenar la sesión con estos valores identificativos, que se reciben directamente del lado del cliente o se obtienen de consultas o cálculos basados en la entrada recibida. En este punto puede haber algunas páginas en la aplicación que muestren datos privados basados en este objeto de sesión. De esta manera el atacante podría eludir el proceso de autenticación.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>La forma más eficaz de detectar estas vulnerabilidades es mediante una revisión del código fuente.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Las variables de sesión solo deben usarse para un único propósito coherente.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/puzzlemall/Session%20Puzzles%20-%20Indirect%20Application%20Attack%20Vectors%20-%20May%202011%20-%20Whitepaper.pdf" target="_blank" rel="noopener">Session Puzzles</a></li>
+<li><a href="https://sectooladdict.blogspot.com/2011/09/session-puzzling-and-session-race.html" target="_blank" rel="noopener">Session Puzzling and Session Race Conditions</a></li>
+</ul>

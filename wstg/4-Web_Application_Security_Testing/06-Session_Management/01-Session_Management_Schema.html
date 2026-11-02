@@ -1,0 +1,171 @@
+<h1 id="session-management-schema">Esquema de gestión de sesiones</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Uno de los componentes centrales de cualquier aplicación basada en la web es el mecanismo mediante el cual controla y mantiene el estado de un usuario que interactúa con ella. Para evitar la autenticación continua en cada página de un sitio o servicio, las aplicaciones web implementan diversos mecanismos para almacenar y validar credenciales durante un lapso predeterminado. Estos mecanismos se conocen como gestión de sesiones.</p>
+<p>En esta prueba, el evaluador quiere comprobar que las cookies y otros tokens de sesión se crean de forma segura e impredecible. Un atacante que logre predecir y falsificar una cookie débil puede secuestrar con facilidad las sesiones de usuarios legítimos.</p>
+<p>Las cookies se utilizan para implementar la gestión de sesiones y se describen en detalle en la RFC 2965. En resumen, cuando un usuario accede a una aplicación que necesita llevar un registro de las acciones y la identidad de ese usuario a lo largo de múltiples peticiones, el servidor genera una cookie (o varias) y la envía al cliente. El cliente enviará entonces la cookie de vuelta al servidor en todas las conexiones siguientes hasta que la cookie expire o sea destruida. Los datos almacenados en la cookie pueden proporcionar al servidor un amplio espectro de información sobre quién es el usuario, qué acciones ha realizado hasta el momento, cuáles son sus preferencias, etc., proporcionando así un estado a un protocolo sin estado como HTTP.</p>
+<p>Un ejemplo típico lo ofrece un carrito de compras en línea. A lo largo de la sesión de un usuario, la aplicación debe llevar un registro de su identidad, su perfil, los productos que ha elegido comprar, la cantidad, los precios individuales, los descuentos, etc. Las cookies son una forma eficiente de almacenar y transmitir esta información de ida y vuelta (otros métodos son los parámetros de URL y los campos ocultos).</p>
+<p>Debido a la importancia de los datos que almacenan, las cookies son, por tanto, vitales para la seguridad general de la aplicación. Poder manipular las cookies puede dar lugar al secuestro de las sesiones de usuarios legítimos, a la obtención de mayores privilegios en una sesión activa y, en general, a influir en el funcionamiento de la aplicación de forma no autorizada.</p>
+<p>En esta prueba el evaluador debe comprobar si las cookies emitidas a los clientes pueden resistir una amplia gama de ataques destinados a interferir con las sesiones de usuarios legítimos y con la propia aplicación. El objetivo general es poder falsificar una cookie que la aplicación considere válida y que proporcione algún tipo de acceso no autorizado (secuestro de sesión, escalada de privilegios, ...).</p>
+<p>Normalmente, los pasos principales del patrón de ataque son los siguientes:</p>
+<ul>
+<li><strong>recolección de cookies</strong>: recolección de un número suficiente de muestras de cookies;</li>
+<li><strong>ingeniería inversa de cookies</strong>: análisis del algoritmo de generación de la cookie;</li>
+<li><strong>manipulación de cookies</strong>: falsificación de una cookie válida para llevar a cabo el ataque. Este último paso puede requerir un gran número de intentos, dependiendo de cómo se cree la cookie (ataque de fuerza bruta contra la cookie).</li>
+</ul>
+<p>Otro patrón de ataque consiste en desbordar una cookie. Estrictamente hablando, este ataque es de naturaleza distinta, ya que aquí los evaluadores no intentan recrear una cookie perfectamente válida. En cambio, el objetivo es desbordar un área de memoria, interfiriendo así con el comportamiento correcto de la aplicación y, posiblemente, inyectando (y ejecutando de forma remota) código malicioso.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Recopilar tokens de sesión, del mismo usuario y de distintos usuarios cuando sea posible.</li>
+<li>Analizar y asegurar que existe suficiente aleatoriedad para detener los ataques de falsificación de sesiones.</li>
+<li>Modificar las cookies que no están firmadas y contienen información que puede ser manipulada.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing-and-examples">Pruebas de caja negra y ejemplos</h3>
+<p>Toda la interacción entre el cliente y la aplicación debe probarse al menos con los siguientes criterios:</p>
+<ul>
+<li>¿Están todas las directivas <code>Set-Cookie</code> marcadas como <code>Secure</code>?</li>
+<li>¿Se realiza alguna operación con cookies sobre un transporte sin cifrar?</li>
+<li>¿Se puede forzar el envío de la cookie sobre un transporte sin cifrar?</li>
+<li>Si es así, ¿cómo mantiene la aplicación la seguridad?</li>
+<li>¿Alguna cookie es persistente?</li>
+<li>¿Qué tiempos de <code>Expires</code> se usan en las cookies persistentes y son razonables?</li>
+<li>¿Las cookies que se espera que sean transitorias están configuradas como tales?</li>
+<li>¿Qué configuraciones de <code>Cache-Control</code> de HTTP/1.1 se usan para proteger las cookies?</li>
+<li>¿Qué configuraciones de <code>Cache-Control</code> de HTTP/1.0 se usan para proteger las cookies?</li>
+</ul>
+<h4 id="cookie-collection">Recolección de cookies</h4>
+<p>El primer paso necesario para manipular la cookie es comprender cómo la aplicación crea y gestiona las cookies. Para esta tarea, los evaluadores deben intentar responder las siguientes preguntas:</p>
+<ul>
+<li><p>¿Cuántas cookies utiliza la aplicación?</p>
+<p>Navegue por la aplicación. Observe cuándo se crean las cookies. Haga una lista de las cookies recibidas, la página que las establece (con la directiva set-cookie), el dominio para el que son válidas, su valor y sus características.</p>
+</li>
+<li><p>¿Qué partes de la aplicación generan o modifican la cookie?</p>
+<p>Al navegar por la aplicación, averigüe qué cookies permanecen constantes y cuáles se modifican. ¿Qué eventos modifican la cookie?</p>
+</li>
+<li><p>¿Qué partes de la aplicación requieren esta cookie para ser accedidas y utilizadas?</p>
+<p>Averigüe qué partes de la aplicación necesitan una cookie. Acceda a una página y luego intente de nuevo sin la cookie, o con un valor modificado de ella. Intente mapear qué cookies se usan y dónde.</p>
+</li>
+</ul>
+<p>Una hoja de cálculo que asocie cada cookie con las partes correspondientes de la aplicación y la información relacionada puede ser un resultado valioso de esta fase.</p>
+<h4 id="session-analysis">Análisis de sesiones</h4>
+<p>Los propios tokens de sesión (Cookie, SessionID o campo oculto) deben examinarse para asegurar su calidad desde la perspectiva de la seguridad. Deben probarse con criterios como su aleatoriedad, unicidad, resistencia al análisis estadístico y criptográfico y fuga de información.</p>
+<ul>
+<li>Estructura del token y fuga de información</li>
+</ul>
+<p>La primera etapa consiste en examinar la estructura y el contenido de un ID de sesión proporcionado por la aplicación. Un error común es incluir datos específicos en el token en lugar de emitir un valor genérico y hacer referencia a los datos reales en el lado del servidor.</p>
+<p>Si el ID de sesión está en texto claro, la estructura y los datos pertinentes pueden ser evidentes de inmediato, como en <code>192.168.100.1:owaspuser:password:15:58</code>.</p>
+<p>Si parte o la totalidad del token parece estar codificado o con hash, debe compararse con diversas técnicas para comprobar si hay una ofuscación evidente. Por ejemplo, la cadena <code>192.168.100.1:owaspuser:password:15:58</code> se representa en hexadecimal, base64 y como hash MD5 de la siguiente manera:</p>
+<ul>
+<li>Hex: <code>3139322E3136382E3130302E313A6F77617370757365723A70617373776F72643A31353A3538</code></li>
+<li>Base64: <code>MTkyLjE2OC4xMDAuMTpvd2FzcHVzZXI6cGFzc3dvcmQ6MTU6NTg=</code></li>
+<li>MD5: <code>01c2fc4f0a817afd8366689bd29dd40a</code></li>
+</ul>
+<p>Una vez identificado el tipo de ofuscación, puede ser posible decodificarlo y recuperar los datos originales. Sin embargo, en la mayoría de los casos esto es improbable. Aun así, puede ser útil enumerar la codificación empleada a partir del formato del mensaje. Además, si se pueden deducir tanto el formato como la técnica de ofuscación, podrían idearse ataques automatizados de fuerza bruta.</p>
+<p>Los tokens híbridos pueden incluir información como la dirección IP o el ID de usuario junto con una porción codificada, como <code>owaspuser:192.168.100.1:a7656fafe94dae72b1e1487670148412</code>.</p>
+<p>Una vez analizado un único token de sesión, debe examinarse la muestra representativa. Un análisis simple de los tokens debería revelar de inmediato cualquier patrón evidente. Por ejemplo, un token de 32 bits puede incluir 16 bits de datos estáticos y 16 bits de datos variables. Esto puede indicar que los primeros 16 bits representan un atributo fijo del usuario, p. ej., el nombre de usuario o la dirección IP. Si el segundo bloque de 16 bits se incrementa a un ritmo regular, puede indicar un elemento secuencial o incluso basado en el tiempo en la generación del token. Véanse los ejemplos.</p>
+<p>Si se identifican elementos estáticos en los tokens, deben recopilarse más muestras, variando un posible elemento de entrada a la vez. Por ejemplo, los intentos de inicio de sesión mediante una cuenta de usuario diferente o desde una dirección IP diferente pueden producir una variación en la porción del token de sesión que antes era estática.</p>
+<p>Durante las pruebas de la estructura del ID de sesión, tanto de uno solo como de varios, deben abordarse las siguientes áreas:</p>
+<ul>
+<li>¿Qué partes del ID de sesión son estáticas?</li>
+<li>¿Qué información confidencial en texto claro se almacena en el ID de sesión? P. ej., nombres de usuario/UID, direcciones IP</li>
+<li>¿Qué información confidencial fácil de decodificar se almacena?</li>
+<li>¿Qué información se puede deducir de la estructura del ID de sesión?</li>
+<li>¿Qué porciones del ID de sesión son estáticas para las mismas condiciones de inicio de sesión?</li>
+<li>¿Qué patrones evidentes están presentes en el ID de sesión en su conjunto o en porciones individuales?</li>
+</ul>
+<h4 id="session-id-predictability-and-randomness">Predictibilidad y aleatoriedad del ID de sesión</h4>
+<p>Debe realizarse un análisis de las áreas variables (si las hay) del ID de sesión para establecer la existencia de patrones reconocibles o predecibles. Estos análisis pueden realizarse manualmente y con herramientas estadísticas o criptoanalíticas a medida o comerciales (OTS) para deducir cualquier patrón en el contenido del ID de sesión. Las comprobaciones manuales deben incluir comparaciones de los ID de sesión emitidos para las mismas condiciones de inicio de sesión, p. ej., el mismo nombre de usuario, contraseña y dirección IP.</p>
+<p>El tiempo es un factor importante que también debe controlarse. Deben realizarse muchas conexiones simultáneas para reunir muestras en la misma ventana de tiempo y mantener constante esa variable. Incluso una cuantización de 50 ms o menos puede ser demasiado gruesa, y una muestra tomada de esta manera puede revelar componentes basados en el tiempo que de otro modo pasarían inadvertidos.</p>
+<p>Los elementos variables deben analizarse a lo largo del tiempo para determinar si son de naturaleza incremental. Cuando lo son, deben investigarse los patrones relacionados con el tiempo absoluto o transcurrido. Muchos sistemas usan el tiempo como semilla de sus elementos pseudoaleatorios. Cuando los patrones parecen aleatorios, debe considerarse como posibilidad la existencia de hashes unidireccionales del tiempo u otras variaciones del entorno. Normalmente, el resultado de un hash criptográfico es un número decimal o hexadecimal, por lo que debería ser identificable.</p>
+<p>Al analizar secuencias de ID de sesión, los patrones o ciclos, los elementos estáticos y las dependencias del cliente deben considerarse como posibles elementos que contribuyen a la estructura y el funcionamiento de la aplicación.</p>
+<ul>
+<li>¿Los ID de sesión son demostrablemente aleatorios? ¿Se pueden reproducir los valores resultantes?</li>
+<li>¿Las mismas condiciones de entrada producen el mismo ID en una ejecución posterior?</li>
+<li>¿Los ID de sesión son demostrablemente resistentes al análisis estadístico o criptoanalítico?</li>
+<li>¿Qué elementos de los ID de sesión están vinculados al tiempo?</li>
+<li>¿Qué porciones de los ID de sesión son predecibles?</li>
+<li>¿Se puede deducir el siguiente ID, dado el conocimiento completo del algoritmo de generación y de los ID anteriores?</li>
+</ul>
+<h4 id="cookie-reverse-engineering">Ingeniería inversa de cookies</h4>
+<p>Ahora que el evaluador ha enumerado las cookies y tiene una idea general de su uso, es momento de examinar más a fondo las cookies que parecen interesantes. ¿Qué cookies interesan al evaluador? Una cookie, para proporcionar un método seguro de gestión de sesiones, debe combinar varias características, cada una de las cuales está orientada a proteger la cookie de una clase distinta de ataques.</p>
+<p>Estas características se resumen a continuación:</p>
+<ol>
+<li>Impredecibilidad: una cookie debe contener cierta cantidad de datos difíciles de adivinar. Cuanto más difícil sea falsificar una cookie válida, más difícil será irrumpir en la sesión de un usuario legítimo. Si un atacante puede adivinar la cookie utilizada en una sesión activa de un usuario legítimo, podrá suplantar por completo a ese usuario (secuestro de sesión). Para hacer que una cookie sea impredecible, se pueden usar valores aleatorios o criptografía.</li>
+<li>Resistencia a la manipulación: una cookie debe resistir los intentos maliciosos de modificación. Si el evaluador recibe una cookie como <code>IsAdmin=No</code>, es trivial modificarla para obtener derechos administrativos, a menos que la aplicación realice una doble comprobación (por ejemplo, añadiendo a la cookie un hash cifrado de su valor).</li>
+<li>Expiración: una cookie crítica debe ser válida solo durante un periodo de tiempo adecuado y debe eliminarse después del disco o de la memoria para evitar el riesgo de ser reutilizada (replay). Esto no se aplica a las cookies que almacenan datos no críticos que deben recordarse entre sesiones (p. ej., la apariencia del sitio).</li>
+<li>Indicador <code>Secure</code>: una cookie cuyo valor sea crítico para la integridad de la sesión debe tener este indicador habilitado para permitir su transmisión únicamente por un canal cifrado y disuadir así la escucha (eavesdropping).</li>
+</ol>
+<p>El enfoque aquí consiste en recopilar un número suficiente de instancias de una cookie y comenzar a buscar patrones en su valor. El significado exacto de &quot;suficiente&quot; puede variar desde un puñado de muestras, si el método de generación de la cookie es muy fácil de romper, hasta varios miles, si el evaluador necesita proceder con algún análisis matemático (p. ej., chi-cuadrado, atractores; véase más adelante para más información).</p>
+<p>Es importante prestar especial atención al flujo de trabajo de la aplicación, ya que el estado de una sesión puede tener un gran impacto en las cookies recopiladas. Una cookie obtenida antes de autenticarse puede ser muy diferente de una cookie obtenida después de la autenticación.</p>
+<p>Otro aspecto a tener en cuenta es el tiempo. Registre siempre la hora exacta en que se obtuvo una cookie, cuando exista la posibilidad de que el tiempo influya en el valor de la cookie (el servidor podría usar una marca de tiempo como parte del valor de la cookie). La hora registrada podría ser la hora local o la marca de tiempo del servidor incluida en la respuesta HTTP (o ambas).</p>
+<p>Al analizar los valores recopilados, el evaluador debe intentar determinar todas las variables que podrían haber influido en el valor de la cookie e intentar variarlas de una en una. Pasar al servidor versiones modificadas de la misma cookie puede ser muy útil para comprender cómo la aplicación lee y procesa la cookie.</p>
+<p>Ejemplos de comprobaciones que deben realizarse en esta etapa incluyen:</p>
+<ul>
+<li>¿Qué conjunto de caracteres se utiliza en la cookie? ¿Tiene la cookie un valor numérico? ¿alfanumérico? ¿hexadecimal? ¿Qué sucede si el evaluador inserta en una cookie caracteres que no pertenecen al conjunto esperado?</li>
+<li>¿Está la cookie compuesta por diferentes subpartes que transportan distintos fragmentos de información? ¿Cómo se separan las diferentes partes? ¿Con qué delimitadores? Algunas partes de la cookie podrían tener una varianza mayor, otras podrían ser constantes y otras podrían asumir solo un conjunto limitado de valores. Descomponer la cookie en sus componentes básicos es el primer paso, y el fundamental.</li>
+</ul>
+<p>Un ejemplo de cookie estructurada fácil de detectar es el siguiente:</p>
+<pre><code class="language-text">ID=5a0acfc7ffeb919:CR=1:TM=1120514521:LM=1120514521:S=j3am5KzC4v01ba3q
+</code></pre>
+<p>Este ejemplo muestra 5 campos diferentes, que transportan distintos tipos de datos:</p>
+<ul>
+<li>ID - hexadecimal</li>
+<li>CR - entero pequeño</li>
+<li>TM y LM - entero grande. (Y curiosamente contienen el mismo valor. Vale la pena ver qué sucede al modificar uno de ellos)</li>
+<li>S - alfanumérico</li>
+</ul>
+<p>Incluso cuando no se utilizan delimitadores, contar con suficientes muestras puede ayudar a comprender la estructura.</p>
+<h4 id="brute-force-attacks">Ataques de fuerza bruta</h4>
+<p>Los ataques de fuerza bruta se derivan inevitablemente de las preguntas relacionadas con la predictibilidad y la aleatoriedad. La varianza dentro de los ID de sesión debe considerarse junto con la duración de la sesión de la aplicación y los tiempos de espera. Si la variación dentro de los ID de sesión es relativamente pequeña y la validez del ID de sesión es larga, la probabilidad de que un ataque de fuerza bruta tenga éxito es mucho mayor.</p>
+<p>Un ID de sesión largo (o más bien uno con mucha varianza) y un periodo de validez más corto harían mucho más difícil que un ataque de fuerza bruta tuviera éxito.</p>
+<ul>
+<li>¿Cuánto tiempo tomaría un ataque de fuerza bruta contra todos los ID de sesión posibles?</li>
+<li>¿Es el espacio de ID de sesión lo bastante grande para evitar la fuerza bruta? Por ejemplo, ¿es suficiente la longitud de la clave en comparación con su vida útil válida?</li>
+<li>¿Mitigan el riesgo de este ataque los retrasos entre intentos de conexión con diferentes ID de sesión?</li>
+</ul>
+<h3 id="gray-box-testing-and-example">Pruebas de caja gris y ejemplo</h3>
+<p>Si el evaluador tiene acceso a la implementación del esquema de gestión de sesiones, puede comprobar lo siguiente:</p>
+<ul>
+<li><p>Token de sesión aleatorio</p>
+<p>El ID de sesión o la cookie emitida al cliente no debe ser fácilmente predecible (no usar algoritmos lineales basados en variables predecibles como la dirección IP del cliente). Se recomienda el uso de algoritmos criptográficos con claves de 256 bits de longitud (como AES).</p>
+</li>
+<li><p>Longitud del token</p>
+<p>El ID de sesión tendrá una longitud de al menos 50 caracteres.</p>
+</li>
+<li><p>Tiempo de espera de la sesión</p>
+<p>El token de sesión debe tener un tiempo de espera definido (depende de la criticidad de los datos gestionados por la aplicación).</p>
+</li>
+<li><p>Configuración de la cookie:</p>
+<ul>
+<li>no persistente: solo en memoria RAM</li>
+<li>secure (establecida solo en canal HTTPS): <code>Set-Cookie: cookie=data; path=/; domain=.aaa.it; secure</code></li>
+<li><a href="https://owasp.org/www-community/HttpOnly" target="_blank" rel="noopener">HTTPOnly</a> (no legible por un script): <code>Set-Cookie: cookie=data; path=/; domain=.aaa.it; HttpOnly</code></li>
+</ul>
+</li>
+</ul>
+<p>Más información aquí: <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes">atributos de las cookies</a></p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy Project (ZAP)</a> - incluye un mecanismo de análisis de tokens de sesión.</li>
+<li><a href="https://portswigger.net/burp/documentation/desktop/tools/sequencer" target="_blank" rel="noopener">Burp Sequencer</a></li>
+<li><a href="https://github.com/yehgdotnet/JHijack" target="_blank" rel="noopener">YEHG&#39;s JHijack</a></li>
+<li><a href="https://github.com/hahwul/gori" target="_blank" rel="noopener">Gori</a> - incluye un Sequencer para analizar la aleatoriedad de los tokens de sesión.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://tools.ietf.org/html/rfc2965" target="_blank" rel="noopener">RFC 2965 &quot;HTTP State Management Mechanism&quot;</a></li>
+<li><a href="https://www.ietf.org/rfc/rfc1750.txt" target="_blank" rel="noopener">RFC 1750 &quot;Randomness Recommendations for Security&quot;</a></li>
+<li><a href="https://lcamtuf.coredump.cx/oldtcp/tcpseq.html" target="_blank" rel="noopener">Michal Zalewski: &quot;Strange Attractors and TCP/IP Sequence Number Analysis&quot; (2001)</a></li>
+<li><a href="https://lcamtuf.coredump.cx/newtcp/" target="_blank" rel="noopener">Michal Zalewski: &quot;Strange Attractors and TCP/IP Sequence Number Analysis - One Year Later&quot; (2002)</a></li>
+<li><a href="https://mathworld.wolfram.com/CorrelationCoefficient.html" target="_blank" rel="noopener">Correlation Coefficient</a></li>
+<li><a href="https://fourmilab.ch/random/" target="_blank" rel="noopener">ENT</a></li>
+<li><a href="https://seclists.org/lists/fulldisclosure/2005/Jun/0188.html" target="_blank" rel="noopener">DMA 2005-0614a - Global Hauri ViRobot Server cookie overflow</a></li>
+</ul>

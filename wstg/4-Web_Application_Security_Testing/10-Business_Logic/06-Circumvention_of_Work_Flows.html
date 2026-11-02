@@ -1,0 +1,83 @@
+<h1 id="circumvention-of-work-flows">Elusión de flujos de trabajo</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las vulnerabilidades de flujo de trabajo (workflow) comprenden cualquier tipo de vulnerabilidad que permita al atacante hacer un uso indebido de una aplicación o sistema de una manera que le permita eludir (no seguir) el flujo de trabajo diseñado o previsto.</p>
+<p><a href="https://en.wikipedia.org/wiki/Workflow" target="_blank" rel="noopener">Definición de flujo de trabajo en Wikipedia</a>:</p>
+<blockquote>
+<p>Un flujo de trabajo consiste en una secuencia de pasos conectados en la que cada paso sigue sin demora ni vacío y termina justo antes de que pueda comenzar el paso siguiente. Es una representación de una secuencia de operaciones, declarada como trabajo de una persona o grupo, una organización de personal o uno o más mecanismos simples o complejos. El flujo de trabajo puede verse como cualquier abstracción del trabajo real.</p>
+</blockquote>
+<p>La lógica de negocio de la aplicación debe exigir que el usuario complete pasos específicos en el orden correcto o específico y, si el flujo de trabajo se termina sin completarse correctamente, todas las acciones y las acciones derivadas deben &quot;revertirse&quot; (rolled back) o cancelarse. Las vulnerabilidades relacionadas con la elusión de flujos de trabajo o con la omisión del flujo de trabajo correcto de la lógica de negocio son particulares en cuanto a que son muy específicas de cada aplicación o sistema y se deben desarrollar cuidadosamente casos manuales de uso indebido a partir de los requisitos y los casos de uso.</p>
+<p>El proceso de negocio de la aplicación debe contar con comprobaciones que garanticen que las transacciones o acciones del usuario avanzan en el orden correcto o aceptable y que, si una transacción desencadena algún tipo de acción, esa acción se &quot;revierta&quot; y se elimine si la transacción no se completa con éxito.</p>
+<h3 id="example-1">Ejemplo 1</h3>
+<p>Muchos de nosotros recibimos algún tipo de &quot;puntos de club o de fidelización&quot; por compras en supermercados y estaciones de servicio. Supóngase que un usuario pudiera iniciar una transacción vinculada a su cuenta y luego, una vez que se han añadido puntos a su cuenta de club o de fidelización, cancelar la transacción o quitar artículos de su &quot;cesta&quot; y efectuar el pago. En este caso, el sistema no debería aplicar los puntos o créditos a la cuenta hasta que se efectúe el pago, o los puntos o créditos deberían &quot;revertirse&quot; si el incremento de puntos o créditos no coincide con el pago final. Teniendo esto en cuenta, un atacante podría iniciar transacciones y cancelarlas para acumular puntos sin comprar nada realmente.</p>
+<h3 id="example-2">Ejemplo 2</h3>
+<p>Un sistema electrónico de tablón de anuncios puede estar diseñado para asegurar que las publicaciones iniciales no contengan groserías, según una lista con la que se compara la publicación. Si se encuentra una palabra de una lista de denegación en el texto introducido por el usuario, el envío no se publica. Pero, una vez publicado un envío, quien lo envió puede acceder a él, editarlo y cambiar su contenido para incluir palabras de la lista de groserías o de denegación, ya que al editar la publicación nunca se vuelve a comparar. Teniendo esto en cuenta, los atacantes pueden abrir una discusión inicial en blanco o mínima y luego añadir lo que quieran como actualización.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la documentación del proyecto en busca de métodos para omitir pasos del proceso de la aplicación o recorrerlos en un orden distinto al del flujo de la lógica de negocio previsto.</li>
+<li>Desarrollar un caso de uso indebido e intentar eludir cada flujo lógico identificado.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="method-1">Método 1</h3>
+<ul>
+<li>Iniciar una transacción avanzando en la aplicación más allá de los puntos que desencadenan créditos o puntos en la cuenta del usuario.</li>
+<li>Cancelar la transacción o reducir el pago final de modo que los valores de puntos deban disminuir, y comprobar el sistema de puntos o créditos para asegurar que se registraron los puntos o créditos correctos.</li>
+</ul>
+<h3 id="method-2">Método 2</h3>
+<ul>
+<li>En un sistema de gestión de contenidos o de tablón de anuncios, introducir y guardar texto o valores iniciales válidos.</li>
+<li>Luego intentar anexar, editar y eliminar datos que dejarían los datos existentes en un estado inválido o con valores inválidos, para asegurar que no se permite al usuario guardar la información incorrecta. Algunos datos o información &quot;inválidos&quot; pueden ser palabras específicas (groserías) o temas específicos (como asuntos políticos).</li>
+</ul>
+<h3 id="method-3-multi-step-workflow-and-state-transition-abuse">Método 3: Abuso de flujos de trabajo de varios pasos y de transiciones de estado</h3>
+<p>Las aplicaciones modernas suelen implementar flujos de trabajo que abarcan varias peticiones, API o servicios de backend.
+En esos casos, el estado del flujo de trabajo puede inferirse a partir de parámetros controlados por el cliente o del estado de un sistema distribuido, en lugar de aplicarse estrictamente en el lado del servidor.</p>
+<p>Los atacantes pueden intentar abusar de estos flujos de trabajo omitiendo pasos obligatorios, reordenando peticiones o manipulando las transiciones de estado para alcanzar estados de la aplicación no autorizados o no previstos.</p>
+<p>Los patrones comunes de abuso de flujos de trabajo y de transiciones de estado incluyen:</p>
+<ul>
+<li>Omitir pasos obligatorios del flujo de trabajo invocando directamente funcionalidad de una etapa posterior</li>
+<li>Reordenar peticiones para eludir los controles de secuencia impuestos</li>
+<li>Reproducir o reutilizar identificadores de estado entre pasos del flujo de trabajo</li>
+<li>Manipular parámetros de estado, fase o paso suministrados por el cliente</li>
+<li>Ejecutar acciones dependientes en paralelo para eludir la validación de la secuencia</li>
+</ul>
+<p>Pasos de la prueba:</p>
+<ul>
+<li>Identificar los flujos de trabajo de varios pasos y la funcionalidad que interviene en cada etapa.</li>
+<li>Capturar las peticiones asociadas a cada paso del flujo de trabajo y anotar cualquier parámetro de estado.</li>
+<li>Intentar invocar funcionalidad de etapas posteriores sin completar los pasos previos.</li>
+<li>Reproducir o reordenar peticiones para determinar si existe una imposición de la secuencia.</li>
+<li>Modificar los parámetros de estado a valores inválidos, futuros o no autorizados.</li>
+<li>Verificar si la aplicación impone la validación del estado del flujo de trabajo en el lado del servidor.</li>
+</ul>
+<p>Algunos ejemplos son:</p>
+<ul>
+<li>Desencadenar acciones de envío o de cumplimiento de un pedido sin un paso de pago confirmado.</li>
+<li>Acceder a funciones restringidas o premium invocando directamente endpoints de activación o habilitación.</li>
+</ul>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/01-Directory_Traversal_File_Include">Testing Directory Traversal/File Include</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/02-Bypassing_Authorization_Schema">Bypassing Authorization Schema</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/01-Session_Management_Schema">Bypassing Session Management Schema</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/01-Business_Logic_Data_Validation">Test Business Logic Data Validation</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/02-Ability_to_Forge_Requests">Test Ability to Forge Requests</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/03-Integrity_Checks">Test Integrity Checks</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/04-Process_Timing">Test for Process Timing</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/05-Number_of_Times_a_Function_Can_Be_Used_Limits">Test Number of Times a Function Can be Used Limits</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/07-Defenses_Against_Application_Misuse">Test Defenses Against Application Mis-use</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/08-Upload_of_Unexpected_File_Types">Test Upload of Unexpected File Types</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files">Test Upload of Malicious Files</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La aplicación debe ser consciente de sí misma y contar con comprobaciones que garanticen que los usuarios completan cada paso del proceso del flujo de trabajo en el orden correcto, e impedir que los atacantes eludan, omitan o repitan cualquier paso o proceso del flujo de trabajo. Probar las vulnerabilidades de flujo de trabajo implica desarrollar casos de abuso o uso indebido de la lógica de negocio con el objetivo de completar con éxito el proceso de negocio sin completar los pasos correctos en el orden correcto.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Abuse_Case_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Abuse Case Cheat Sheet</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/840.html" target="_blank" rel="noopener">CWE-840: Business Logic Errors</a></li>
+</ul>

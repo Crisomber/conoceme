@@ -1,0 +1,161 @@
+<h1 id="excessive-data-exposure">Exposición excesiva de datos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-APIT-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La exposición excesiva de datos (excessive data exposure) ocurre cuando una API devuelve en sus respuestas más información de la que el cliente necesita para mostrar o funcionar. Esto sucede comúnmente cuando los desarrolladores implementan endpoints de API serializando objetos completos del backend (como modelos de base de datos o estructuras de datos internas) directamente en las respuestas de la API, confiando en que el código del lado del cliente filtre los campos sensibles antes de presentarlos al usuario.</p>
+<p>El problema es que las respuestas de la API son directamente accesibles para cualquiera que pueda hacer peticiones, independientemente de lo que la interfaz de usuario decida mostrar. Un atacante que inspeccione el tráfico sin procesar de la API puede observar todos los campos devueltos, incluidos aquellos que la interfaz oculta intencionalmente. Esto puede exponer contraseñas, tokens de autenticación, identificadores internos, información de identificación personal (PII), datos financieros, detalles de la infraestructura o lógica de negocio interna.</p>
+<p>Esta vulnerabilidad se corresponde con <a href="https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/" target="_blank" rel="noopener">OWASP API Security Top 10 API3:2023 Broken Object Property Level Authorization</a>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las respuestas de la API que contienen más datos de los que la aplicación cliente muestra o requiere.</li>
+<li>Detectar campos sensibles devueltos en las respuestas de la API, como hashes de contraseñas, tokens de autenticación, IDs internos de objetos, PII o detalles de la infraestructura.</li>
+<li>Determinar si la API depende del filtrado del lado del cliente en lugar de la selección de campos del lado del servidor para controlar la exposición de datos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="compare-api-responses-against-displayed-data">Comparar las respuestas de la API con los datos mostrados</h3>
+<p>La prueba más directa consiste en comparar lo que muestra la interfaz de usuario con lo que la API realmente devuelve.</p>
+<ol>
+<li>Abrir la aplicación en un navegador y navegar a una página que muestre datos de usuario u objetos (p. ej., una página de perfil, un resumen de pedido o un panel).</li>
+<li>Abrir las herramientas para desarrolladores del navegador (pestaña Network) o configurar un proxy de interceptación como Burp Suite o ZAP.</li>
+<li>Identificar las peticiones a la API que rellenan el contenido de la página.</li>
+<li>Comparar los campos mostrados en la interfaz con el conjunto completo de campos de la respuesta de la API.</li>
+</ol>
+<p>Por ejemplo, una página de perfil de usuario puede mostrar solo un nombre y un correo electrónico, pero la respuesta subyacente de la API puede devolver:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: 12045,
+  &quot;name&quot;: &quot;Alice Johnson&quot;,
+  &quot;email&quot;: &quot;alice@example.com&quot;,
+  &quot;password_hash&quot;: &quot;$2b$12$LJ3m4ys5qGn...&quot;,
+  &quot;role&quot;: &quot;admin&quot;,
+  &quot;internal_account_id&quot;: &quot;ACC-2024-88421&quot;,
+  &quot;ssn&quot;: &quot;123-45-6789&quot;,
+  &quot;api_key&quot;: &quot;REDACTED_EXAMPLE_KEY_12345&quot;,
+  &quot;created_by&quot;: &quot;system_migration_v2&quot;,
+  &quot;last_login_ip&quot;: &quot;10.0.3.47&quot;
+}
+</code></pre>
+<p>En este caso, la API devuelve hashes de contraseñas, números de seguro social, claves de API, identificadores internos y direcciones IP internas que la interfaz nunca muestra.</p>
+<h3 id="inspect-responses-across-different-api-endpoints">Inspeccionar las respuestas de distintos endpoints de la API</h3>
+<p>No hay que limitar las pruebas a un único endpoint. Se deben revisar las respuestas de múltiples tipos de endpoints:</p>
+<ul>
+<li><strong>Endpoints de usuarios y cuentas:</strong> <code>GET /api/users/{id}</code>, <code>GET /api/me</code>, <code>GET /api/account</code></li>
+<li><strong>Endpoints de listado y búsqueda:</strong> <code>GET /api/users</code>, <code>GET /api/orders?status=completed</code> (los endpoints de listado con frecuencia devuelven el mismo objeto completo para cada elemento de la lista, amplificando la exposición)</li>
+<li><strong>Endpoints de objetos relacionados:</strong> <code>GET /api/orders/{id}</code> puede incrustar objetos de usuario completos, detalles de pago o direcciones de envío dentro de la respuesta del pedido</li>
+<li><strong>Respuestas de error:</strong> Las peticiones fallidas pueden devolver mensajes de error detallados que contienen trazas de pila, rutas internas de archivos, detalles de consultas a la base de datos o valores de configuración</li>
+<li><strong>Endpoints administrativos o internos:</strong> Comprobar si los endpoints destinados al uso interno son accesibles externamente y devuelven datos con privilegios elevados</li>
+</ul>
+<h3 id="test-with-different-user-privilege-levels">Probar con distintos niveles de privilegio de usuario</h3>
+<p>El mismo endpoint puede devolver distintas cantidades de datos según el rol del usuario que realiza la petición. Hay que probar si:</p>
+<ul>
+<li>Un usuario con pocos privilegios recibe los mismos campos que un administrador al solicitar el mismo recurso.</li>
+<li>Una petición no autenticada devuelve datos que deberían requerir autenticación.</li>
+<li>Solicitar los datos de otro usuario (IDOR) devuelve el mismo objeto completo que solicitar los propios.</li>
+</ul>
+<p>Por ejemplo, <code>GET /api/users/124</code> podría devolver el objeto completo, incluidos los campos sensibles, sin importar si quien hace la petición es el usuario 124, otro usuario o un usuario no autenticado.</p>
+<h3 id="analyze-nested-and-embedded-objects">Analizar objetos anidados e incrustados</h3>
+<p>Las API modernas con frecuencia incrustan objetos relacionados dentro de las respuestas. Una sola llamada a la API puede devolver estructuras profundamente anidadas que exponen datos de múltiples sistemas del backend.</p>
+<p>Ejemplo: Un endpoint de pedidos que devuelve un objeto de cliente, un objeto de pago y un objeto de envío incrustados:</p>
+<pre><code class="language-json">{
+  &quot;order_id&quot;: &quot;ORD-9923&quot;,
+  &quot;items&quot;: [...],
+  &quot;customer&quot;: {
+    &quot;id&quot;: 5001,
+    &quot;name&quot;: &quot;Bob Smith&quot;,
+    &quot;email&quot;: &quot;bob@example.com&quot;,
+    &quot;phone&quot;: &quot;+1-555-0199&quot;,
+    &quot;date_of_birth&quot;: &quot;1985-03-14&quot;,
+    &quot;loyalty_tier&quot;: &quot;gold&quot;
+  },
+  &quot;payment&quot;: {
+    &quot;method&quot;: &quot;card&quot;,
+    &quot;card_last_four&quot;: &quot;4242&quot;,
+    &quot;card_brand&quot;: &quot;Visa&quot;,
+    &quot;card_fingerprint&quot;: &quot;fp_abc123xyz&quot;,
+    &quot;billing_address&quot;: {...}
+  },
+  &quot;internal_notes&quot;: &quot;Customer flagged for manual review - suspected fraud&quot;
+}
+</code></pre>
+<p>Cada objeto anidado debe revisarse en busca de campos que excedan lo que el cliente consumidor necesita.</p>
+<h3 id="test-for-mass-assignment">Probar la asignación masiva (mass assignment)</h3>
+<p>Para los endpoints que aceptan un cuerpo JSON o XML, se debe probar la existencia de vulnerabilidades de asignación masiva (mass assignment) añadiendo al cuerpo de la petición campos adicionales a los que se muestran en la interfaz de la aplicación. Campos como identificadores de rol, indicadores de privilegios o atributos de estado de la cuenta son objetivos de alto valor.</p>
+<h3 id="check-for-sensitive-data-in-graphql-responses">Comprobar datos sensibles en las respuestas de GraphQL</h3>
+<p>Las API GraphQL presentan una forma específica de este problema. Aunque GraphQL permite a los clientes seleccionar los campos que desean, el esquema puede exponer campos sensibles que las consultas predeterminadas de la interfaz no solicitan pero que un atacante puede añadir a una consulta personalizada.</p>
+<ol>
+<li><p>Si la introspección está habilitada, obtener el esquema y revisar los campos disponibles en cada tipo (consulte <a href="#/4-Web_Application_Security_Testing/12-API_Testing/99-GraphQL">Testing GraphQL</a>):</p>
+<pre><code class="language-graphql">{
+  __type(name: &quot;User&quot;) {
+    fields {
+      name
+      type { name }
+    }
+  }
+}
+</code></pre>
+</li>
+<li><p>Buscar campos como <code>passwordHash</code>, <code>apiKey</code>, <code>ssn</code>, <code>internalId</code>, <code>role</code> o <code>isAdmin</code> que se puedan consultar pero que el frontend no utilice.</p>
+</li>
+<li><p>Intentar consultar estos campos directamente:</p>
+<pre><code class="language-graphql">{
+  user(id: &quot;123&quot;) {
+    name
+    email
+    passwordHash
+    apiKey
+    role
+  }
+}
+</code></pre>
+</li>
+</ol>
+<h3 id="examine-javascript-source-maps-and-client-side-bundles">Examinar los source maps de JavaScript y los bundles del lado del cliente</h3>
+<p>Los bundles de JavaScript del frontend y los source maps pueden revelar de forma inadvertida la estructura de respuesta esperada de la API, incluidos los campos que la interfaz oculta intencionalmente. Si los source maps son accesibles públicamente (p. ej., en <code>main.js.map</code>), pueden exponer:</p>
+<ul>
+<li>La lista completa de campos que el frontend espera de las respuestas de la API</li>
+<li>Rutas internas de endpoints de la API</li>
+<li>La lógica de los flujos de autenticación y autorización</li>
+<li>Claves de API, tokens o valores de configuración codificados directamente en el código</li>
+</ul>
+<p>Probar la disponibilidad de source maps:</p>
+<pre><code class="language-http">GET /static/js/main.js.map
+GET /assets/app.js.map
+</code></pre>
+<p>Si el source map es accesible y contiene <code>sourcesContent</code>, el código fuente original puede reconstruirse y analizarse para obtener las estructuras de respuesta esperadas de la API y los campos ocultos.</p>
+<h3 id="check-error-responses-and-debug-output">Comprobar las respuestas de error y la salida de depuración</h3>
+<p>Las API pueden filtrar información sensible a través de las respuestas de error, particularmente cuando se ejecutan en modo de desarrollo o depuración:</p>
+<ul>
+<li><strong>Trazas de pila</strong> que revelan rutas internas de archivos, versiones del framework y la estructura del código</li>
+<li><strong>Mensajes de error de la base de datos</strong> que exponen nombres de tablas, nombres de columnas o sintaxis de consultas</li>
+<li><strong>Errores de validación detallados</strong> que enumeran todos los campos esperados, incluidos los no documentados en la API pública</li>
+<li><strong>Cabeceras de depuración</strong> como <code>X-Debug-Token</code>, <code>X-Powered-By</code> o cabeceras personalizadas que contienen información interna</li>
+</ul>
+<p>Se pueden provocar respuestas de error enviando entrada mal formada, autenticación inválida o peticiones de recursos inexistentes, e inspeccionando la respuesta completa, incluidas las cabeceras.</p>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li><strong>Implementar el filtrado de respuestas del lado del servidor.</strong> Nunca devolver objetos sin procesar de la base de datos ni serializaciones completas de modelos en las respuestas de la API. Definir explícitamente esquemas de respuesta que incluyan solo los campos que el cliente necesita para cada endpoint y contexto.</li>
+<li><strong>Usar Data Transfer Objects (DTOs) o listas de permitidos de serialización.</strong> Mapear los objetos internos a objetos de respuesta específicos para cada propósito que contengan solo los campos permitidos. La mayoría de los frameworks web ofrecen mecanismos para ello (p. ej., los serializers en Django REST Framework, JsonView en Spring o ActiveModel::Serializers en Rails).</li>
+<li><strong>Aplicar control de acceso a nivel de campo.</strong> Algunos campos (como las direcciones de correo electrónico o los números de teléfono) pueden ser apropiados para un consumidor pero no para otro. Implementar lógica para incluir o excluir campos según el rol del usuario que realiza la petición y su relación con el recurso solicitado.</li>
+<li><strong>Evitar exponer identificadores internos.</strong> Usar identificadores de cara al exterior (como UUIDs o tokens opacos) en lugar de IDs secuenciales internos de la base de datos, que revelan el número de registros y permiten la enumeración.</li>
+<li><strong>Restringir los esquemas GraphQL.</strong> Eliminar por completo los campos sensibles del esquema GraphQL en lugar de depender de comprobaciones a nivel de resolver. Si un campo debe existir en el esquema para uso interno, aplicar directivas de autorización para impedir el acceso no autorizado.</li>
+<li><strong>Deshabilitar los source maps en producción.</strong> No desplegar source maps de JavaScript en entornos de producción. Configurar el pipeline de compilación para excluir los archivos <code>.map</code> de los artefactos de producción.</li>
+<li><strong>Sanear las respuestas de error.</strong> Devolver mensajes de error genéricos en producción. Registrar la información detallada de los errores en el lado del servidor, pero no incluir trazas de pila, rutas internas ni detalles de consultas en las respuestas dirigidas al cliente.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><strong>Burp Suite:</strong> Usar la herramienta Comparer para comparar el contenido mostrado en la interfaz con las respuestas sin procesar de la API. Las herramientas Repeater e Intruder pueden usarse para probar sistemáticamente los endpoints con diferentes parámetros y contextos de autenticación.</li>
+<li><strong>ZAP (Zed Attack Proxy):</strong> Interceptar e inspeccionar las respuestas de la API, usar reglas de escaneo activo para identificar la divulgación de información y las capacidades de fuzzing para provocar respuestas de error detalladas.</li>
+<li><strong>Postman:</strong> Enviar peticiones a la API con diferentes tokens de autenticación y comparar los cuerpos de las respuestas para identificar diferencias de exposición de datos que dependan del rol.</li>
+<li><strong>Herramientas para desarrolladores del navegador:</strong> La pestaña Network proporciona visibilidad inmediata de las respuestas de la API sin necesidad de configurar un proxy. Es útil para comparar rápidamente los datos renderizados en la interfaz con el contenido sin procesar de la respuesta.</li>
+<li><strong>jq:</strong> Procesador JSON de línea de comandos para extraer y comparar campos entre respuestas de la API: <code>curl -s https://api.example.com/users/me | jq &#39;keys&#39;</code> lista todos los campos devueltos.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/" target="_blank" rel="noopener">OWASP API Security Top 10: API3:2023 Broken Object Property Level Authorization</a></li>
+<li><a href="https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x13-V4-API-and-Web-Service.md" target="_blank" rel="noopener">OWASP ASVS V5: API and Web Service</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/04-Insecure_Direct_Object_References">Insecure Direct Object References (IDOR)</a></li>
+</ul>

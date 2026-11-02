@@ -1,0 +1,73 @@
+<h1 id="exposed-session-variables">Variables de sesión expuestas</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los tokens de sesión (cookie, SessionID, campo oculto), si quedan expuestos, normalmente permitirán a un atacante suplantar a una víctima y acceder a la aplicación de forma ilegítima. Es importante que estén protegidos de la escucha (eavesdropping) en todo momento, en particular mientras viajan entre el navegador del cliente y los servidores de la aplicación.</p>
+<p>La información aquí presentada se refiere a cómo se aplica la seguridad del transporte a la transferencia de datos sensibles del ID de sesión, más que a los datos en general, y puede ser más estricta que las políticas de caché y transporte aplicadas a los datos servidos por el sitio.</p>
+<p>Usando un proxy personal, es posible determinar lo siguiente sobre cada petición y respuesta:</p>
+<ul>
+<li>Protocolo utilizado (p. ej., HTTP vs. HTTPS)</li>
+<li>Cabeceras HTTP</li>
+<li>Cuerpo del mensaje (p. ej., POST o contenido de la página)</li>
+</ul>
+<p>Cada vez que se transmiten datos del ID de sesión entre el cliente y el servidor, se deben examinar el protocolo, la caché, las directivas de privacidad y el cuerpo. La seguridad del transporte aquí se refiere a los ID de sesión transmitidos en peticiones GET o POST, cuerpos de mensaje u otros medios sobre peticiones HTTP válidas.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Asegurar que se implementa el cifrado adecuado.</li>
+<li>Revisar la configuración de caché.</li>
+<li>Evaluar la seguridad del canal y de los métodos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="encryption--reuse-of-session-tokens-vulnerabilities">Vulnerabilidades de cifrado y reutilización de tokens de sesión</h3>
+<p>La protección contra la escucha suele proporcionarla el cifrado TLS, pero puede incorporar otros túneles o cifrados. Cabe señalar que el cifrado o el hash criptográfico del ID de sesión debe considerarse por separado del cifrado del transporte, ya que lo que se protege es el propio ID de sesión y no los datos que puedan estar representados por él.</p>
+<p>Si un atacante pudiera presentar el ID de sesión a la aplicación para obtener acceso, entonces debe protegerse en tránsito para mitigar ese riesgo. Por lo tanto, se debe asegurar que el cifrado sea tanto el valor predeterminado como obligatorio para cualquier petición o respuesta en la que se transmita el ID de sesión, independientemente del mecanismo utilizado (p. ej., un campo de formulario oculto). Deben realizarse comprobaciones sencillas, como reemplazar <code>https://</code> por <code>http://</code> durante la interacción con la aplicación, junto con la modificación de los envíos de formularios, para determinar si se implementa una segregación adecuada entre los sitios seguros y no seguros.</p>
+<p>Hay que tener presente que si el sitio también tiene un elemento en el que se rastrea al usuario con ID de sesión pero no hay seguridad (p. ej., anotar qué documentos públicos descarga un usuario registrado), es esencial que se utilice un ID de sesión diferente. Por lo tanto, se debe monitorear el ID de sesión a medida que el cliente cambia de los elementos seguros a los no seguros para asegurar que se utiliza uno distinto.</p>
+<blockquote>
+<p>Cada vez que la autenticación sea exitosa, el usuario debe esperar recibir:</p>
+<ul>
+<li>Un token de sesión diferente</li>
+<li>Un token enviado por un canal cifrado cada vez que realice una petición HTTP</li>
+</ul>
+</blockquote>
+<h3 id="proxies--caching-vulnerabilities">Vulnerabilidades de proxies y caché</h3>
+<p>Los proxies también deben considerarse al revisar la seguridad de la aplicación. En muchos casos, los clientes accederán a la aplicación a través de proxies corporativos, de ISP u otros, o de pasarelas que reconocen protocolos (p. ej., firewalls). El protocolo HTTP proporciona directivas para controlar el comportamiento de los proxies intermedios, y también debe evaluarse la correcta implementación de estas directivas.</p>
+<p>En general, el ID de sesión nunca debe enviarse por un transporte sin cifrar y nunca debe almacenarse en caché. Se debe examinar la aplicación para asegurar que las comunicaciones cifradas son tanto el valor predeterminado como obligatorias para cualquier transferencia de ID de sesión. Además, siempre que se transmita el ID de sesión, deben existir directivas que impidan su almacenamiento en caché por parte de cachés intermedias e incluso locales.</p>
+<p>La aplicación también debe configurarse para proteger los datos en las cachés tanto sobre HTTP/1.0 como sobre HTTP/1.1; la RFC 2616 analiza los controles apropiados en relación con HTTP. HTTP/1.1 proporciona varios mecanismos de control de caché. <code>Cache-Control: no-cache</code> indica que un proxy no debe reutilizar ningún dato. Aunque <code>Cache-Control: Private</code> parece una directiva adecuada, esto aún permite que un proxy no compartido almacene datos en caché. En el caso de cibercafés u otros sistemas compartidos, esto presenta un riesgo claro. Incluso con estaciones de trabajo de un solo usuario, el ID de sesión almacenado en caché puede quedar expuesto mediante el compromiso del sistema de archivos o cuando se utilizan almacenes de red. Las cachés HTTP/1.0 no reconocen la directiva <code>Cache-Control: no-cache</code>.</p>
+<blockquote>
+<p>Las directivas <code>Expires: 0</code> y <code>Cache-Control: max-age=0</code> deben utilizarse para asegurar aún más que las cachés no expongan los datos. Se debe examinar cada petición/respuesta que transmita datos del ID de sesión para asegurar que se usan las directivas de caché apropiadas.</p>
+</blockquote>
+<h3 id="get--post-vulnerabilities">Vulnerabilidades de GET y POST</h3>
+<p>En general, no deben utilizarse peticiones GET, ya que el ID de sesión puede quedar expuesto en los logs de proxies o firewalls. También son mucho más fáciles de manipular que otros tipos de transporte, aunque debe tenerse en cuenta que casi cualquier mecanismo puede ser manipulado por el cliente con las herramientas adecuadas. Además, los ataques de <a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">Cross-site Scripting (XSS)</a> se explotan con mayor facilidad enviando a la víctima un enlace especialmente construido. Esto es mucho menos probable si los datos se envían desde el cliente como POST.</p>
+<p>Todo el código del lado del servidor que reciba datos de peticiones POST debe probarse para asegurar que no acepta los datos si se envían como GET. Por ejemplo, considérese la siguiente petición POST (<code>https://owaspapp.com/login.asp</code>) generada por una página de inicio de sesión.</p>
+<pre><code class="language-http">POST /login.asp HTTP/1.1
+Host: owaspapp.com
+[...]
+Cookie: ASPSESSIONIDABCDEFG=ASKLJDLKJRELKHJG
+Content-Length: 51
+
+Login=Username&amp;password=Password&amp;SessionID=12345678
+</code></pre>
+<p>Si login.asp está mal implementado, puede ser posible iniciar sesión usando la siguiente URL: <code>https://owaspapp.com/login.asp?Login=Username&amp;password=Password&amp;SessionID=12345678</code></p>
+<p>Los scripts del lado del servidor potencialmente inseguros pueden identificarse comprobando cada POST de esta manera.</p>
+<h3 id="transport-vulnerabilities">Vulnerabilidades de transporte</h3>
+<p>Toda la interacción entre el cliente y la aplicación debe probarse al menos con los siguientes criterios.</p>
+<ul>
+<li>¿Cómo se transfieren los ID de sesión? p. ej., GET, POST, campo de formulario (incluidos los campos ocultos)</li>
+<li>¿Los ID de sesión se envían siempre por transporte cifrado de forma predeterminada?</li>
+<li>¿Es posible manipular la aplicación para que envíe ID de sesión sin cifrar? p. ej., ¿cambiando HTTPS a HTTP?</li>
+<li>¿Qué directivas de control de caché se aplican a las peticiones/respuestas que transmiten ID de sesión?</li>
+<li>¿Estas directivas están siempre presentes? Si no, ¿dónde están las excepciones?</li>
+<li>¿Se utilizan peticiones GET que incorporen el ID de sesión?</li>
+<li>Si se utiliza POST, ¿se puede intercambiar por GET?</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://www.ietf.org/rfc/rfc2965.txt" target="_blank" rel="noopener">RFCs 2109 and 2965 - HTTP State Management Mechanism - D. Kristol, L. Montulli</a></li>
+<li><a href="https://www.ietf.org/rfc/rfc2616.txt" target="_blank" rel="noopener">RFC 2616 - Hypertext Transfer Protocol - HTTP/1.1</a></li>
+</ul>

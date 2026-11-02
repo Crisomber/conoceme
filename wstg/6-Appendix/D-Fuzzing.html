@@ -1,0 +1,41 @@
+<h1 id="fuzzing">D. Fuzzing</h1>
+<h2 id="introduction">Introducción</h2>
+<p>El fuzzing es el proceso o la técnica de enviar una cantidad de peticiones a un sitio objetivo en un cierto intervalo de tiempo. En otras palabras, es también similar a la fuerza bruta. El fuzzing es un proceso que se puede llevar a cabo con herramientas como Wfuzz, ffuf, entre otras. Como evaluador, tendrías que proporcionar a la herramienta la URL objetivo, el parámetro, el endpoint, etc., y algún tipo de entradas. Luego la herramienta de fuzzing construye las peticiones y las envía al objetivo. Una vez finalizado el fuzzing, es necesario analizar las respuestas, los tiempos, los códigos de estado y otras características en busca de posibles vulnerabilidades.</p>
+<h2 id="why-fuzzing">¿Por qué usar fuzzing?</h2>
+<p>Probar vulnerabilidades introduciendo las entradas una por una de forma manual puede ser caótico. En la era actual, en la que las personas tienen menos tiempo y bajos niveles de paciencia, la idea de introducir manualmente entradas para encontrar errores o vulnerabilidades puede resultar abrumadora. Para reducir esta percepción y ahorrar tiempo, el fuzzing puede ser un gran punto a favor. El fuzzing es un proceso automatizado en el que gran parte del trabajo duro lo realiza una herramienta de fuzzing. Todo lo que un analista tiene que hacer es analizar las diversas características una vez terminado el proceso. Considera un sitio con muchos campos de entrada para probar XSS. En un enfoque manual, todo lo que hacemos es alimentar el campo de entrada con payloads de XSS uno por uno, lo que sería demasiado agitado. En contraste, en un enfoque automatizado, todo lo que se necesita es proporcionar al fuzzer la lista de payloads de XSS y el fuzzer se encarga de todas las peticiones.</p>
+<h2 id="tools-to-use-for-fuzzing">Herramientas para usar en fuzzing</h2>
+<p>Existen cientos de herramientas disponibles en la industria para hacer fuzzing. Pero a continuación se enumeran algunas de las herramientas de fuzzing más populares y mejor valoradas.</p>
+<h3 id="wfuzz">Wfuzz</h3>
+<p><a href="https://github.com/xmendez/wfuzz" target="_blank" rel="noopener">Wfuzz</a> funciona reemplazando el valor de la lista de palabras en el lugar donde se encuentra el marcador <code>FUZZ</code>. Para entender esto con mayor claridad, consideremos un ejemplo:</p>
+<pre><code class="language-bash">wfuzz -w userIDs.txt https://example.com/view_photo?userId=FUZZ
+</code></pre>
+<p>En el comando anterior, <code>userIds.txt</code> es un archivo de lista de palabras que contiene valores de ID numéricos. Aquí le estamos diciendo a wfuzz que aplique fuzzing a la petición hacia la URL de ejemplo. Esa palabra <code>FUZZ</code> en la URL actuará como un marcador de posición que wfuzz reemplazará con los valores de la lista de palabras. Todos los valores de ID numéricos del archivo <code>userIDs.txt</code> se insertarán reemplazando la palabra clave <code>FUZZ</code>.</p>
+<h3 id="ffuf">Ffuf</h3>
+<p><a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">Ffuf</a> es una herramienta de fuzzing web escrita en el lenguaje Go, muy rápida y recursiva por naturaleza. Funciona de forma similar a Wfuzz pero, a diferencia de este, es recursiva. Ffuf también funciona reemplazando el marcador de posición <code>FUZZ</code> con valores de la lista de palabras. Por ejemplo:</p>
+<pre><code class="language-bash">ffuf -w userIDs.txt -u https://example.com/view_photo?userId=FUZZ
+</code></pre>
+<p>Aquí <code>-w</code> es la opción para la lista de palabras y <code>-u</code> es la opción para la URL objetivo. El resto del mecanismo de funcionamiento es el mismo que el de Wfuzz. Reemplaza el marcador <code>FUZZ</code> con los valores de <code>userIDs.txt</code>.</p>
+<h3 id="gobuster">GoBuster</h3>
+<p><a href="https://github.com/OJ/gobuster" target="_blank" rel="noopener">GoBuster</a> es otro fuzzer escrito en el lenguaje Go que se utiliza sobre todo para hacer fuzzing de URI, directorios/rutas, subdominios DNS, buckets de AWS S3 y nombres de vhost, y admite concurrencia. Por ejemplo:</p>
+<pre><code class="language-bash">gobuster dir -w endpoints.txt -u https://example.com
+</code></pre>
+<p>En el comando anterior, <code>dir</code> especifica que estamos aplicando fuzzing a un directorio, <code>-u</code> es la opción para la URL y <code>-w</code> es la opción para la lista de palabras, donde <code>endpoints.txt</code> es el archivo de lista de palabras del que se tomarán los payloads. El comando ejecuta peticiones concurrentes al endpoint para encontrar los directorios disponibles.</p>
+<h3 id="zap">ZAP</h3>
+<p><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a> es un escáner de seguridad de aplicaciones web que se puede utilizar para encontrar vulnerabilidades y debilidades en aplicaciones web. También incluye un <a href="https://www.zaproxy.org/docs/desktop/addons/fuzzer/" target="_blank" rel="noopener">Fuzzer</a>.</p>
+<p>Una de las características clave de ZAP es su capacidad para realizar escaneos tanto pasivos como activos. Los escaneos pasivos consisten en observar el tráfico entre el usuario y la aplicación web, mientras que los escaneos activos consisten en enviar payloads de prueba a la aplicación web para identificar vulnerabilidades.</p>
+<h3 id="wordlists-and-references">Listas de palabras y referencias</h3>
+<p>En los ejemplos anteriores hemos visto por qué necesitamos una lista de palabras. Sin embargo, no bastan las listas de palabras por sí solas; la lista debe ser adecuada para tu escenario de fuzzing. Si no encuentras ninguna lista de palabras que se ajuste al escenario necesario, considera generar tu propia lista. A continuación se proporcionan algunas listas de palabras y referencias populares.</p>
+<ul>
+<li><a href="https://portswigger.net/web-security/cross-site-scripting/cheat-sheet" target="_blank" rel="noopener">Cross-site scripting (XSS) cheat sheet</a></li>
+<li><a href="https://github.com/s0md3v/AwesomeXSS" target="_blank" rel="noopener">AwesomeXSS</a></li>
+<li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank" rel="noopener">Payloads All The Things</a></li>
+<li><a href="https://github.com/minimaxir/big-list-of-naughty-strings" target="_blank" rel="noopener">Big List of Naughty Strings</a></li>
+<li><a href="https://github.com/Bo0oM/fuzz.txt" target="_blank" rel="noopener">Bo0oM Fuzz List</a></li>
+<li><a href="https://github.com/fuzzdb-project/fuzzdb" target="_blank" rel="noopener">FuzzDB</a></li>
+<li><a href="https://github.com/bl4de/dictionaries" target="_blank" rel="noopener">bl4de Dictionaries</a></li>
+<li><a href="https://github.com/cujanovic/Open-Redirect-Payloads" target="_blank" rel="noopener">Open Redirect Payloads</a></li>
+<li><a href="https://github.com/EdOverflow/bugbounty-cheatsheet" target="_blank" rel="noopener">EdOverflow Bug Bounty Cheat Sheet</a></li>
+<li><a href="https://github.com/danielmiessler/SecLists" target="_blank" rel="noopener">Daniel Miessler - SecLists</a></li>
+<li><a href="https://twitter.com/XssPayloads" target="_blank" rel="noopener">XssPayloads Twitter Feed</a></li>
+<li><a href="https://github.com/payload-box/xss-payload-list" target="_blank" rel="noopener">XssPayloads List</a></li>
+</ul>

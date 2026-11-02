@@ -1,0 +1,120 @@
+<h1 id="improper-error-handling">Manejo inadecuado de errores</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ERRH-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Todo tipo de aplicaciones (aplicaciones web, servidores web, bases de datos, APIs, etc.) generarán errores por diversas razones. Los desarrolladores con frecuencia ignoran el manejo de estos errores, o descartan la idea de que un usuario intentará provocar un error a propósito (<em>p. ej.</em> enviar una cadena donde se espera un entero). Cuando el desarrollador solo considera el camino feliz, olvida todas las demás entradas posibles que el código puede recibir pero no sabe manejar.</p>
+<p>Los errores a veces aparecen como:</p>
+<ul>
+<li>Stack traces</li>
+<li>Timeouts de red</li>
+<li>Discrepancias en la entrada</li>
+<li>Volcados de memoria</li>
+<li>Páginas o consolas de depuración que se dejaron habilitadas en producción</li>
+<li>Respuestas de error detalladas de APIs, GraphQL o servicios en la nube</li>
+</ul>
+<p>El manejo inadecuado de errores puede permitir a los atacantes:</p>
+<ul>
+<li>Entender las APIs que se utilizan internamente.</li>
+<li>Mapear los diversos servicios que se integran entre sí obteniendo información sobre los sistemas internos y frameworks utilizados, lo que abre las puertas al encadenamiento de ataques.</li>
+<li>Recopilar las versiones y los tipos de aplicaciones utilizadas.</li>
+<li>Identificar rutas del sistema de archivos, nombres de host internos y secretos (<em>p. ej.</em> cadenas de conexión, claves de API o prompts) incrustados en la salida de errores.</li>
+<li>Provocar una denegación de servicio forzando al sistema a un deadlock o a una excepción no controlada que haga caer el proceso que lo ejecuta.</li>
+<li>Evadir controles cuando una excepción determinada no está restringida por la lógica establecida alrededor del camino feliz, o cuando una verificación fallida falla de forma abierta (<em>p. ej.</em> una verificación de autorización que permite el acceso cuando lanza una excepción; véase <a href="https://cwe.mitre.org/data/definitions/636.html" target="_blank" rel="noopener">CWE-636</a>).</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar la salida de errores existente.</li>
+<li>Analizar las diferentes salidas devueltas.</li>
+<li>Determinar si los errores exponen información sensible o hacen que la aplicación falle de forma abierta (fail open).</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Los errores suelen verse como inofensivos, ya que proporcionan datos de diagnóstico y mensajes que podrían ayudar al usuario a entender el problema en cuestión, o al desarrollador a depurar ese error.</p>
+<p>Al intentar enviar datos inesperados, o forzar al sistema a ciertos casos límite y escenarios, el sistema o la aplicación, la mayoría de las veces, revelará un poco de lo que ocurre internamente, a menos que los desarrolladores hayan desactivado todos los errores posibles y devuelvan un mensaje personalizado.</p>
+<h3 id="web-servers">Servidores web</h3>
+<p>Todas las aplicaciones web se ejecutan sobre un servidor web, ya sea uno integrado o uno completo. Las aplicaciones web deben manejar y analizar peticiones HTTP, y para ello un servidor web siempre forma parte de la pila. Algunos de los servidores web y proxies más comunes son Nginx, Apache, IIS, Caddy y Envoy. Delante de estos suele haber una CDN, un WAF, un balanceador de carga o un API gateway (<em>p. ej.</em> Cloudflare, CloudFront, Azure Front Door) que tiene sus propias páginas de error.</p>
+<p>Los servidores web tienen mensajes de error y formatos conocidos. Si no se está familiarizado con su aspecto, buscarlos en línea proporcionaría ejemplos. Otra manera sería consultar su documentación, o simplemente configurar un servidor localmente y descubrir los errores navegando por las páginas que utiliza el servidor web.</p>
+<p>Para provocar mensajes de error, un evaluador debe:</p>
+<ul>
+<li>Buscar archivos y carpetas aleatorios que no se encontrarán (404).</li>
+<li>Intentar solicitar carpetas que existen y ver el comportamiento del servidor (403, página en blanco o listado de directorio).</li>
+<li>Intentar enviar una petición que rompa las especificaciones HTTP (<a href="https://www.rfc-editor.org/rfc/rfc9110" target="_blank" rel="noopener">RFC 9110</a> para la semántica, <a href="https://www.rfc-editor.org/rfc/rfc9112" target="_blank" rel="noopener">RFC 9112</a> para la sintaxis de mensajes HTTP/1.1). Algunos ejemplos son una ruta muy larga (414), cabeceras o cookies sobredimensionadas (431), un cuerpo sobredimensionado (413), un formato de cabecera roto, un método inválido o una versión de HTTP modificada.<ul>
+<li>Incluso si los errores se manejan a nivel de la aplicación, romper la especificación HTTP puede hacer que el servidor web integrado se muestre, ya que debe manejar la petición, y los desarrolladores olvidan sobrescribir estos errores.</li>
+<li>Comparar las páginas de error devueltas por cada capa (CDN, WAF, proxy, servidor de aplicaciones) para identificar los componentes de la pila y, en algunos casos, el servidor de origen que hay detrás.</li>
+<li>Las peticiones malformadas sobre HTTP/2 y HTTP/3 (<em>p. ej.</em> pseudocabeceras inválidas) y las pruebas de request smuggling o desincronización (desync) también pueden hacer que un componente de frontend o backend devuelva su propia página de error.</li>
+</ul>
+</li>
+</ul>
+<h3 id="applications">Aplicaciones</h3>
+<p>Las aplicaciones son las más susceptibles de dejar salir una amplia variedad de mensajes de error, entre ellos: stack traces, volcados de memoria, excepciones mal manejadas y errores genéricos. Esto ocurre porque las aplicaciones, la mayoría de las veces, se construyen a medida y los desarrolladores deben observar y manejar todos los casos de error posibles (o contar con un mecanismo global de captura de errores), y estos errores pueden aparecer por las integraciones con otros servicios.</p>
+<p>Para hacer que una aplicación lance estos errores, un evaluador debe:</p>
+<ol>
+<li>Identificar los posibles puntos de entrada donde la aplicación espera datos.</li>
+<li>Analizar el tipo de entrada esperado (cadenas, enteros, JSON, XML, etc.).</li>
+<li>Hacer fuzzing de cada punto de entrada con base en los pasos anteriores para tener un escenario de prueba más enfocado.<ul>
+<li>Hacer fuzzing de cada entrada con todas las inyecciones posibles no es la mejor solución, a menos que se tenga tiempo de prueba ilimitado y que la aplicación pueda manejar tanta entrada.</li>
+<li>Si el fuzzing no es una opción, se deben elegir manualmente las entradas viables que tengan la mayor probabilidad de romper un determinado analizador (parser) (<em>p. ej.</em> un corchete de cierre para un cuerpo JSON, un texto largo donde solo se esperan un par de caracteres, inyección CRLF con parámetros que podrían ser analizados por servidores y controles de validación de entrada, caracteres especiales que no son aplicables a nombres de archivo, etc.).</li>
+<li>El fuzzing con datos malformados o basura debe ejecutarse para cada tipo, ya que a veces los intérpretes fallarán fuera del manejo de excepciones del desarrollador.</li>
+</ul>
+</li>
+<li>Entender el servicio que responde con el mensaje de error e intentar elaborar una lista de fuzzing más refinada para obtener más información o detalles del error de ese servicio (podría ser una base de datos, un servicio independiente, etc.).</li>
+</ol>
+<p>Los mensajes de error a veces son la principal debilidad al mapear sistemas, especialmente en una arquitectura de microservicios. Si los servicios no están configurados adecuadamente para manejar errores de manera genérica y uniforme, los mensajes de error permitirían al evaluador identificar qué servicio maneja qué peticiones y permitirían un ataque más enfocado por servicio.</p>
+<blockquote>
+<p>El evaluador debe estar atento al tipo de respuesta. A veces los errores se devuelven como éxito con un cuerpo de error, ocultan el error en un 302, o simplemente tienen una forma personalizada de representar ese error.</p>
+</blockquote>
+<h3 id="debug-modes-and-framework-error-pages">Modos de depuración y páginas de error de frameworks</h3>
+<p>Los frameworks y los entornos de ejecución suelen incluir páginas de error detalladas, depuradores interactivos o endpoints de diagnóstico pensados únicamente para desarrollo. Se debe comprobar si alguno es accesible en producción, por ejemplo:</p>
+<ul>
+<li>Django con <code>DEBUG = True</code>.</li>
+<li>Depurador interactivo de Flask/Werkzeug.</li>
+<li>Páginas de depuración y profilers de Laravel (Ignition) y Symfony.</li>
+<li>Endpoints de Spring Boot Actuator y páginas de error predeterminadas que incluyen campos <code>trace</code> o <code>message</code>.</li>
+<li>Páginas de error de desarrollo de Ruby on Rails.</li>
+<li>Páginas de excepciones para desarrolladores de ASP.NET.</li>
+<li>Frameworks de Node.js (<em>p. ej.</em> Express, Next.js) ejecutándose en modo de desarrollo, que devuelven stack traces por defecto.</li>
+</ul>
+<p>Véanse también <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces">Enumerate Infrastructure and Application Admin Interfaces</a> y <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Web_Page_Content_for_Information_Leakage">Review Web Page Content for Information Leakage</a>.</p>
+<h3 id="apis">APIs</h3>
+<p>Las APIs con frecuencia devuelven errores estructurados que exponen más de lo previsto:</p>
+<ul>
+<li>Enviar JSON o XML malformado, o un <code>Content-Type</code> incorrecto, tipos incorrectos, campos obligatorios ausentes y valores fuera de rango, y revisar el cuerpo del error estructurado. Muchas APIs usan <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a> <code>application/problem+json</code>, donde <code>detail</code> o los miembros de extensión pueden filtrar detalles internos.</li>
+<li>Para GraphQL, revisar el arreglo <code>errors</code>, en particular <code>extensions</code> (que puede contener stack traces) y las sugerencias de campos (&quot;Did you mean ...?&quot;) que revelan detalles del esquema incluso cuando la introspección está deshabilitada.</li>
+<li>Comparar las respuestas de error para recursos o usuarios válidos e inválidos para encontrar diferencias que permitan la enumeración (véase <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Account Enumeration and Guessable User Account</a>).</li>
+</ul>
+<h3 id="cloud-services-and-ai-enabled-applications">Servicios en la nube y aplicaciones con IA</h3>
+<ul>
+<li>Las peticiones que llegan directamente a almacenamiento en la nube, funciones serverless o API gateways pueden devolver errores XML o JSON específicos del proveedor que revelan nombres de buckets, regiones, identificadores de cuenta o nombres de funciones.</li>
+<li>Las aplicaciones que llaman a servicios de LLM u otros servicios de IA pueden devolver errores crudos del proveedor, fallos de llamadas a herramientas o detalles de plantillas de prompts cuando la llamada upstream falla o la entrada está malformada. Se debe buscar la filtración de prompts de sistema, claves de API, nombres de modelos o proveedores y endpoints internos.</li>
+</ul>
+<h3 id="fail-open-behavior">Comportamiento fail-open</h3>
+<p>Cuando se provoca un error, se debe observar si los controles de seguridad se siguen aplicando. Hay que comprobar si se omite un paso de autenticación, autorización, limitación de tasa (rate limiting) o validación cuando ocurre una excepción (<em>p. ej.</em> un token malformado, un servicio de respaldo no disponible o un timeout), y la petición se procesa entonces como si la verificación se hubiera superado.</p>
+<h3 id="tools">Herramientas</h3>
+<ul>
+<li>Las reglas de escaneo pasivo y activo de <a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a> como <a href="https://www.zaproxy.org/docs/alerts/90022/" target="_blank" rel="noopener">Application Error Disclosure</a>, además de su <a href="https://www.zaproxy.org/docs/desktop/addons/fuzzer/" target="_blank" rel="noopener">Fuzzer</a>.</li>
+<li>Burp Suite Repeater e Intruder.</li>
+<li><a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">ffuf</a> para hacer fuzzing de rutas, parámetros y cabeceras.</li>
+<li>Plantillas de <a href="https://github.com/projectdiscovery/nuclei-templates" target="_blank" rel="noopener">Nuclei</a> para páginas de depuración expuestas y errores detallados.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Para la corrección, consulte <a href="https://top10proactive.owasp.org/archive/2024/the-top-10/c3-validate-input-and-handle-exceptions/" target="_blank" rel="noopener">OWASP Top 10 Proactive Controls C3: Validate Input and Handle Exceptions</a> y la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html" target="_blank" rel="noopener">Error Handling Cheat Sheet</a>.</p>
+<h2 id="playgrounds">Entornos de práctica</h2>
+<ul>
+<li><a href="https://pwning.owasp-juice.shop/companion-guide/latest/part2/security-misconfiguration.html#provoke-an-error-that-is-neither-very-gracefully-nor-consistently-handled" target="_blank" rel="noopener">Juice Shop - Error Handling</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="#/6-Appendix/D-Fuzzing">WSTG: Appendix D - Fuzzing</a></li>
+<li><a href="https://owasp.org/Top10/2025/A10_2025-Mishandling_of_Exceptional_Conditions/" target="_blank" rel="noopener">OWASP Top 10:2025 A10 Mishandling of Exceptional Conditions</a></li>
+<li><a href="https://top10proactive.owasp.org/archive/2024/the-top-10/c3-validate-input-and-handle-exceptions/" target="_blank" rel="noopener">OWASP Top 10 Proactive Controls (2024) C3: Validate Input and Handle Exceptions</a></li>
+<li><a href="https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x25-V16-Security-Logging-and-Error-Handling.md" target="_blank" rel="noopener">ASVS v5.0 V16: Security Logging and Error Handling</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/209.html" target="_blank" rel="noopener">CWE 209 - Generation of Error Message Containing Sensitive Information</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/636.html" target="_blank" rel="noopener">CWE 636 - Not Failing Securely (Failing Open)</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/728.html" target="_blank" rel="noopener">CWE 728 - Improper Error Handling</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457 - Problem Details for HTTP APIs</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html" target="_blank" rel="noopener">Cheat Sheet Series: Error Handling</a></li>
+</ul>

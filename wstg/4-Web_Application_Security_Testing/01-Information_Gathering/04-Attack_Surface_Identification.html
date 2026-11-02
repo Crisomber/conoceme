@@ -1,0 +1,261 @@
+<h1 id="attack-surface-identification">Identificación de la superficie de ataque</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Identificar la superficie de ataque de una aplicación web implica descubrir todas las aplicaciones, dominios, hosts virtuales y servicios expuestos externamente asociados con la infraestructura objetivo. Este proceso va más allá de identificar las aplicaciones alojadas e incluye la enumeración de DNS, el descubrimiento de subdominios, el análisis de hosts virtuales, los puertos no estándar y la revisión de certificados digitales y de los registros de Certificate Transparency.</p>
+<p>Con la proliferación del alojamiento virtual y de la infraestructura compartida, la relación tradicional 1:1 entre una dirección IP y un servidor web ha desaparecido en gran medida. Una sola dirección IP puede alojar múltiples aplicaciones en distintos dominios, entornos o interfaces administrativas. No identificar estos activos puede dar lugar a evaluaciones incompletas y a vulnerabilidades que pasen inadvertidas.</p>
+<p>A veces se entrega a los profesionales de seguridad un conjunto de direcciones IP como objetivo de prueba. Se puede argumentar que este escenario se parece más a un trabajo de tipo prueba de penetración, pero en cualquier caso se espera que dicha asignación pruebe todas las aplicaciones web accesibles a través de ese objetivo. El problema es que la dirección IP dada aloja un servicio HTTP en el puerto 80, pero si el evaluador accede especificando la dirección IP (que es todo lo que conoce), se informa &quot;No web server configured at this address&quot; u otro mensaje similar. Sin embargo, ese sistema podría &quot;ocultar&quot; varias aplicaciones web asociadas a nombres simbólicos (DNS) no relacionados. Evidentemente, el alcance del análisis se ve profundamente afectado según el evaluador pruebe todas las aplicaciones o solo las que conoce.</p>
+<p>A veces, la especificación del objetivo es más rica. Al evaluador se le puede dar una lista de direcciones IP y sus correspondientes nombres simbólicos. Sin embargo, esta lista podría transmitir información parcial, es decir, podría omitir algunos nombres simbólicos sin que el cliente ni siquiera lo sepa (esto es más probable que ocurra en organizaciones grandes).</p>
+<p>Otros problemas que afectan al alcance de la evaluación son las aplicaciones web publicadas en URL poco evidentes (por ejemplo, <code>https://www.example.com/some-strange-URL</code>), que no se referencian en ningún otro lugar. Esto puede ocurrir por error (debido a configuraciones incorrectas) o intencionalmente (por ejemplo, interfaces administrativas no anunciadas).</p>
+<p>Para abordar estos problemas, se debe realizar un proceso integral de identificación de la superficie de ataque.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Enumerar todas las aplicaciones web dentro del alcance.</li>
+<li>Identificar los nombres DNS, dominios y hosts virtuales asociados con el objetivo.</li>
+<li>Descubrir dominios y subdominios adicionales mediante técnicas de DNS pasivas y activas.</li>
+<li>Analizar los certificados digitales y los registros de Certificate Transparency en busca de nombres de host adicionales.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El descubrimiento de aplicaciones web es un proceso que busca identificar las aplicaciones web en una infraestructura determinada. Esta última suele especificarse como un conjunto de direcciones IP (quizás un bloque de red), pero puede consistir en un conjunto de nombres simbólicos DNS o en una combinación de ambos. Esta información se entrega antes de la ejecución de una evaluación, ya sea una prueba de penetración de estilo clásico o una evaluación centrada en la aplicación. En ambos casos, a menos que las reglas del compromiso especifiquen otra cosa (por ejemplo, probar solo la aplicación ubicada en la URL <code>https://www.example.com/</code>), la evaluación debe procurar tener el alcance más amplio posible, es decir, debe identificar todas las aplicaciones accesibles a través del objetivo dado. Los siguientes ejemplos examinan algunas técnicas que pueden emplearse para lograr este objetivo.</p>
+<blockquote>
+<p>Algunas de las siguientes técnicas se aplican a servidores web expuestos a internet, concretamente los servicios de búsqueda basados en web de DNS y de IP inversa, y el uso de motores de búsqueda. Los ejemplos utilizan direcciones IP privadas (como <code>192.168.1.100</code>) que, salvo que se indique lo contrario, representan direcciones IP <em>genéricas</em> y se usan solo con fines de anonimato.</p>
+</blockquote>
+<p>Hay tres factores que influyen en cuántas aplicaciones están relacionadas con un nombre DNS (o una dirección IP) determinado:</p>
+<ol>
+<li><p><strong>URL base diferente</strong></p>
+<p> El punto de entrada evidente de una aplicación web es <code>www.example.com</code>, es decir, con esta notación abreviada pensamos en la aplicación web que se origina en <code>https://www.example.com/</code> (lo mismo se aplica a HTTPS). Sin embargo, aunque esta es la situación más común, nada obliga a que la aplicación comience en <code>/</code>.</p>
+<p> Por ejemplo, el mismo nombre simbólico puede estar asociado a tres aplicaciones web como: <code>https://www.example.com/app1</code> <code>https://www.example.com/app2</code> <code>https://www.example.com/app3</code></p>
+<p> En este caso, la URL <code>https://www.example.com/</code> no estaría asociada a una página significativa. Las tres aplicaciones permanecerían <strong>ocultas</strong> a menos que el evaluador sepa explícitamente cómo acceder a ellas, es decir, que conozca <em>app1</em>, <em>app2</em> o <em>app3</em>. Por lo general no hay necesidad de publicar aplicaciones web de esta manera, a menos que el propietario no quiera que sean accesibles de forma estándar y esté preparado para informar a los usuarios de su ubicación exacta. Esto no significa que estas aplicaciones sean secretas, sino solo que su existencia y ubicación no se anuncian explícitamente.</p>
+</li>
+<li><p><strong>Puertos no estándar</strong></p>
+<p> Aunque las aplicaciones web suelen residir en el puerto 80 (HTTP) y 443 (HTTPS), no hay nada fijo ni obligatorio en estos números de puerto. De hecho, las aplicaciones web pueden asociarse a puertos TCP arbitrarios y se las puede referenciar especificando el número de puerto de la siguiente manera: <code>http[s]://www.example.com:port/</code>. Por ejemplo, <code>https://www.example.com:20000/</code>.</p>
+</li>
+<li><p><strong>Hosts virtuales</strong></p>
+<p> DNS permite asociar una sola dirección IP con uno o más nombres simbólicos. Por ejemplo, la dirección IP <code>192.168.1.100</code> podría estar asociada a los nombres DNS <code>www.example.com</code>, <code>helpdesk.example.com</code>, <code>webmail.example.com</code>. No es necesario que todos los nombres pertenezcan al mismo dominio DNS. Esta relación de 1 a N puede reflejarse para servir contenido distinto mediante los llamados hosts virtuales. La información que especifica a qué host virtual nos referimos está incrustada en la <a href="https://datatracker.ietf.org/doc/html/rfc7230#section-5.4" target="_blank" rel="noopener">cabecera Host</a> de HTTP 1.1.</p>
+<p> No se sospecharía de la existencia de otras aplicaciones web además de la evidente <code>www.example.com</code>, a menos que se conozcan <code>helpdesk.example.com</code> y <code>webmail.example.com</code>.</p>
+</li>
+</ol>
+<h3 id="approaches-to-address-issue-1---non-standard-urls">Enfoques para abordar el problema 1: URL no estándar</h3>
+<p>No hay forma de determinar por completo la existencia de aplicaciones web con nombres no estándar. Al ser no estándar, no existen criterios fijos que rijan la convención de nombres; sin embargo, hay varias técnicas que el evaluador puede usar para obtener información adicional.</p>
+<p>Primero, si el servidor web está mal configurado y permite la exploración de directorios, es posible detectar estas aplicaciones. Los escáneres de vulnerabilidades pueden ayudar en este sentido.</p>
+<p>Segundo, estas aplicaciones pueden estar referenciadas por otras páginas web y existe la posibilidad de que hayan sido rastreadas e indexadas por los motores de búsqueda web. Si los evaluadores sospechan la existencia de tales aplicaciones <strong>ocultas</strong> en <code>www.example.com</code>, podrían buscar usando el operador <em>site</em> y examinar el resultado de una consulta para <code>site: www.example.com</code>. Entre las URL devueltas podría haber una que apunte a una aplicación poco evidente.</p>
+<p>Otra opción es sondear URL que podrían ser candidatas probables para aplicaciones no publicadas. Por ejemplo, un frontend de correo web podría ser accesible desde URL como <code>https://www.example.com/webmail</code>, <code>https://webmail.example.com/</code> o <code>https://mail.example.com/</code>. Lo mismo ocurre con las interfaces administrativas, que pueden estar publicadas en URL ocultas (por ejemplo, una interfaz administrativa de Tomcat) y aun así no estar referenciadas en ningún lugar. Por lo tanto, hacer una búsqueda de estilo diccionario (o &quot;adivinación inteligente&quot;) podría dar algunos resultados. Los escáneres de vulnerabilidades pueden ayudar en este sentido.</p>
+<h3 id="approaches-to-address-issue-2---non-standard-ports">Enfoques para abordar el problema 2: puertos no estándar</h3>
+<p>Es fácil comprobar la existencia de aplicaciones web en puertos no estándar. Un escáner de puertos como Nmap es capaz de realizar el reconocimiento de servicios mediante la opción <code>-sV</code> e identificará servicios http[s] en puertos arbitrarios. Lo que se requiere es un análisis completo de todo el espacio de direcciones de 64k puertos TCP.</p>
+<p>Por ejemplo, el siguiente comando buscará, con un análisis de conexión TCP, todos los puertos abiertos en la IP <code>192.168.1.100</code> e intentará determinar qué servicios están asociados a ellos (solo se muestran los modificadores <em>esenciales</em>; Nmap cuenta con un amplio conjunto de opciones cuya discusión queda fuera del alcance):</p>
+<p><code>nmap -Pn -sT -sV -p0-65535 192.168.1.100</code></p>
+<p>Basta con examinar la salida y buscar HTTP o la indicación de servicios envueltos en TLS (que deben sondearse para confirmar que son HTTPS). Por ejemplo, la salida del comando anterior podría verse así:</p>
+<pre><code class="language-bash">Interesting ports on 192.168.1.100:
+(The 65527 ports scanned but not shown below are in state: closed)
+PORT      STATE SERVICE     VERSION
+22/tcp    open  ssh         OpenSSH 3.5p1 (protocol 1.99)
+80/tcp    open  http        Apache httpd 2.0.40 ((Red Hat Linux))
+443/tcp   open  ssl         OpenSSL
+901/tcp   open  http        Samba SWAT administration server
+1241/tcp  open  ssl         Nessus security scanner
+3690/tcp  open  unknown
+8000/tcp  open  http-alt?
+8080/tcp  open  http        Apache Tomcat/Coyote JSP engine 1.1
+</code></pre>
+<p>De este ejemplo se puede observar que:</p>
+<ul>
+<li>Hay un servidor HTTP Apache ejecutándose en el puerto 80.</li>
+<li>Parece que hay un servidor HTTPS en el puerto 443 (pero esto debe confirmarse, por ejemplo, visitando <code>https://192.168.1.100</code> con un navegador).</li>
+<li>En el puerto 901 hay una interfaz web Samba SWAT.</li>
+<li>El servicio en el puerto 1241 no es HTTPS, sino el demonio de Nessus envuelto en TLS.</li>
+<li>El puerto 3690 presenta un servicio sin especificar (Nmap devuelve su <em>huella</em> (fingerprint), omitida aquí por claridad, junto con instrucciones para enviarla e incorporarla a la base de datos de huellas de Nmap, siempre que se sepa qué servicio representa).</li>
+<li>Otro servicio sin especificar en el puerto 8000; posiblemente sea HTTP, ya que no es raro encontrar servidores HTTP en este puerto. Examinemos este asunto:</li>
+</ul>
+<pre><code class="language-bash">$ ncat 192.168.10.100 8000
+GET / HTTP/1.0
+
+HTTP/1.0 200 OK
+pragma: no-cache
+Content-Type: text/html
+Server: MX4J-HTTPD/1.0
+expires: now
+Cache-Control: no-cache
+
+&lt;html&gt;
+...
+</code></pre>
+<p>Esto confirma que, de hecho, es un servidor HTTP. Alternativamente, los evaluadores podrían haber visitado la URL con un navegador web, o haber usado los comandos GET o HEAD de Perl, que imitan interacciones HTTP como la que se muestra arriba (sin embargo, no todos los servidores atienden las peticiones HEAD).</p>
+<ul>
+<li>Apache Tomcat ejecutándose en el puerto 8080.</li>
+</ul>
+<p>La misma tarea puede ser realizada por escáneres de vulnerabilidades, pero primero hay que comprobar que el escáner elegido sea capaz de identificar servicios HTTP[S] que se ejecutan en puertos no estándar. Por ejemplo, Nessus es capaz de identificarlos en puertos arbitrarios (siempre que se le indique que analice todos los puertos) y proporcionará, respecto a Nmap, una serie de pruebas sobre vulnerabilidades conocidas de servidores web, así como sobre la configuración TLS/SSL de los servicios HTTPS. Como se mencionó antes, Nessus también es capaz de detectar aplicaciones o interfaces web populares que de otro modo podrían pasar inadvertidas (por ejemplo, una interfaz administrativa de Tomcat).</p>
+<p>Un análisis completo de 65535 puertos con Nmap y detección de servicios puede ser lento en muchos hosts. <a href="https://github.com/projectdiscovery/naabu" target="_blank" rel="noopener">naabu</a> es un escáner de puertos rápido que puede usarse para identificar rápidamente puertos abiertos en una lista grande de hosts y que puede canalizar sus resultados directamente a Nmap para detectar servicios solo en los puertos abiertos que encontró:</p>
+<pre><code class="language-bash">naabu -p - -rate 2000 -c 50 -retries 2 -warm-up-time 1 -silent -host 192.168.1.100 -nmap-cli &#39;nmap -sV -oX scan.xml&#39;
+</code></pre>
+<p>Esta combinación analiza primero todos los puertos con naabu y luego ejecuta el análisis de detección de servicios, más lento, de Nmap únicamente sobre los puertos que naabu encontró abiertos, lo que reduce considerablemente el tiempo total del análisis.</p>
+<h3 id="approaches-to-address-issue-3---virtual-hosts">Enfoques para abordar el problema 3: hosts virtuales</h3>
+<p>Existen varias técnicas que pueden utilizarse para identificar los nombres DNS asociados a una dirección IP determinada <code>x.y.z.t</code>.</p>
+<h4 id="dns-enumeration">Enumeración de DNS</h4>
+<p>La enumeración de DNS tiene como objetivo identificar dominios, subdominios y registros DNS relacionados asociados con la organización objetivo para ampliar el alcance de la evaluación. La enumeración de DNS desempeña un papel clave en la identificación de hosts virtuales adicionales asignados a la misma dirección IP. Esto puede revelar sistemas de desarrollo, entornos de preproducción (staging), servicios heredados o interfaces administrativas.</p>
+<p>Se pueden utilizar tanto técnicas pasivas como activas.</p>
+<h4 id="passive-dns-enumeration">Enumeración pasiva de DNS</h4>
+<p>Las técnicas pasivas no interactúan directamente con la infraestructura objetivo y, en su lugar, se basan en fuentes de datos disponibles públicamente. Algunos ejemplos son:</p>
+<ul>
+<li>Registros DNS públicos (A, AAAA, MX, TXT, NS)</li>
+<li>Búsquedas DNS inversas (registros PTR)</li>
+<li>Motores de búsqueda</li>
+<li>Bases de datos de DNS pasivo</li>
+<li>Registros de Certificate Transparency</li>
+</ul>
+<p>Las técnicas pasivas son preferibles durante las primeras fases de reconocimiento para evitar ser detectado.</p>
+<p><a href="https://chaos.projectdiscovery.io/" target="_blank" rel="noopener">Chaos</a> y su <a href="https://github.com/projectdiscovery/chaos-client" target="_blank" rel="noopener">chaos-client</a> proporcionan acceso a un conjunto de datos curado de subdominios que ProjectDiscovery ya ha rastreado, obtenidos principalmente de los alcances de programas públicos de recompensas por errores (bug bounty). Puede ser un complemento útil y rápido de la enumeración pasiva de DNS para los dominios que ya ha indexado, pero requiere una clave de API, solo cubre los dominios dentro de su conjunto de datos y no debe considerarse un sustituto de herramientas activas como <code>subfinder</code> o <code>amass</code> frente a objetivos arbitrarios de un trabajo.</p>
+<h4 id="active-dns-enumeration">Enumeración activa de DNS</h4>
+<p>Las técnicas activas consultan directamente la infraestructura DNS del objetivo y pueden generar logs en los sistemas objetivo. Estas incluyen:</p>
+<ul>
+<li>Fuerza bruta de subdominios</li>
+<li>Intentos de transferencia de zona DNS</li>
+<li>Enumeración de registros DNS mediante herramientas</li>
+</ul>
+<p>Las herramientas comunes utilizadas para la enumeración de DNS incluyen:</p>
+<ul>
+<li><code>amass</code></li>
+<li><code>subfinder</code></li>
+<li><code>dnsrecon</code></li>
+<li><code>fierce</code></li>
+<li><code>dig</code></li>
+<li><code>nslookup</code></li>
+</ul>
+<p>Ejemplo usando <code>dig</code>:</p>
+<pre><code class="language-bash">dig example.com ANY
+</code></pre>
+<pre><code class="language-text">; &lt;&lt;&gt;&gt; DiG 9.10.6 &lt;&lt;&gt;&gt; example.com ANY
+;; QUESTION SECTION:
+;example.com.                  IN      ANY
+
+;; ANSWER SECTION:
+example.com.            86400   IN      A       93.184.216.34
+example.com.            86400   IN      MX      10 mail.example.com.
+example.com.            86400   IN      NS      ns1.secure.net.
+example.com.            86400   IN      NS      ns2.secure.net.
+example.com.            86400   IN      TXT     &quot;v=spf1 -all&quot;
+</code></pre>
+<p>Ejemplo usando <code>subfinder</code>:</p>
+<pre><code class="language-bash">subfinder -d example.com -silent
+</code></pre>
+<pre><code class="language-text">www.example.com
+dev.example.com
+staging.example.com
+mail.example.com
+api.example.com
+</code></pre>
+<h4 id="subdomain-permutation">Permutación de subdominios</h4>
+<p>Una vez recopilado un conjunto inicial de subdominios, las técnicas de permutación (o alteración) pueden generar candidatos adicionales combinando etiquetas conocidas con prefijos/sufijos comunes o aplicando mutaciones (por ejemplo, <code>dev-</code> → <code>staging-</code>, insertar números, etc.). Herramientas como <a href="https://github.com/infosec-au/altdns" target="_blank" rel="noopener">altdns</a>, <a href="https://github.com/ProjectAnte/dnsgen" target="_blank" rel="noopener">dnsgen</a> o <a href="https://github.com/Josue87/gotator" target="_blank" rel="noopener">gotator</a> se usan comúnmente con este fin. Los candidatos generados deben resolverse luego (<code>dnsx</code> / <a href="https://github.com/blechschmidt/massdns" target="_blank" rel="noopener">MassDNS</a>) y sondearse (<code>httpx</code>).</p>
+<p>MassDNS es un resolvedor DNS de alta velocidad, útil para resolver rápidamente las grandes listas de candidatos producidas por las herramientas de permutación o por la fuerza bruta basada en listas de palabras.</p>
+<h4 id="dns-zone-transfers">Transferencias de zona DNS</h4>
+<p>Esta técnica tiene un uso limitado hoy en día, dado que los servidores DNS en su mayoría no atienden las transferencias de zona. Sin embargo, aún podría valer la pena intentarla. En primer lugar, los evaluadores deben determinar los servidores de nombres que sirven a <code>x.y.z.t</code>. Si se conoce un nombre simbólico para <code>x.y.z.t</code> (sea <code>www.example.com</code>), sus servidores de nombres pueden determinarse mediante herramientas como <code>nslookup</code>, <code>host</code> o <code>dig</code>, solicitando los registros NS de DNS.</p>
+<p>Si no se conoce ningún nombre simbólico para <code>x.y.z.t</code>, pero la definición del objetivo contiene al menos un nombre simbólico, los evaluadores pueden intentar aplicar el mismo proceso y consultar el servidor de nombres de ese nombre (con la esperanza de que <code>x.y.z.t</code> también sea servido por ese servidor de nombres). Por ejemplo, si el objetivo consiste en la dirección IP <code>x.y.z.t</code> y el nombre <code>mail.example.com</code>, se determinan los servidores de nombres del dominio <code>example.com</code>.</p>
+<p>El siguiente ejemplo muestra cómo identificar los servidores de nombres de <code>www.owasp.org</code> usando el comando <code>host</code>:</p>
+<pre><code class="language-bash">$ host -t ns www.owasp.org
+www.owasp.org is an alias for owasp.org.
+owasp.org name server ns1.secure.net.
+owasp.org name server ns2.secure.net.
+</code></pre>
+<p>Ahora se puede solicitar una transferencia de zona a los servidores de nombres del dominio <code>example.com</code>. Si el evaluador tiene suerte, puede recibir como respuesta una lista de las entradas DNS de este dominio. Esta incluirá la evidente <code>www.example.com</code> y las no tan evidentes <code>helpdesk.example.com</code> y <code>webmail.example.com</code> (y posiblemente otras). Hay que revisar todos los nombres devueltos por la transferencia de zona y considerar todos aquellos que estén relacionados con el objetivo que se está evaluando.</p>
+<p>Intento de solicitar una transferencia de zona de <code>owasp.org</code> a uno de sus servidores de nombres:</p>
+<pre><code class="language-bash">$ host -l www.owasp.org ns1.secure.net
+Using domain server:
+Name: ns1.secure.net
+Address: 192.220.124.10#53
+Aliases:
+
+Host www.owasp.org not found: 5(REFUSED)
+; Transfer failed.
+</code></pre>
+<h4 id="dns-inverse-queries">Consultas DNS inversas</h4>
+<p>Este proceso es similar al anterior, pero se basa en registros DNS inversos (PTR). En lugar de solicitar una transferencia de zona, se intenta establecer el tipo de registro en PTR y emitir una consulta sobre la dirección IP dada. Si los evaluadores tienen suerte, pueden recibir como respuesta una entrada con un nombre DNS. Esta técnica depende de la existencia de mapas de IP a nombre simbólico, lo cual no está garantizado.</p>
+<h4 id="web-based-dns-searches">Búsquedas DNS basadas en web</h4>
+<p>Este tipo de búsqueda es similar a la transferencia de zona DNS, pero se basa en servicios web que permiten búsquedas por nombre en DNS. Uno de estos servicios es <a href="https://searchdns.netcraft.com/?host" target="_blank" rel="noopener">Netcraft Search DNS</a>. El evaluador puede consultar una lista de nombres pertenecientes a un dominio de su elección, como <code>example.com</code>. Luego comprobará si los nombres obtenidos son pertinentes al objetivo que está examinando.</p>
+<h4 id="reverse-ip-services">Servicios de IP inversa</h4>
+<p>Los servicios de IP inversa son similares a las consultas DNS inversas, con la diferencia de que los evaluadores consultan una aplicación web en lugar de un servidor de nombres. Hay varios de estos servicios disponibles. Dado que tienden a devolver resultados parciales (y a menudo diferentes), es mejor usar varios servicios para obtener un análisis más completo.</p>
+<ul>
+<li><a href="https://mxtoolbox.com/ReverseLookup.aspx" target="_blank" rel="noopener">MxToolbox Reverse IP</a></li>
+<li><a href="https://www.dnsstuff.com/" target="_blank" rel="noopener">DNSstuff</a> (varios servicios disponibles)</li>
+</ul>
+<p>Los motores de búsqueda de activos de internet como <a href="https://www.shodan.io/" target="_blank" rel="noopener">Shodan</a>, <a href="https://censys.com" target="_blank" rel="noopener">Censys</a> y <a href="https://fofa.info" target="_blank" rel="noopener">FOFA</a> indexan hosts y servicios conectados a internet y también pueden consultarse por IP, certificado o contenido de banners para revelar otros nombres de host y servicios alojados en la misma dirección. FOFA, en particular, tiene una amplia cobertura de infraestructura en China y Asia-Pacífico, que puede complementar la cobertura de Shodan y Censys. Por ejemplo, una búsqueda en FOFA basada en IP: <code>ip=&quot;192.168.1.100&quot;</code>, o una búsqueda por un título o cabecera específicos: <code>title=&quot;Example App&quot;</code>. Como ocurre con los demás servicios de IP inversa mencionados, hay un nivel gratuito con consultas limitadas y planes de pago para un acceso más completo.</p>
+<h4 id="googling">Googling</h4>
+<p>Tras la recopilación de información con las técnicas anteriores, los evaluadores pueden apoyarse en los motores de búsqueda para refinar y ampliar su análisis. Esto puede aportar evidencia de nombres simbólicos adicionales pertenecientes al objetivo, o de aplicaciones accesibles mediante URL poco evidentes.</p>
+<p>Por ejemplo, considerando el ejemplo anterior sobre <code>www.owasp.org</code>, el evaluador podría consultar Google y otros motores de búsqueda buscando información (y, por tanto, nombres DNS) relacionada con los dominios recién descubiertos <code>webgoat.org</code>, <code>webscarab.com</code> y <code>webscarab.net</code>.</p>
+<p>Las técnicas de Googling se explican en <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/01-Conduct_Search_Engine_Reconnaissance_for_Information_Leakage">Testing: Spiders, Robots, and Crawlers</a>.</p>
+<h4 id="digital-certificates">Certificados digitales</h4>
+<p>Si el servidor acepta conexiones por HTTPS, el Common Name (CN) y el Subject Alternate Name (SAN) del certificado pueden contener uno o más nombres de host. Sin embargo, si el servidor web no tiene un certificado de confianza, o se usan comodines (wildcards), es posible que esto no devuelva información válida.</p>
+<p>El CN y el SAN pueden obtenerse inspeccionando manualmente el certificado o mediante otras herramientas como OpenSSL:</p>
+<pre><code class="language-sh">openssl s_client -connect 93.184.216.34:443 &lt;/dev/null 2&gt;/dev/null | openssl x509 -noout -text | grep -E &#39;DNS:|Subject:&#39;
+
+Subject: C = US, ST = California, L = Los Angeles, O = Internet Corporation for Assigned Names and Numbers, CN = www.example.org
+DNS:www.example.org, DNS:example.com, DNS:example.edu, DNS:example.net, DNS:example.org, DNS:www.example.com, DNS:www.example.edu, DNS:www.example.net
+</code></pre>
+<h4 id="certificate-transparency-logs">Registros de Certificate Transparency</h4>
+<p>Los registros de Certificate Transparency (CT) son registros de acceso público de los certificados TLS emitidos. Estos registros pueden consultarse para identificar nombres de host y subdominios asociados con una organización objetivo, incluidos sistemas de preproducción (staging), interfaces administrativas, sistemas heredados u otros servicios accesibles externamente.</p>
+<p>Revisar los registros CT puede revelar nombres de host que no son directamente descubribles mediante transferencias de zona DNS, búsquedas inversas o consultas en motores de búsqueda por sí solas. Los evaluadores deben extraer los nombres de host descubiertos y validarlos mediante resolución DNS para determinar si están activos y dentro del alcance definido de la evaluación.</p>
+<p>Al revisar los datos de los registros CT, hay que considerar:</p>
+<ul>
+<li>Nombres de host que indiquen entornos de desarrollo, preproducción (staging) o pruebas.</li>
+<li>Interfaces administrativas o de gestión.</li>
+<li>Sistemas obsoletos o heredados que aún podrían ser accesibles.</li>
+<li>Certificados comodín (wildcard) que podrían implicar subdominios adicionales no descubiertos.</li>
+</ul>
+<p>La información reunida de los registros CT debe validarse para confirmar la titularidad y la relevancia antes de continuar con las pruebas.</p>
+<p>Se debe tener cuidado de respetar las limitaciones de alcance definidas en el trabajo.</p>
+<p>Los activos descubiertos deben validarse y documentarse antes de realizar más actividades de prueba.</p>
+<p>Un enfoque común para consultar los registros CT es usar portales de búsqueda disponibles públicamente que agregan datos de certificados. Por ejemplo, un evaluador puede buscar los certificados emitidos para <code>example.com</code> y revisar los subdominios listados.</p>
+<p>Por ejemplo: <code>https://crt.sh/?q=%25.example.com</code></p>
+<blockquote>
+<p>Nota: <a href="https://crt.sh" target="_blank" rel="noopener">crt.sh</a> tiene ocasionalmente periodos de inactividad o alta latencia. <a href="https://www.merklemap.com/" target="_blank" rel="noopener">Merklemap</a> y <a href="https://sslmate.com/certspotter/" target="_blank" rel="noopener">Cert Spotter de SSLMate</a> son servicios alternativos de búsqueda de Certificate Transparency que conviene tener como respaldo.</p>
+</blockquote>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/01-ct_logs_example.png" alt="Ejemplo de búsqueda en registros CT" loading="lazy">  </p>
+<p><em>Figura 4.1.4-1: Ejemplo de resultados de una búsqueda en registros de Certificate Transparency.</em></p>
+<p>Los resultados pueden listar subdominios como <code>dev.example.com</code>, <code>staging.example.com</code> u otros nombres de host que no están referenciados directamente desde el sitio principal. Los nombres de host descubiertos deben validarse mediante resolución DNS antes de continuar con las pruebas.</p>
+<h3 id="example-modern-passive-to-active-workflow">Ejemplo de flujo de trabajo moderno de pasivo a activo</h3>
+<p>Un flujo ligero común utilizado en las evaluaciones actuales:</p>
+<pre><code class="language-bash"># Passive subdomain discovery
+subfinder -d example.com -silent | tee subs.txt
+amass enum -passive -d example.com -o amass.txt
+
+# Resolve and probe live hosts
+cat subs.txt amass.txt | sort -u | dnsx -silent | httpx -silent -title -tech-detect -status-code -o live.txt
+
+# Historical URLs (feed interesting hosts later)
+cat live.txt | unfurl domains | sort -u | gau --subs | tee archive-urls.txt
+
+# Screenshot live hosts for visual triage of a large host list
+gowitness scan file -f live.txt
+</code></pre>
+<p>Con un gran número de hosts descubiertos, tomar una captura de pantalla de cada uno ofrece una forma rápida de clasificar visualmente los resultados, por ejemplo detectando páginas de inicio de sesión, paneles de administración, páginas de instalación predeterminadas o páginas de error sin tener que visitar manualmente cada host. <a href="https://github.com/sensepost/gowitness" target="_blank" rel="noopener">gowitness</a> es una herramienta actual y con mantenimiento activo para esto; <code>httpx</code> también admite una opción <code>-screenshot</code> integrada con el mismo propósito, sin añadir otra herramienta a la cadena.</p>
+<p>Respeta siempre el alcance, los límites de tasa y las reglas del compromiso. Valida la titularidad de los activos recién descubiertos antes de realizar pruebas más profundas.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>Herramientas de consulta DNS como <code>nslookup</code>, <code>dig</code> y <code>host</code></li>
+<li>Herramientas de enumeración de subdominios y mapeo de la superficie de ataque:<ul>
+<li><a href="https://github.com/owasp-amass/amass" target="_blank" rel="noopener">Amass</a> (proyecto de OWASP: pasivo + activo, salida en grafo)</li>
+<li><a href="https://github.com/projectdiscovery/subfinder" target="_blank" rel="noopener">subfinder</a></li>
+<li><a href="https://chaos.projectdiscovery.io/" target="_blank" rel="noopener">Chaos</a> / <a href="https://github.com/projectdiscovery/chaos-client" target="_blank" rel="noopener">chaos-client</a> (conjunto de datos curado de subdominios, requiere clave de API)</li>
+<li><a href="https://github.com/projectdiscovery/dnsx" target="_blank" rel="noopener">dnsx</a></li>
+<li><a href="https://github.com/projectdiscovery/httpx" target="_blank" rel="noopener">httpx</a> (sondeo de hosts activos, detección de tecnologías, títulos)</li>
+<li><a href="https://github.com/sensepost/gowitness" target="_blank" rel="noopener">gowitness</a> (capturas de pantalla para la clasificación visual de hosts activos)</li>
+<li><code>dnsrecon</code>, <code>fierce</code></li>
+</ul>
+</li>
+<li>Permutación de subdominios: <a href="https://github.com/infosec-au/altdns" target="_blank" rel="noopener">altdns</a>, <a href="https://github.com/ProjectAnte/dnsgen" target="_blank" rel="noopener">dnsgen</a>, <a href="https://github.com/Josue87/gotator" target="_blank" rel="noopener">gotator</a></li>
+<li><a href="https://github.com/blechschmidt/massdns" target="_blank" rel="noopener">MassDNS</a> (resolvedor de alta velocidad para la salida de listas de palabras / permutaciones)</li>
+<li>Motores de búsqueda (Google, Bing y otros motores de búsqueda importantes)</li>
+<li>Servicios de búsqueda de IP inversa</li>
+<li>Motores de búsqueda de activos de internet: <a href="https://www.shodan.io/" target="_blank" rel="noopener">Shodan</a>, <a href="https://censys.com" target="_blank" rel="noopener">Censys</a>, <a href="https://fofa.info" target="_blank" rel="noopener">FOFA</a></li>
+<li>Portales de búsqueda de Certificate Transparency: <a href="https://crt.sh" target="_blank" rel="noopener">crt.sh</a>, <a href="https://www.merklemap.com/" target="_blank" rel="noopener">Merklemap</a>, <a href="https://sslmate.com/certspotter/" target="_blank" rel="noopener">Cert Spotter de SSLMate</a></li>
+<li>Recopiladores de URL de archivos históricos: <a href="https://github.com/lc/gau" target="_blank" rel="noopener">gau</a>, <a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">waybackurls</a>, <a href="https://github.com/xnl-h4ck3r/waymore" target="_blank" rel="noopener">waymore</a></li>
+<li><a href="https://nmap.org/" target="_blank" rel="noopener">Nmap</a></li>
+<li><a href="https://github.com/projectdiscovery/naabu" target="_blank" rel="noopener">naabu</a> (análisis rápido de puertos, puede canalizar los resultados a Nmap)</li>
+<li><a href="https://www.tenable.com/products/nessus" target="_blank" rel="noopener">Nessus Vulnerability Scanner</a></li>
+<li><a href="https://github.com/sullo/nikto" target="_blank" rel="noopener">Nikto</a></li>
+<li>Descubrimiento de contenido / hosts virtuales: <a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">ffuf</a>, <a href="https://github.com/epi052/feroxbuster" target="_blank" rel="noopener">feroxbuster</a>, <a href="https://github.com/OJ/gobuster" target="_blank" rel="noopener">gobuster</a></li>
+<li>Análisis de código fuente para el descubrimiento de endpoints (trabajos de caja blanca o caja gris): <a href="https://github.com/owasp-noir/noir" target="_blank" rel="noopener">OWASP Noir</a>, <a href="https://owasp.org/projects/attack-surface-detector" target="_blank" rel="noopener">OWASP Attack Surface Detector</a></li>
+</ul>

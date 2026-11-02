@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía OWASP de pruebas de seguridad web · Crisomber</title>
+<meta name="description" content="Traducción al español del OWASP Web Security Testing Guide (WSTG): metodología y pruebas para evaluar la seguridad de aplicaciones web.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="js/tema.js"></script>
+<link rel="stylesheet" href="css/global.css">
+<style>
+:root {
+  --bg: #F4F6F5;
+  --surface: #FFFFFF;
+  --surface-2: #E8EEEC;
+  --ink: #13211E;
+  --muted: #55665F;
+  --line: #D2DDD9;
+  --accent: #0E7A63;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DDF1EB;
+  --warn: #8A5A00;
+  --warn-soft: #FCF1D9;
+  --code-bg: #13211E;
+  --code-fg: #DCEAE5;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --radius: 10px;
+  --wrap: 1280px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0C1412; --surface: #131E1B; --surface-2: #1A2824; --ink: #E1ECE8; --muted: #93A8A0; --line: #263632;
+  --accent: #4FD1B0; --accent-ink: #0C1412; --accent-soft: #15332B; --warn: #F0C062; --warn-soft: #33290F;
+  --code-bg: #080E0D; --code-fg: #DCEAE5;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0C1412; --surface: #131E1B; --surface-2: #1A2824; --ink: #E1ECE8; --muted: #93A8A0; --line: #263632;
+    --accent: #4FD1B0; --accent-ink: #0C1412; --accent-soft: #15332B; --warn: #F0C062; --warn-soft: #33290F;
+    --code-bg: #080E0D; --code-fg: #DCEAE5;
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: 5rem; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 var(--f-body); }
+.wrap { width: min(100% - 32px, var(--wrap)); margin-inline: auto; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+
+/* ---------- Distribución: índice + documento ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 2.5rem; align-items: start; padding-block: 2rem 4rem; }
+
+.indice {
+  position: sticky; top: calc(4rem + 16px + env(safe-area-inset-top, 0px));
+  max-height: calc(100vh - 4rem - 32px); overflow: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: .9rem .6rem 1rem; transition: top .25s ease, max-height .25s ease;
+}
+.site-header.is-hidden ~ .wrap .indice { top: calc(16px + env(safe-area-inset-top, 0px)); max-height: calc(100vh - 32px); }
+.indice-titulo { margin: 0 .5rem .6rem; font: 700 .78rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.buscar {
+  width: calc(100% - 1rem); margin: 0 .5rem .8rem; padding: .55rem .7rem; font: inherit; font-size: .92rem;
+  color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+}
+.buscar:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lista { list-style: none; margin: 0; padding: 0; font-size: .9rem; }
+.lista a {
+  display: grid; grid-template-columns: auto 1fr; gap: .45rem; padding: .32rem .5rem; border-radius: 6px;
+  color: var(--ink); text-decoration: none; line-height: 1.35;
+}
+.lista a:hover { background: var(--surface-2); }
+.lista a[aria-current="page"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.lista .num { font: 500 .78rem/1.6 var(--f-mono); color: var(--muted); }
+.lista .v1 > a { font-weight: 600; margin-top: .45rem; }
+.lista .v2 > a { padding-left: 1rem; }
+.lista .v3 > a { padding-left: 1.6rem; }
+.lista .v4 > a { padding-left: 2.2rem; }
+.sin-resultados { margin: .5rem; color: var(--muted); font-size: .9rem; }
+
+.boton-indice { display: none; }
+
+/* ---------- Documento ---------- */
+.doc { min-width: 0; max-width: 78ch; }
+.miga { margin: 0 0 .5rem; font: 500 .8rem var(--f-mono); color: var(--muted); }
+.doc h1, .doc h2, .doc h3, .doc h4 { font-family: var(--f-display); line-height: 1.2; letter-spacing: -.01em; }
+.doc h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin: 0 0 1.2rem; }
+.doc h2 { font-size: 1.5rem; margin: 2.4rem 0 .8rem; padding-top: .4rem; border-top: 1px solid var(--line); }
+.doc h3 { font-size: 1.2rem; margin: 1.8rem 0 .6rem; }
+.doc h4, .doc h5, .doc h6 { font-size: 1.02rem; margin: 1.4rem 0 .5rem; }
+.doc p, .doc li { overflow-wrap: anywhere; }
+.doc img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.doc blockquote { margin: 1.2rem 0; padding: .8rem 1rem; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+.doc blockquote > :first-child { margin-top: 0; }
+.doc blockquote > :last-child { margin-bottom: 0; }
+.doc code { font: .88em var(--f-mono); background: var(--surface-2); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+.doc pre { position: relative; margin: 1.1rem 0; padding: 1rem 1.1rem; overflow: auto; background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius); font-size: .86rem; line-height: 1.55; }
+.doc pre code { background: none; padding: 0; color: inherit; font-size: inherit; overflow-wrap: normal; white-space: pre; }
+.copiar {
+  position: absolute; top: .45rem; right: .45rem; padding: .2rem .55rem; font: 600 .72rem var(--f-mono);
+  color: var(--code-fg); background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .18); border-radius: 6px; cursor: pointer;
+  opacity: 0; transition: opacity .15s;
+}
+.doc pre:hover .copiar, .copiar:focus-visible { opacity: 1; }
+@media (hover: none) { .copiar { opacity: 1; } }
+.tabla { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--line); border-radius: var(--radius); }
+.doc table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.doc th, .doc td { padding: .5rem .75rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.doc th { background: var(--surface-2); font-weight: 600; }
+.doc tr:last-child td { border-bottom: 0; }
+.doc hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+
+.aviso { padding: .8rem 1rem; border-radius: 8px; background: var(--warn-soft); color: var(--ink); border-left: 4px solid var(--warn); font-size: .95rem; margin: 0 0 1.5rem; }
+.cargando { color: var(--muted); }
+
+/* ---------- Portada de la guía ---------- */
+.intro { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: clamp(1.2rem, 4vw, 2rem); margin-bottom: 2rem; }
+.intro .eyebrow { margin: 0 0 .6rem; font: 600 .8rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.intro h1 { margin-bottom: .8rem; }
+.intro .lead { font-size: 1.08rem; color: var(--muted); margin: 0 0 1.2rem; }
+.acciones { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.2rem 0 0; }
+.btn { display: inline-flex; align-items: center; gap: .4rem; padding: .65rem 1.1rem; border-radius: 999px; font-weight: 600; text-decoration: none; border: 1px solid var(--line); color: var(--ink); background: var(--bg); }
+.btn-primario { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.creditos { font-size: .88rem; color: var(--muted); margin: 1.2rem 0 0; }
+
+/* ---------- Anterior / Siguiente ---------- */
+.paginacion { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.paginacion a {
+  display: block; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); text-decoration: none; color: var(--ink);
+}
+.paginacion a:hover { border-color: var(--accent); }
+.paginacion small { display: block; font: 600 .75rem var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.paginacion .sig { text-align: right; grid-column: 2; }
+
+.pie { border-top: 1px solid var(--line); padding: 1.5rem 0 2.5rem; font-size: .85rem; color: var(--muted); }
+
+/* ---------- Celular: el índice es un cajón ---------- */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding-top: 1.2rem; }
+  .boton-indice {
+    display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1rem; padding: .55rem 1rem;
+    font: 600 .9rem var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  }
+  .indice {
+    position: fixed; z-index: 40; inset: 0 auto 0 0; top: 0; width: min(88vw, 340px); max-height: none; border-radius: 0 var(--radius) var(--radius) 0;
+    transform: translateX(-105%); transition: transform .25s ease; padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+  .site-header.is-hidden ~ .wrap .indice { top: 0; max-height: none; }
+  .indice.abierto { transform: none; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); }
+  .paginacion { grid-template-columns: 1fr; }
+  .paginacion .sig { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .indice { transition: none; } }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#doc">Saltar al contenido</a>
+
+<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <span class="brand-mark" aria-hidden="true">&gt;_</span>
+      <span class="brand-name">Crisomber</span>
+    </a>
+    <nav aria-label="Principal">
+      <ul class="nav-list">
+        <li><a href="index.html#sobre-mi">Sobre mí</a></li>
+        <li><a href="index.html#cursos" aria-current="page">Cursos</a></li>
+        <li><a href="index.html#contacto">Contacto</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <aside class="indice" id="indice" aria-label="Índice de la guía">
+    <p class="indice-titulo">Índice</p>
+    <input class="buscar" id="buscar" type="search" placeholder="Buscar tema o ID (WSTG-INFO-02)…" aria-label="Buscar en el índice">
+    <ul class="lista" id="lista"></ul>
+    <p class="sin-resultados" id="sin-resultados" hidden>Nada coincide con tu búsqueda.</p>
+  </aside>
+
+  <main class="doc" id="doc" tabindex="-1">
+    <button class="boton-indice" id="boton-indice" type="button" aria-controls="indice" aria-expanded="false">☰ Índice de la guía</button>
+
+    <section class="intro" id="intro">
+      <p class="eyebrow">Traducción al español · OWASP</p>
+      <h1>Guía de pruebas de seguridad web</h1>
+      <p class="lead">El <strong>OWASP Web Security Testing Guide (WSTG)</strong> es la referencia mundial para evaluar la seguridad de aplicaciones web: cómo planear una prueba, qué revisar y cómo comprobar cada tipo de vulnerabilidad, desde la recopilación de información hasta la inyección SQL, la gestión de sesiones o las APIs.</p>
+      <p>Aquí está la guía completa traducida al español, capítulo por capítulo. Usa el índice para moverte o el buscador para ir directo a una prueba por su nombre o su ID.</p>
+      <div class="acciones">
+        <a class="btn btn-primario" id="empezar" href="#/0-Foreword/README">Empezar a leer →</a>
+        <a class="btn" id="continuar" href="#" hidden>Continuar donde te quedaste</a>
+      </div>
+      <p class="creditos">Contenido original: <a href="https://owasp.org/www-project-web-security-testing-guide/" target="_blank" rel="noopener">OWASP Web Security Testing Guide</a> (<a href="https://github.com/OWASP/wstg" target="_blank" rel="noopener">repositorio</a>), © colaboradores de OWASP, con licencia <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" target="_blank" rel="noopener">CC BY-SA 4.0</a>. Esta traducción no es oficial y se comparte con la misma licencia. Úsala solo en sistemas propios o con autorización por escrito.</p>
+    </section>
+
+    <article id="contenido" aria-live="polite"></article>
+    <nav class="paginacion" id="paginacion" aria-label="Anterior y siguiente" hidden></nav>
+  </main>
+</div>
+
+<footer class="pie">
+  <div class="wrap">
+    Traducción no oficial del <a href="https://github.com/OWASP/wstg" target="_blank" rel="noopener">OWASP WSTG</a> · Licencia CC BY-SA 4.0 · <a href="index.html">Crisomber</a>
+  </div>
+</footer>
+
+<script src="js/global.js"></script>
+<script>
+// =========================================================
+// Lector del WSTG: rutas #/carpeta/archivo y #/carpeta/archivo@ancla.
+// El contenido son fragmentos HTML en wstg/ generados desde el Markdown traducido.
+// =========================================================
+const CLAVE_ULTIMA = "wstg-es:ultima";
+const $ = (id) => document.getElementById(id);
+const lista = $("lista"), contenido = $("contenido"), intro = $("intro"), paginacion = $("paginacion");
+const indicePanel = $("indice"), botonIndice = $("boton-indice");
+let paginas = [];
+let actual = null;
+
+const leerRuta = () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h.startsWith("/")) return null;
+  const [ruta, ancla] = h.slice(1).split("@");
+  return { ruta, ancla };
+};
+const etiqueta = (p) => (p.n ? `${p.n} ` : "") + p.t;
+
+function pintarIndice() {
+  lista.replaceChildren(...paginas.map((p) => {
+    const li = document.createElement("li");
+    li.className = "v" + Math.min(p.v, 4);
+    li.dataset.buscar = `${p.n} ${p.t}`.toLowerCase();
+    const a = document.createElement("a");
+    a.href = "#/" + p.r;
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = p.n;
+    const t = document.createElement("span");
+    t.textContent = p.t;
+    a.append(num, t);
+    li.append(a);
+    p.li = li;
+    return li;
+  }));
+}
+
+// Búsqueda por título, número o ID (los IDs WSTG-XXX-NN se indexan al abrir cada página)
+$("buscar").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  let visibles = 0;
+  for (const p of paginas) {
+    const ok = !q || p.li.dataset.buscar.includes(q) || (p.id && p.id.toLowerCase().includes(q));
+    p.li.hidden = !ok;
+    if (ok) visibles++;
+  }
+  $("sin-resultados").hidden = visibles > 0;
+});
+
+// "Saltar al contenido" no debe cambiar el hash (el hash es la ruta de la página)
+document.querySelector(".skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  $("doc").focus();
+});
+
+function abrirIndice(abrir) {
+  indicePanel.classList.toggle("abierto", abrir);
+  botonIndice.setAttribute("aria-expanded", String(abrir));
+}
+botonIndice.addEventListener("click", () => abrirIndice(true));
+lista.addEventListener("click", (e) => { if (e.target.closest("a")) abrirIndice(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") abrirIndice(false); });
+document.addEventListener("click", (e) => {
+  if (indicePanel.classList.contains("abierto") && !indicePanel.contains(e.target) && e.target !== botonIndice) abrirIndice(false);
+});
+
+function enlacePagina(p, clase, rotulo) {
+  const a = document.createElement("a");
+  a.className = clase;
+  a.href = "#/" + p.r;
+  const s = document.createElement("small");
+  s.textContent = rotulo;
+  a.append(s, etiqueta(p));
+  return a;
+}
+
+function botonesCopiar() {
+  contenido.querySelectorAll("pre").forEach((pre) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "copiar";
+    b.textContent = "Copiar";
+    b.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector("code")?.innerText ?? pre.innerText);
+        b.textContent = "¡Copiado!";
+      } catch { b.textContent = "No se pudo"; }
+      setTimeout(() => (b.textContent = "Copiar"), 1500);
+    });
+    pre.append(b);
+  });
+}
+
+async function mostrar() {
+  const destino = leerRuta();
+  const p = destino && paginas.find((x) => x.r === destino.ruta);
+
+  if (!p) {
+    // Portada: presentación + índice original de la guía
+    actual = null;
+    intro.hidden = false;
+    paginacion.hidden = true;
+    document.title = "Guía OWASP de pruebas de seguridad web · Crisomber";
+    paginas.forEach((x) => x.li.querySelector("a").removeAttribute("aria-current"));
+    contenido.innerHTML = "";
+    return;
+  }
+
+  intro.hidden = true;
+  if (actual !== p) {
+    actual = p;
+    contenido.innerHTML = '<p class="cargando">Cargando…</p>';
+    try {
+      const r = await fetch(`wstg/${p.r}.html`);
+      if (!r.ok) throw new Error(r.status);
+      const html = await r.text();
+      if (actual !== p) return;
+      contenido.innerHTML =
+        `<p class="miga">${p.n ? "Sección " + p.n : "OWASP WSTG"}</p>` +
+        (p.es ? "" : '<p class="aviso">Esta sección todavía no está traducida; se muestra el texto original en inglés.</p>') +
+        html;
+    } catch {
+      contenido.innerHTML = '<p class="aviso">No se pudo cargar esta sección. Revisa tu conexión y recarga la página.</p>';
+      return;
+    }
+    botonesCopiar();
+    const id = contenido.textContent.match(/WSTG-[A-Z]+-\d+/);
+    if (id) p.id = id[0];
+    document.title = `${p.t} · Guía OWASP WSTG`;
+    try { localStorage.setItem(CLAVE_ULTIMA, p.r); } catch {}
+
+    paginas.forEach((x) => {
+      const a = x.li.querySelector("a");
+      if (x === p) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    p.li.scrollIntoView({ block: "nearest" });
+
+    const i = paginas.indexOf(p);
+    paginacion.replaceChildren();
+    if (paginas[i - 1]) paginacion.append(enlacePagina(paginas[i - 1], "ant", "← Anterior"));
+    if (paginas[i + 1]) paginacion.append(enlacePagina(paginas[i + 1], "sig", "Siguiente →"));
+    paginacion.hidden = false;
+  }
+
+  const objetivo = destino.ancla && document.getElementById(destino.ancla);
+  if (objetivo) objetivo.scrollIntoView();
+  else window.scrollTo(0, 0);
+  if (!destino.ancla) $("doc").focus({ preventScroll: true });
+}
+
+(async function iniciar() {
+  try {
+    paginas = await (await fetch("wstg/indice.json")).json();
+  } catch {
+    contenido.innerHTML = '<p class="aviso">No se pudo cargar el índice de la guía.</p>';
+    return;
+  }
+  pintarIndice();
+  $("empezar").href = "#/" + paginas[0].r;
+  let ultima = null;
+  try { ultima = localStorage.getItem(CLAVE_ULTIMA); } catch {}
+  const p = ultima && paginas.find((x) => x.r === ultima);
+  if (p) {
+    $("continuar").href = "#/" + p.r;
+    $("continuar").textContent = `Continuar: ${etiqueta(p)}`;
+    $("continuar").hidden = false;
+  }
+  window.addEventListener("hashchange", mostrar);
+  mostrar();
+})();
+</script>
+</body>
+</html>

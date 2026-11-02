@@ -1,0 +1,151 @@
+<h1 id="browser-storage">Almacenamiento del navegador</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-12</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los navegadores proporcionan los siguientes mecanismos de almacenamiento del lado del cliente para que los desarrolladores almacenen y recuperen datos:</p>
+<ul>
+<li>LocalStorage</li>
+<li>SessionStorage</li>
+<li>IndexedDB</li>
+<li>Cookies</li>
+</ul>
+<p>Estos mecanismos de almacenamiento pueden verse y editarse con las herramientas para desarrolladores del navegador, como <a href="https://developer.chrome.com/docs/devtools/storage/localstorage" target="_blank" rel="noopener">Google Chrome DevTools</a> o el <a href="https://firefox-source-docs.mozilla.org/devtools-user/storage_inspector/index.html" target="_blank" rel="noopener">Storage Inspector de Firefox</a>.</p>
+<blockquote>
+<p>Nota: Aunque la caché también es una forma de almacenamiento, se cubre en una <a href="#/4-Web_Application_Security_Testing/04-Authentication/06-Browser_Cache_Weaknesses">sección aparte</a> que trata sus propias peculiaridades y preocupaciones.</p>
+</blockquote>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Determinar si el sitio almacena datos sensibles en el almacenamiento del lado del cliente.</li>
+<li>Se debe examinar el código que maneja los objetos de almacenamiento en busca de posibilidades de ataques de inyección, como el uso de entrada sin validar o bibliotecas vulnerables.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="localstorage">LocalStorage</h3>
+<p><code>window.localStorage</code> es una propiedad global que implementa la <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API" target="_blank" rel="noopener">Web Storage API</a> y proporciona almacenamiento clave-valor <strong>persistente</strong> en el navegador.</p>
+<p>Tanto las claves como los valores solo pueden ser cadenas, por lo que cualquier valor que no sea una cadena debe convertirse primero a cadena antes de almacenarse, normalmente mediante <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify" target="_blank" rel="noopener">JSON.stringify</a>.</p>
+<p>Las entradas de <code>localStorage</code> persisten incluso cuando se cierra la ventana del navegador, con la excepción de las ventanas en modo Privado/Incógnito.</p>
+<p>La capacidad máxima de almacenamiento de <code>localStorage</code> varía entre navegadores.</p>
+<h4 id="list-all-key-value-entries">Listar todas las entradas clave-valor</h4>
+<pre><code class="language-javascript">for (let i = 0; i &lt; localStorage.length; i++) {
+  const key = localStorage.key(i);
+  const value = localStorage.getItem(key);
+  console.log(`${key}: ${value}`);
+}
+</code></pre>
+<h3 id="sessionstorage">SessionStorage</h3>
+<p><code>window.sessionStorage</code> es una propiedad global que implementa la <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API" target="_blank" rel="noopener">Web Storage API</a> y proporciona almacenamiento clave-valor <strong>efímero</strong> en el navegador.</p>
+<p>Tanto las claves como los valores solo pueden ser cadenas, por lo que cualquier valor que no sea una cadena debe convertirse primero a cadena antes de almacenarse, normalmente mediante <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify" target="_blank" rel="noopener">JSON.stringify</a>.</p>
+<p>Las entradas de <code>sessionStorage</code> son efímeras porque se borran cuando se cierra la pestaña/ventana del navegador.</p>
+<p>La capacidad máxima de almacenamiento de <code>sessionStorage</code> varía entre navegadores.</p>
+<h4 id="list-all-key-value-entries-1">Listar todas las entradas clave-valor</h4>
+<pre><code class="language-javascript">for (let i = 0; i &lt; sessionStorage.length; i++) {
+  const key = sessionStorage.key(i);
+  const value = sessionStorage.getItem(key);
+  console.log(`${key}: ${value}`);
+}
+</code></pre>
+<h3 id="indexeddb">IndexedDB</h3>
+<p>IndexedDB es una base de datos transaccional orientada a objetos destinada a datos estructurados. Una base de datos IndexedDB puede tener múltiples almacenes de objetos (object stores) y cada almacén de objetos puede tener múltiples objetos.</p>
+<p>A diferencia de localStorage y sessionStorage, IndexedDB puede almacenar más que simples cadenas. En IndexedDB se puede almacenar cualquier objeto compatible con el <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm" target="_blank" rel="noopener">algoritmo de clonación estructurada</a>.</p>
+<p>Un ejemplo de un objeto JavaScript complejo que puede almacenarse en IndexedDB, pero no en localStorage/sessionStorage, son las <a href="https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey" target="_blank" rel="noopener">CryptoKeys</a>.</p>
+<p>La recomendación del W3C sobre la <a href="https://www.w3.org/TR/WebCryptoAPI/" target="_blank" rel="noopener">Web Crypto API</a> <a href="https://www.w3.org/TR/WebCryptoAPI/#concepts-key-storage" target="_blank" rel="noopener">recomienda</a> que las CryptoKeys que necesiten persistir en el navegador se almacenen en IndexedDB. Al probar una página web, hay que buscar cualquier CryptoKey en IndexedDB y comprobar si están configuradas como <code>extractable: true</code> cuando deberían haberse configurado como <code>extractable: false</code> (es decir, asegurar que el material de la clave privada subyacente nunca se exponga durante las operaciones criptográficas).</p>
+<h4 id="print-all-the-contents-of-indexeddb">Imprimir todo el contenido de IndexedDB</h4>
+<pre><code class="language-javascript">const dumpIndexedDB = dbName =&gt; {
+  const DB_VERSION = 1;
+  const req = indexedDB.open(dbName, DB_VERSION);
+  req.onsuccess = function() {
+    const db = req.result;
+    const objectStoreNames = db.objectStoreNames || [];
+
+    console.log(`[*] Database: ${dbName}`);
+
+    Array.from(objectStoreNames).forEach(storeName =&gt; {
+      const txn = db.transaction(storeName, &#39;readonly&#39;);
+      const objectStore = txn.objectStore(storeName);
+
+      console.log(`\t[+] ObjectStore: ${storeName}`);
+
+      // Print all entries in objectStore with name `storeName`
+      objectStore.getAll().onsuccess = event =&gt; {
+        const items = event.target.result || [];
+        items.forEach(item =&gt; console.log(`\t\t[-] `, item));
+      };
+    });
+  };
+};
+
+indexedDB.databases().then(dbs =&gt; dbs.forEach(db =&gt; dumpIndexedDB(db.name)));
+</code></pre>
+<h3 id="cookies">Cookies</h3>
+<p>Las cookies son un mecanismo de almacenamiento clave-valor que se utiliza principalmente para la gestión de sesiones, pero los desarrolladores web aún pueden usarlas para almacenar datos de cadena arbitrarios.</p>
+<p>Las cookies se tratan extensamente en el escenario de <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes">pruebas de atributos de cookies</a>.</p>
+<h4 id="list-all-cookies">Listar todas las cookies</h4>
+<pre><code class="language-javascript">console.log(window.document.cookie);
+</code></pre>
+<h3 id="global-window-object">Objeto global window</h3>
+<p>A veces los desarrolladores web inicializan y mantienen un estado global que solo está disponible durante el tiempo de ejecución de la página, asignando atributos personalizados al objeto global <code>window</code>. Por ejemplo:</p>
+<pre><code class="language-javascript">window.MY_STATE = {
+  counter: 0,
+  flag: false,
+};
+</code></pre>
+<p>Cualquier dato adjunto al objeto <code>window</code> se perderá cuando la página se actualice o se cierre.</p>
+<h4 id="list-all-entries-on-the-window-object">Listar todas las entradas del objeto window</h4>
+<pre><code class="language-javascript">(() =&gt; {
+  // create an iframe and append to body to load a clean window object
+  const iframe = document.createElement(&#39;iframe&#39;);
+  iframe.style.display = &#39;none&#39;;
+  document.body.appendChild(iframe);
+
+  // get the current list of properties on window
+  const currentWindow = Object.getOwnPropertyNames(window);
+
+  // filter the list against the properties that exist in the clean window
+  const results = currentWindow.filter(
+    prop =&gt; !iframe.contentWindow.hasOwnProperty(prop)
+  );
+
+  // remove iframe
+  document.body.removeChild(iframe);
+
+  // log key-value entries that are different
+  results.forEach(key =&gt; console.log(`${key}: ${window[key]}`));
+})();
+</code></pre>
+<p><em>(Versión modificada de este <a href="https://stackoverflow.com/a/17246535/3099132" target="_blank" rel="noopener">snippet</a>)</em></p>
+<h3 id="security-implications">Implicaciones de seguridad</h3>
+<p>Al revisar los mecanismos de almacenamiento del navegador, los evaluadores deben valorar si se expone innecesariamente información sensible en el lado del cliente. Las aplicaciones modernas, especialmente las SPA, almacenan con frecuencia tokens de autenticación o el estado de la aplicación en el almacenamiento del navegador, lo que puede introducir riesgos de seguridad.</p>
+<p>Las preocupaciones comunes incluyen:</p>
+<ul>
+<li>Tokens de autenticación (p. ej., JWTs) almacenados en <code>localStorage</code> o <code>sessionStorage</code>, a los que se puede acceder mediante JavaScript y que pueden quedar expuestos por XSS.</li>
+<li>Tokens o identificadores de sesión que persisten después de cerrar sesión.</li>
+<li>Datos de negocio sensibles almacenados en IndexedDB o localStorage sin un requisito claro.</li>
+<li>Material criptográfico almacenado como extraíble cuando debería estar protegido.</li>
+</ul>
+<p>El almacenamiento inadecuado del lado del cliente puede aumentar el impacto de ataques del lado del cliente, como el XSS basado en DOM.</p>
+<h3 id="general-testing-guidance">Guía general de pruebas</h3>
+<p>Además de enumerar las entradas de almacenamiento, los evaluadores deben:</p>
+<ul>
+<li>Inspeccionar el almacenamiento del navegador con las herramientas para desarrolladores (pestaña Application/Storage).</li>
+<li>Identificar tokens de autenticación, identificadores de sesión o datos de negocio sensibles.</li>
+<li>Intentar acceder a los valores almacenados mediante la consola de JavaScript.</li>
+<li>Verificar si las entradas de almacenamiento se borran tras cerrar sesión o expirar la sesión.</li>
+<li>Valorar si los datos almacenados podrían aprovecharse en una cadena de ataque del lado del cliente.</li>
+</ul>
+<h3 id="attack-chain">Cadena de ataque</h3>
+<p>Tras la identificación de cualquiera de los vectores de ataque anteriores, se puede formar una cadena de ataque con distintos tipos de ataques del lado del cliente, como los ataques de <a href="#/4-Web_Application_Security_Testing/11-Client-side/01-DOM-based_Cross_Site_Scripting">XSS basado en DOM</a>.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Las aplicaciones deben almacenar los datos sensibles en el lado del servidor, y no en el lado del cliente, de manera segura y siguiendo las mejores prácticas.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" target="_blank" rel="noopener">LocalStorage</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage" target="_blank" rel="noopener">SessionStorage</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API" target="_blank" rel="noopener">IndexedDB</a></li>
+<li><a href="https://www.w3.org/TR/WebCryptoAPI/#concepts-key-storage" target="_blank" rel="noopener">Web Crypto API: Key Storage</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies" target="_blank" rel="noopener">Cookies</a></li>
+</ul>
+<p>Para más recursos de OWASP sobre la API Web Storage de HTML5, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#html5-web-storage-api" target="_blank" rel="noopener">Session Management Cheat Sheet</a>.</p>

@@ -1,0 +1,165 @@
+<h1 id="other-http-security-header-misconfigurations">Otras configuraciones incorrectas de cabeceras de seguridad HTTP</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-14</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las cabeceras de seguridad desempeñan un papel vital en la protección de las aplicaciones web contra una amplia gama de ataques, entre ellos Cross-Site Scripting (XSS), Clickjacking y ataques de inyección de datos. Estas cabeceras indican al navegador cómo manejar los aspectos relacionados con la seguridad de la comunicación de un sitio web, reduciendo la exposición a vectores de ataque conocidos. Sin embargo, las configuraciones incorrectas pueden generar vulnerabilidades, debilitando las protecciones de seguridad previstas o volviéndolas ineficaces. Esta sección describe configuraciones incorrectas comunes de cabeceras de seguridad, sus riesgos y cómo probarlas adecuadamente.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar cabeceras de seguridad configuradas de forma incorrecta.</li>
+<li>Evaluar el impacto de las cabeceras de seguridad mal configuradas.</li>
+<li>Validar la implementación correcta de las cabeceras de seguridad requeridas.</li>
+</ul>
+<h2 id="headers-covered-by-this-section">Cabeceras cubiertas por esta sección</h2>
+<p>Según el <a href="https://owasp.org/projects/secure-headers-project" target="_blank" rel="noopener">OWASP Secure Headers Project</a>, esta sección cubre las cabeceras de seguridad que no se tratan en las demás pruebas CONF de esta guía:</p>
+<ul>
+<li>X-Frame-Options (y su sucesora, la directiva CSP <code>frame-ancestors</code>): protección contra clickjacking.</li>
+<li>X-Content-Type-Options: impide el MIME-sniffing.</li>
+<li>Referrer-Policy: controla la fuga del referrer.</li>
+<li>Permissions-Policy: restringe el acceso a funciones/APIs del navegador.</li>
+<li>Cross-Origin-Opener-Policy (COOP) y Cross-Origin-Embedder-Policy (COEP): aislamiento de procesos, necesario para el aislamiento de origen cruzado (cross-origin isolation).</li>
+<li>Clear-Site-Data: borra datos de navegación (caché, cookies, almacenamiento) al cerrar sesión o en transiciones sensibles.</li>
+</ul>
+<p>Obsoletas, no recomendar: <code>X-XSS-Protection</code> está obsoleta y deshabilitada o eliminada en los navegadores modernos; puede introducir XSS por sí misma en navegadores antiguos. En su lugar, se debe usar CSP. De manera similar, <code>Public-Key-Pins</code> (HPKP) está obsoleta; véase el punto sobre cabeceras heredadas/obsoletas más abajo.</p>
+<h2 id="common-security-header-misconfigurations">Configuraciones incorrectas comunes de cabeceras de seguridad</h2>
+<ul>
+<li><strong>Cabecera de seguridad con valor vacío:</strong> las cabeceras presentes pero sin valor pueden ser ignoradas por los navegadores, lo que las hace ineficaces.</li>
+<li><strong>Cabecera de seguridad con un valor o nombre inválido (errores tipográficos):</strong> los nombres de cabecera incorrectos o con errores ortográficos hacen que las cabeceras no se reconozcan ni se apliquen.</li>
+<li><strong>Cabeceras de seguridad excesivamente permisivas:</strong> las cabeceras configuradas de forma demasiado amplia (p. ej., usando el carácter comodín <code>*</code> o directivas excesivamente permisivas) pueden filtrar información o permitir el acceso a recursos más allá del alcance previsto.</li>
+<li><strong>Cabeceras de seguridad duplicadas:</strong> múltiples apariciones de la misma cabecera con valores conflictivos pueden producir un comportamiento impredecible del navegador y, potencialmente, deshabilitar por completo las medidas de seguridad.</li>
+<li><strong>Cabeceras heredadas u obsoletas:</strong> la inclusión de cabeceras obsoletas (p. ej., HPKP, <code>X-XSS-Protection</code>) o de directivas (p. ej., <code>ALLOW-FROM</code> en X-Frame-Options) que los navegadores modernos ya no admiten puede crear riesgos innecesarios.</li>
+<li><strong>Ubicación inválida de las cabeceras de seguridad:</strong> algunas cabeceras solo son eficaces bajo condiciones específicas. Por ejemplo, cabeceras como HSTS deben entregarse por HTTPS; si se envían por HTTP, se vuelven ineficaces.</li>
+<li><strong>Errores en el manejo de etiquetas META:</strong> en los casos en que políticas de seguridad como Content-Security-Policy (CSP) se aplican tanto mediante cabeceras HTTP como mediante etiquetas META (usando <code>http-equiv</code>), existe el riesgo de que el valor de la etiqueta META anule o entre en conflicto con la lógica segura definida en la cabecera HTTP. Esto puede dar lugar a un escenario en el que una política insegura prevalece inadvertidamente, debilitando la postura general de seguridad.</li>
+<li><strong>Inyección de cabeceras hop-by-hop:</strong> ocurre cuando los intermediarios procesan incorrectamente la cabecera <code>Connection</code>, lo que permite a los atacantes listar y &quot;eliminar&quot; cabeceras de seguridad internas sensibles (como <code>X-Forwarded-For</code>) antes de que la petición llegue al backend.</li>
+</ul>
+<h2 id="risks-of-misconfigured-security-headers">Riesgos de las cabeceras de seguridad mal configuradas</h2>
+<ul>
+<li><strong>Menor eficacia:</strong> las cabeceras mal configuradas pueden no ofrecer la protección prevista, dejando la aplicación vulnerable a ataques como XSS, Clickjacking o exploits relacionados con CORS.</li>
+<li><strong>Ruptura de las medidas de seguridad:</strong> las cabeceras duplicadas o las directivas en conflicto pueden hacer que los navegadores ignoren por completo las cabeceras de seguridad HTTP, deshabilitando así las protecciones previstas.</li>
+<li><strong>Introducción de nuevos vectores de ataque:</strong> el uso de cabeceras heredadas u obsoletas puede introducir riesgos en lugar de mitigarlos si los navegadores modernos ya no admiten las medidas de seguridad previstas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="fetch-and-review-http-security-headers">Obtener y revisar las cabeceras de seguridad HTTP</h3>
+<p>Para inspeccionar las cabeceras de seguridad usadas por una aplicación, se pueden emplear los siguientes métodos:</p>
+<ul>
+<li><strong>Proxies de intercepción:</strong> usar herramientas como <strong>Burp Suite</strong> para analizar las respuestas del servidor.</li>
+<li><strong>Herramientas de línea de comandos:</strong> ejecutar un comando curl para obtener las cabeceras de respuesta HTTP: <code>curl -I https://example.com</code><ul>
+<li>A veces la aplicación web redirige a una página nueva; para seguir la redirección se usa el siguiente comando: <code>curl -L -I https://example.com</code></li>
+<li>Algunos firewalls pueden bloquear el User-Agent predeterminado de curl y algunos errores de TLS/SSL también impiden que devuelva la información correcta; en este caso se puede intentar usar el siguiente comando:
+  <code>curl -I -L -k --user-agent &quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36&quot; https://example.com</code></li>
+</ul>
+</li>
+<li><strong>Herramientas de desarrollo del navegador:</strong> abrir las herramientas de desarrollo (F12), ir a la pestaña <strong>Network</strong>, seleccionar una petición y ver la sección <strong>Headers</strong>.</li>
+</ul>
+<h3 id="check-individual-headers-against-recommended-values">Comprobar cada cabecera frente a los valores recomendados</h3>
+<p>Para cada cabecera, hay que confirmar que está presente y que su valor coincide con la guía vigente (véase el <a href="https://owasp.org/projects/secure-headers-project" target="_blank" rel="noopener">OWASP Secure Headers Project</a> como tabla de referencia autorizada):</p>
+<pre><code class="language-http">X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), camera=(), microphone=()
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+Clear-Site-Data: &quot;cache&quot;,&quot;cookies&quot;,&quot;storage&quot;
+</code></pre>
+<ul>
+<li>Señalar <code>X-XSS-Protection</code> si está presente: está obsoleta; confirmar que se usa CSP en su lugar para la mitigación de XSS.</li>
+<li>Señalar <code>X-Frame-Options: ALLOW-FROM ...</code>: no es compatible con los navegadores modernos; recomendar la directiva CSP <code>frame-ancestors</code>.</li>
+<li>Confirmar que <code>Clear-Site-Data</code> solo se envía donde corresponde (p. ej., en los endpoints de cierre de sesión), ya que es destructiva para el estado del lado del cliente.</li>
+</ul>
+<h3 id="check-for-overly-permissive-security-headers">Comprobar si hay cabeceras de seguridad excesivamente permisivas</h3>
+<ul>
+<li><p><strong>Identificar cabeceras riesgosas:</strong> buscar cabeceras que podrían permitir un acceso excesivo, tales como:</p>
+</li>
+<li><p><strong>Evaluar las directivas:</strong> verificar si se aplican directivas estrictas. Por ejemplo, una configuración excesivamente permisiva podría verse así:</p>
+<pre><code class="language-http">Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+X-Permitted-Cross-Domain-Policies: all
+Referrer-Policy: unsafe-url
+</code></pre>
+<p>  Una configuración segura se vería así:</p>
+<pre><code class="language-http">Access-Control-Allow-Origin: {theallowedoriginurl}
+X-Permitted-Cross-Domain-Policies: none
+Referrer-Policy: no-referrer
+</code></pre>
+</li>
+<li><p><strong>Contrastar con la documentación:</strong> usar recursos como <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers" target="_blank" rel="noopener">Mozilla Developer Network: Security Headers</a> para revisar directivas seguras e inseguras.</p>
+</li>
+</ul>
+<h3 id="check-for-duplicate-deprecated--obsolete-headers">Comprobar si hay cabeceras duplicadas, obsoletas o en desuso</h3>
+<ul>
+<li><strong>Cabeceras duplicadas:</strong> asegurarse de que la misma cabecera no esté definida varias veces con valores conflictivos.</li>
+<li><strong>Cabeceras obsoletas:</strong> identificar y eliminar las cabeceras obsoletas (p. ej., HPKP) y las directivas desactualizadas (p. ej., <code>ALLOW-FROM</code> en X-Frame-Options). Consultar fuentes como <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options" target="_blank" rel="noopener">Mozilla Developer Network: X-Frame-Options</a> para conocer los estándares vigentes.</li>
+</ul>
+<h3 id="confirm-proper-placement-of-security-headers">Confirmar la ubicación correcta de las cabeceras de seguridad</h3>
+<ul>
+<li><strong>Requisitos específicos del protocolo:</strong> validar que las cabeceras destinadas a contextos seguros (p. ej., HSTS) se entreguen solo en las condiciones apropiadas (es decir, por HTTPS).</li>
+<li><strong>Entrega condicional:</strong> algunas cabeceras solo pueden ser eficaces en circunstancias específicas. Verificar que se cumplan esas condiciones para que la cabecera funcione según lo previsto.</li>
+</ul>
+<h3 id="evaluate-meta-tag-handling">Evaluar el manejo de etiquetas META</h3>
+<ul>
+<li><strong>Comprobaciones de doble aplicación:</strong> cuando una política de seguridad como CSP se aplica mediante una cabecera HTTP y una etiqueta META con <code>http-equiv</code>, confirmar que la cabecera HTTP (que generalmente se considera más autoritativa) no sea anulada inadvertidamente por la etiqueta META.</li>
+<li><strong>Revisar el comportamiento del navegador:</strong> probar la aplicación en varios navegadores para ver si se producen diferencias debido a la presencia de directivas en conflicto. Siempre que sea posible, evitar el uso de definiciones duplicadas para impedir fallos de seguridad no intencionados.</li>
+</ul>
+<h3 id="test-for-header-stripping-hop-by-hop-injection">Probar la eliminación de cabeceras (inyección hop-by-hop)</h3>
+<p>Los atacantes pueden explotar esto listando cabeceras de seguridad sensibles dentro de la cabecera <code>Connection</code>. El proxy, siguiendo el estándar, elimina esas cabeceras antes de reenviar la petición al backend. Esto puede dar lugar a:</p>
+<ul>
+<li>Evasión de las listas de control de acceso (ACL) basadas en IP.</li>
+<li>Evasión de las comprobaciones de identidad/autenticación realizadas en el borde.</li>
+<li>Deshabilitación de funciones de seguridad aplicadas mediante cabeceras intermedias.</li>
+</ul>
+<h4 id="identification-of-internalsensitive-headers-reconnaissance">Identificación de cabeceras internas/sensibles (reconocimiento)</h4>
+<p>Para realizar esta prueba, primero hay que identificar qué cabeceras utiliza la infraestructura interna. Se pueden identificar mediante:</p>
+<ul>
+<li><strong>Provocar páginas de error:</strong> enviar peticiones mal formadas para provocar páginas de error (404, 500), que podrían filtrar cabeceras internas en la respuesta.</li>
+<li><strong>Endpoints de reflexión:</strong> buscar páginas de depuración o de &quot;eco&quot; (p. ej., <code>/phpinfo</code>, <code>/debug</code>, <code>/env</code>) que muestren todas las cabeceras recibidas por el backend.</li>
+<li><strong>Adivinación de cabeceras:</strong> los objetivos comunes incluyen <code>X-Forwarded-For</code>, <code>X-Real-IP</code>, <code>X-Forwarded-Proto</code> y <code>X-Authenticated-User</code>.</li>
+</ul>
+<h4 id="execution-of-the-injection">Ejecución de la inyección</h4>
+<p>Hay que intentar &quot;eliminar&quot; una cabecera objetivo añadiéndola como valor de la cabecera <code>Connection</code>.</p>
+<h5 id="scenario-a-bypassing-ip-based-restrictions">Escenario A: evasión de restricciones basadas en IP</h5>
+<pre><code class="language-http">GET /admin HTTP/1.1
+Host: example.com
+X-Forwarded-For: 203.0.113.10
+Connection: close, X-Forwarded-For
+</code></pre>
+<h5 id="scenario-b-stripping-authentication-context">Escenario B: eliminación del contexto de autenticación</h5>
+<pre><code class="language-http">GET /api/user/profile HTTP/1.1
+Host: example.com
+X-Authenticated-User: victim_user
+Connection: close, X-Authenticated-User
+</code></pre>
+<h4 id="analyzing-the-response">Análisis de la respuesta</h4>
+<ul>
+<li><strong>Vulnerable:</strong> el comportamiento de la aplicación cambia (p. ej., se concede el acceso, o desaparece una IP reflejada).</li>
+<li><strong>Seguro:</strong> el comportamiento de la aplicación permanece sin cambios, o el proxy devuelve un <code>400 Bad Request</code>.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li><strong>Configuración correcta de las cabeceras:</strong> asegurar que las cabeceras se implementen correctamente, con valores adecuados y sin errores tipográficos.</li>
+<li><strong>Aplicar directivas estrictas:</strong> configurar las cabeceras con los ajustes más seguros que aún permitan la funcionalidad requerida. Por ejemplo, evitar el uso de <code>*</code> en las políticas CORS a menos que sea absolutamente necesario.</li>
+<li><strong>Eliminar las cabeceras obsoletas:</strong> reemplazar las cabeceras de seguridad heredadas por equivalentes modernos y eliminar las que ya no sean compatibles.</li>
+<li><strong>Evitar definiciones conflictivas:</strong> evitar definiciones duplicadas de cabeceras y asegurar que las etiquetas META no entren en conflicto con las cabeceras HTTP en las políticas de seguridad.</li>
+<li><strong>Restringir la cabecera Connection:</strong> configurar los proxies para ignorar los valores de la cabecera <code>Connection</code> proporcionados por el cliente que coincidan con cabeceras internas sensibles.</li>
+<li><strong>Zero Trust:</strong> evitar depender únicamente de cabeceras hop-by-hop para decisiones de seguridad críticas.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/observatory" target="_blank" rel="noopener">Mozilla Observatory</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+<li>Herramientas de desarrollo del navegador (Chrome, Firefox, Edge)</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/projects/secure-headers-project" target="_blank" rel="noopener">OWASP Secure Headers Project</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers" target="_blank" rel="noopener">Mozilla Developer Network: Security Headers</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6797" target="_blank" rel="noopener">RFC 6797 - HTTP Strict Transport Security (HSTS)</a></li>
+<li><a href="https://web.dev/security-headers/" target="_blank" rel="noopener">Google Web Security Guidelines</a></li>
+<li><a href="https://scotthelme.co.uk/hpkp-is-no-more/" target="_blank" rel="noopener">HPKP is No More</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9110#section-7.6.1" target="_blank" rel="noopener">RFC 9110 - HTTP Semantics: Connection Header</a></li>
+<li><a href="https://nathandavison.com/blog/abusing-http-hop-by-hop-request-headers" target="_blank" rel="noopener">Abusing HTTP Hop-by-Hop Request Headers</a></li>
+</ul>

@@ -1,0 +1,238 @@
+<h1 id="multi-factor-authentication-mfa">Autenticación multifactor (MFA)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-11</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Muchas aplicaciones implementan la autenticación multifactor (MFA) como una capa adicional de seguridad para proteger el proceso de inicio de sesión. También se conoce como autenticación de dos factores (2FA) o verificación en dos pasos (2SV), aunque estrictamente no son lo mismo. MFA significa pedir al usuario que proporcione <em>al menos</em> dos <a href="#/4-Web_Application_Security_Testing/04-Authentication/11-Multi-Factor_Authentication@types-of-mfa">factores de autenticación</a> diferentes al iniciar sesión.</p>
+<p>MFA añade complejidad adicional tanto a la funcionalidad de autenticación como a otras áreas relacionadas con la seguridad (como la gestión de credenciales y la recuperación de contraseñas), por lo que es crítico que se implemente de manera correcta y robusta.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar el tipo de MFA utilizado por la aplicación.</li>
+<li>Determinar si la implementación de MFA es robusta y segura.</li>
+<li>Intentar eludir la MFA.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="types-of-mfa">Tipos de MFA</h3>
+<p>MFA significa que se requieren <em>al menos</em> dos de los siguientes factores para autenticarse:</p>
+<div class="tabla"><table><thead><tr>
+<th>Factor</th>
+<th>Ejemplos</th>
+</tr>
+</thead><tbody><tr>
+<td>Algo que sabes</td>
+<td>Contraseñas, PIN y preguntas de seguridad.</td>
+</tr>
+<tr>
+<td>Algo que tienes</td>
+<td>Tokens de hardware o software, certificados, correo electrónico*, SMS y llamadas telefónicas.</td>
+</tr>
+<tr>
+<td>Algo que eres</td>
+<td>Huellas dactilares, reconocimiento facial, escaneo de iris, escaneo de la palma de la mano y factores de comportamiento.</td>
+</tr>
+<tr>
+<td>Ubicación</td>
+<td>Rangos de IP de origen y geolocalización.</td>
+</tr>
+</tbody></table></div>
+<p>* El correo electrónico solo constituye realmente &quot;algo que tienes&quot; si la propia cuenta de correo está protegida con MFA. Por ello, debe considerarse más débil que otras alternativas como los certificados o TOTP, y puede no aceptarse como MFA según algunas definiciones.</p>
+<p>Vale la pena señalar que exigir varios ejemplos de un único factor (como necesitar tanto una contraseña como un PIN) <strong>no constituye MFA</strong>, aunque puede ofrecer algunos beneficios de seguridad respecto de una simple contraseña y puede considerarse verificación en dos pasos (2SV).</p>
+<p>Debido a la complejidad de implementar la biometría en un entorno basado en navegador, &quot;Algo que eres&quot; rara vez se utiliza en aplicaciones web, aunque se está comenzando a adoptar mediante estándares como WebAuthn. El segundo factor más común es &quot;Algo que tienes&quot;.</p>
+<h3 id="check-for-mfa-bypasses">Comprobar si hay elusiones de MFA</h3>
+<p>El primer paso para probar la MFA es identificar toda la funcionalidad de autenticación de la aplicación, que puede incluir:</p>
+<ul>
+<li>La página principal de inicio de sesión.</li>
+<li>Funcionalidad crítica para la seguridad (como deshabilitar la MFA o cambiar una contraseña).</li>
+<li>Proveedores de inicio de sesión federado.</li>
+<li>Endpoints de API (tanto de la interfaz web principal como de las aplicaciones móviles).</li>
+<li>Protocolos alternativos (no HTTP).</li>
+<li>Funcionalidad de prueba o depuración.</li>
+</ul>
+<p>Deben revisarse todos los métodos de inicio de sesión para asegurar que la MFA se aplique de manera coherente. Si algunos métodos no requieren MFA, estos pueden ofrecer una forma sencilla de eludirla.</p>
+<p>Si la autenticación se realiza en varios pasos, podría ser posible eludirla completando el primer paso del proceso de autenticación (ingresar el nombre de usuario y la contraseña) y luego forzando la navegación a la aplicación o realizando peticiones directas a la API sin completar la segunda etapa (ingresar el código de MFA).</p>
+<p>Si la autenticación utiliza un proveedor OpenID Connect (OIDC) que permite flujos (o políticas) de autenticación personalizados, como Azure B2C, puede haber múltiples flujos definidos, algunos de los cuales pueden no requerir MFA. Por ejemplo, si la aplicación se autentica con un flujo llamado <code>B2C_1_SignInWithMFA</code>, se debe intentar manipularlo a <code>B2C_1_SignIn</code>, <code>B2C_1_SignInWithoutMFA</code> u otros valores similares.</p>
+<p>En algunos casos, también puede haber elusiones de MFA implementadas intencionalmente, como no requerir MFA:</p>
+<ul>
+<li>Desde direcciones IP específicas (que pueden ser falsificables mediante la cabecera HTTP <code>X-Forwarded-For</code>).</li>
+<li>Cuando se establece una cabecera HTTP específica (como una cabecera no estándar como <code>X-Debug</code>).</li>
+<li>Para una cuenta específica codificada de forma fija (hard-coded) (como una cuenta &quot;root&quot; o &quot;breakglass&quot;).</li>
+</ul>
+<p>Cuando una aplicación admite tanto inicios de sesión locales como federados, podría ser posible eludir la MFA si no hay una separación sólida entre estos dos tipos de cuentas. Por ejemplo, si un usuario registra una cuenta local y configura MFA para ella, pero no tiene MFA configurada en su cuenta del proveedor de inicio de sesión federado, un atacante podría volver a registrar (o vincular) una cuenta federada en la aplicación objetivo con la misma dirección de correo electrónico comprometiendo la cuenta del usuario en el proveedor de inicio de sesión federado.</p>
+<p>Finalmente, si la MFA se implementa en un sistema diferente al de la aplicación principal (como en un proxy inverso, para proteger una aplicación heredada que no admite MFA de forma nativa), entonces podría ser posible eludirla conectándose directamente al servidor de aplicaciones del backend, como se explica en la guía sobre cómo <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/10-Map_Application_Architecture@content-delivery-network-cdn">mapear la arquitectura de la aplicación</a>.</p>
+<h3 id="check-mfa-management">Comprobar la gestión de la MFA</h3>
+<p>La funcionalidad utilizada para gestionar la MFA desde dentro de la cuenta del usuario debe probarse en busca de vulnerabilidades, incluyendo:</p>
+<ul>
+<li>¿Se requiere que el usuario se reautentique para eliminar o cambiar la configuración de MFA?</li>
+<li>¿La funcionalidad de gestión de MFA es vulnerable a <a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">cross-site request forgery</a>?</li>
+<li>¿Se puede modificar la configuración de MFA de otros usuarios mediante <a href="#/4-Web_Application_Security_Testing/05-Authorization/04-Insecure_Direct_Object_References">vulnerabilidades IDOR</a>?</li>
+</ul>
+<h3 id="check-mfa-recovery-options">Comprobar las opciones de recuperación de la MFA</h3>
+<p>Muchas aplicaciones ofrecen a los usuarios una forma de recuperar el acceso a su cuenta si no pueden autenticarse con su segundo factor (por ejemplo, si han perdido su teléfono). Estos mecanismos a menudo pueden representar una debilidad significativa en la aplicación, ya que en la práctica permiten eludir el segundo factor de autenticación.</p>
+<h4 id="recovery-codes">Códigos de recuperación</h4>
+<p>Algunas aplicaciones entregan al usuario una lista de códigos de recuperación o de respaldo cuando habilita la MFA, que pueden usarse para iniciar sesión. Estos deben comprobarse para asegurar que:</p>
+<ul>
+<li>Sean lo suficientemente largos y complejos para protegerse contra ataques de fuerza bruta.</li>
+<li>Se generen de forma segura.</li>
+<li>Solo puedan usarse una vez.</li>
+<li>Exista protección contra fuerza bruta (como el bloqueo de cuenta).</li>
+<li>Se notifique al usuario (por correo electrónico, SMS, etc.) cuando se usa un código.</li>
+</ul>
+<p>Consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html#backup-codes" target="_blank" rel="noopener">sección &quot;Backup Codes&quot; de la Forgotten Password Cheat Sheet</a> para más detalles.</p>
+<h4 id="mfa-reset-process">Proceso de restablecimiento de la MFA</h4>
+<p>Si la aplicación implementa un proceso de restablecimiento de la MFA, este debe probarse de la misma manera que se prueba el <a href="#/4-Web_Application_Security_Testing/04-Authentication/09-Weak_Password_Change_or_Reset_Functionalities">proceso de restablecimiento de contraseña</a>. Es importante que este proceso sea <em>al menos</em> tan robusto como la implementación de MFA de la aplicación.</p>
+<h4 id="alternative-authentication">Autenticación alternativa</h4>
+<p>Algunas aplicaciones permiten al usuario demostrar su identidad por otros medios, como el uso de <a href="#/4-Web_Application_Security_Testing/04-Authentication/08-Weak_Security_Question_Answer">preguntas de seguridad</a>. Esto suele representar una debilidad significativa, ya que las preguntas de seguridad ofrecen un nivel de seguridad mucho menor que la MFA.</p>
+<h3 id="one-time-passwords">Contraseñas de un solo uso</h3>
+<p>La forma más común de MFA es la de las contraseñas de un solo uso (One-Time Passwords, OTP), que normalmente son códigos numéricos de seis dígitos (aunque pueden ser más largos o más cortos). Estos pueden ser generados tanto por el servidor como por el usuario (por ejemplo, con una aplicación de autenticación), o pueden generarse en el servidor y enviarse al usuario. Hay varias formas de proporcionar esta OTP al usuario, entre ellas:</p>
+<div class="tabla"><table><thead><tr>
+<th>Tipo</th>
+<th>Descripción</th>
+</tr>
+</thead><tbody><tr>
+<td>HMAC One-Time Password (HOTP)</td>
+<td>Genera un código basado en el HMAC de un secreto y un contador compartido.</td>
+</tr>
+<tr>
+<td>Time-based One-Time Password (TOTP)</td>
+<td>Genera un código basado en el HMAC de un secreto y la hora actual.</td>
+</tr>
+<tr>
+<td>Correo electrónico</td>
+<td>Envía un código por correo electrónico.</td>
+</tr>
+<tr>
+<td>SMS</td>
+<td>Envía un código por SMS.</td>
+</tr>
+<tr>
+<td>Teléfono</td>
+<td>Envía un código mediante una llamada de voz a un número de teléfono.</td>
+</tr>
+</tbody></table></div>
+<p>La OTP normalmente se ingresa después de que el usuario ha proporcionado su nombre de usuario y contraseña. Hay varias comprobaciones que se deben realizar, entre ellas:</p>
+<ul>
+<li>¿Se bloquea la cuenta tras múltiples intentos fallidos de MFA?</li>
+<li>¿Se bloquea la dirección IP del usuario tras múltiples intentos fallidos de MFA en diferentes cuentas?</li>
+<li>¿Se registran los intentos fallidos de MFA?</li>
+<li>¿Es el formulario vulnerable a ataques de inyección, incluida la <a href="#/4-Web_Application_Security_Testing/07-Injection/05-SQL_Injection@sql-wildcard-injection">inyección de comodines SQL</a>?</li>
+</ul>
+<p>Dependiendo del tipo de OTP utilizado, también hay otras comprobaciones específicas que se deben realizar:</p>
+<ul>
+<li>¿Cómo se envían las OTP al usuario (correo electrónico, SMS, teléfono, etc.)?<ul>
+<li>¿Existe limitación de tasa para evitar que el spam por SMS/teléfono cause costos económicos?</li>
+</ul>
+</li>
+<li>¿Qué tan robustas son las OTP (longitud y espacio de claves)?</li>
+<li>¿Durante cuánto tiempo son válidas las OTP?</li>
+<li>¿Son válidas varias OTP a la vez?</li>
+<li>¿Se pueden usar las OTP más de una vez?</li>
+<li>¿Las OTP están vinculadas a la cuenta de usuario correcta o es posible autenticarse con ellas en otras cuentas?</li>
+</ul>
+<h4 id="hotp-and-totp">HOTP y TOTP</h4>
+<p>Los códigos HOTP y TOTP se basan en un secreto compartido entre el servidor y el usuario. En el caso de los códigos TOTP, normalmente se entrega al usuario en forma de código QR que escanea con una aplicación de autenticación (aunque también puede entregarse como un secreto de texto para que lo ingrese manualmente).</p>
+<p>Cuando el secreto se genera en el servidor, debe comprobarse que sea suficientemente largo y complejo (<a href="https://www.rfc-editor.org/rfc/rfc4226#section-4" target="_blank" rel="noopener">RFC 4226</a> recomienda al menos 160 bits) y que se genere mediante una <a href="https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#secure-random-number-generation" target="_blank" rel="noopener">función aleatoria segura</a>.</p>
+<p>Cuando el secreto puede ser proporcionado por el usuario, se debe imponer una longitud mínima adecuada y comprobar la entrada frente a los ataques de inyección habituales.</p>
+<p>Los códigos TOTP normalmente son válidos durante 30 segundos, pero algunas aplicaciones optan por aceptar varios códigos (como el anterior, el actual y el siguiente) para lidiar con las diferencias entre la hora del sistema en el servidor y en el dispositivo del usuario. Algunas aplicaciones pueden permitir múltiples códigos a ambos lados del actual, lo que puede facilitar a un atacante adivinar o descubrir el código por fuerza bruta. La tabla siguiente muestra la probabilidad de descubrir con éxito por fuerza bruta un código OTP, suponiendo que un atacante puede hacer 10 peticiones por segundo, para aplicaciones que aceptan solo el código actual o varios códigos (consulte <a href="https://www.codasecurity.co.uk/articles/mfa-testing#case-study---brute-forcing-totp" target="_blank" rel="noopener">este artículo</a> para ver los cálculos detrás de la tabla).</p>
+<div class="tabla"><table><thead><tr>
+<th>Códigos válidos</th>
+<th>Tasa de éxito tras 1 hora</th>
+<th>Tasa de éxito tras 4 horas</th>
+<th>Tasa de éxito tras 12 horas</th>
+<th>Tasa de éxito tras 24 horas</th>
+</tr>
+</thead><tbody><tr>
+<td>1</td>
+<td>4%</td>
+<td>13%</td>
+<td>35%</td>
+<td>58%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>10%</td>
+<td>35%</td>
+<td>72%</td>
+<td>92%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>16%</td>
+<td>51%</td>
+<td>88%</td>
+<td>99%</td>
+</tr>
+<tr>
+<td>7</td>
+<td>22%</td>
+<td>63%</td>
+<td>95%</td>
+<td>99%</td>
+</tr>
+</tbody></table></div>
+<h4 id="email-sms-and-phone">Correo electrónico, SMS y teléfono</h4>
+<p>Cuando los códigos son generados por el servidor y enviados al cliente, se deben considerar las siguientes áreas:</p>
+<ul>
+<li>¿El mecanismo de transporte (correo electrónico, SMS o voz) es lo suficientemente seguro para la aplicación?</li>
+<li>¿Los códigos son suficientemente largos y complejos?</li>
+<li>¿Los códigos se generan mediante una <a href="https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#secure-random-number-generation" target="_blank" rel="noopener">función aleatoria segura</a>?</li>
+<li>¿Durante cuánto tiempo son válidos los códigos?</li>
+<li>¿Son válidos varios códigos a la vez o la generación de un nuevo código invalida el anterior?<ul>
+<li>¿Podría usarse esto para bloquear el acceso a una cuenta solicitando códigos repetidamente?</li>
+</ul>
+</li>
+<li>¿Existe suficiente limitación de tasa para evitar que un atacante solicite grandes cantidades de códigos?<ul>
+<li>Grandes cantidades de códigos enviados por correo pueden hacer que el servidor sea bloqueado por enviar spam.</li>
+<li>Grandes cantidades de SMS o llamadas de voz pueden costar dinero o utilizarse para acosar a un usuario.</li>
+</ul>
+</li>
+</ul>
+<h3 id="mobile-apps-and-push-notifications">Aplicaciones móviles y notificaciones push</h3>
+<p>Un enfoque alternativo a los códigos OTP es enviar una notificación push al teléfono móvil del usuario, que este puede aprobar o denegar. Este método es menos común, ya que requiere que el usuario instale un autenticador específico de la aplicación.</p>
+<p>Evaluar adecuadamente la seguridad de esto requiere ampliar el alcance de las pruebas para cubrir tanto la aplicación móvil como cualquier API o servicio de apoyo que utilice; lo que significa que a menudo quedaría fuera del alcance de una prueba tradicional de aplicaciones web. Sin embargo, hay un par de comprobaciones sencillas que se pueden realizar sin probar la aplicación móvil, entre ellas:</p>
+<ul>
+<li>¿La notificación proporciona suficiente contexto (direcciones IP, ubicación, etc.) para que el usuario tome una decisión informada sobre si aprobarla o denegarla?</li>
+<li>¿Existe algún tipo de mecanismo de desafío y respuesta (como mostrar un código en el sitio que el usuario deba ingresar en la aplicación, a menudo llamado &quot;number matching&quot; o &quot;number challenge&quot;)?</li>
+<li>¿Existe alguna limitación de tasa o mecanismo para evitar que se inunde al usuario con notificaciones con la esperanza de que acepte una a ciegas?</li>
+</ul>
+<h3 id="ip-address-and-location-filtering">Filtrado por dirección IP y ubicación</h3>
+<p>Uno de los factores que a veces se utilizan con la MFA es la ubicación (&quot;algún lugar donde estás&quot;), aunque es discutible si esto constituye un factor de autenticación propiamente dicho. En el contexto de una aplicación web, esto normalmente significa restringir el acceso a direcciones IP específicas o no solicitar un segundo factor al usuario siempre que se conecte desde una dirección IP de confianza específica. Un escenario común sería autenticar a los usuarios solo con su contraseña cuando se conectan desde los rangos de IP de la oficina, pero exigir un código OTP cuando se conectan desde otro lugar.</p>
+<p>Dependiendo de la implementación, podría ser posible que un usuario falsifique una dirección IP de confianza estableciendo la cabecera <code>X-Forwarded-For</code>, lo que podría permitirle eludir esta comprobación. Considérese también que, si la aplicación no sanea correctamente el contenido de esta cabecera, también podría ser posible llevar a cabo aquí ataques como la Inyección SQL. Si la aplicación admite IPv6, esto también debe comprobarse para asegurar que se apliquen las restricciones apropiadas a esas conexiones.</p>
+<p>Además, deben revisarse las direcciones IP de confianza para asegurar que no presenten debilidades, como cuando incluyen:</p>
+<ul>
+<li>Direcciones IP a las que podrían acceder usuarios no confiables (como las redes inalámbricas de invitados en una oficina).</li>
+<li>Direcciones IP asignadas dinámicamente que podrían cambiar.</li>
+<li>Rangos de redes públicas donde un atacante podría alojar su propio sistema (como Azure o AWS).</li>
+</ul>
+<h3 id="certificates-and-smartcards">Certificados y tarjetas inteligentes</h3>
+<p>Transport Layer Security (TLS) se utiliza comúnmente para cifrar el tráfico entre el cliente y el servidor y para ofrecer un mecanismo con el que el cliente confirma la identidad del servidor (comparando el Common Name (CN) o el Subject Alternative Name (SAN) del certificado con el dominio solicitado). Sin embargo, también puede ofrecer un mecanismo para que el servidor confirme la identidad del cliente, conocido como autenticación con certificado de cliente o TLS mutuo (mTLS). Una discusión completa de la autenticación con certificado de cliente queda fuera del alcance de esta guía, pero el principio clave es que el usuario presenta un certificado digital (almacenado en su equipo o en una tarjeta inteligente), que el servidor valida.</p>
+<p>El primer paso al probar es determinar si la aplicación objetivo restringe las Autoridades de Certificación (CA) en las que se confía para emitir certificados. Esta información puede obtenerse con diversas herramientas o examinando manualmente el handshake de TLS. La forma más sencilla es usar <code>s_client</code> de OpenSSL:</p>
+<pre><code class="language-bash">$ openssl s_client -connect example:443
+[...]
+Acceptable client certificate CA names
+C = US, ST = Example, L = Example, O = Example Org, CN = Example Org Root Certificate Authority
+Client Certificate Types: RSA sign, DSA sign, ECDSA sign
+</code></pre>
+<p>Si no hay restricciones, podría ser posible autenticarse usando un certificado de una CA diferente. Si hay restricciones pero están mal implementadas, podría ser posible crear una CA local con el nombre correcto (&quot;Example Org Root Certificate Authority&quot; en el ejemplo anterior) y usar esta nueva CA para firmar certificados de cliente.</p>
+<p>Si se puede obtener un certificado válido, también debe verificarse que el certificado solo pueda utilizarse para el usuario al que fue emitido (es decir, que no se pueda usar un certificado emitido a Alice para autenticarse en la cuenta de Bob). Además, deben comprobarse los certificados para asegurar que no hayan expirado ni sido revocados.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/03-Weak_Lock_Out_Mechanism">Mecanismo de bloqueo débil</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/09-Weak_Password_Change_or_Reset_Functionalities">Funcionalidades débiles de cambio o restablecimiento de contraseña</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Asegurarse de que:</p>
+<ul>
+<li>La MFA esté implementada para todas las cuentas y funcionalidades relevantes de las aplicaciones.</li>
+<li>Los métodos de MFA admitidos sean apropiados para la aplicación.</li>
+<li>Los mecanismos utilizados para implementar la MFA estén adecuadamente protegidos y resguardados contra ataques de fuerza bruta.</li>
+<li>Exista auditoría y registro apropiados para toda la actividad relacionada con la MFA.</li>
+</ul>
+<p>Consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Multi-Factor Authentication Cheat Sheet</a> para más recomendaciones.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Multi-Factor Authentication Cheat Sheet</a></li>
+</ul>

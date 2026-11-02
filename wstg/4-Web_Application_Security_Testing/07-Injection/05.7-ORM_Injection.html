@@ -1,0 +1,45 @@
+<h1 id="orm-injection">Inyección ORM</h1>
+<h2 id="summary">Resumen</h2>
+<p>La <a href="https://capec.mitre.org/data/definitions/109.html" target="_blank" rel="noopener">inyección en Object Relational Mapping (ORM)</a> es un ataque que usa inyección SQL contra un modelo de objetos de acceso a datos generado por un ORM. Desde el punto de vista de un evaluador, este ataque es prácticamente idéntico a un ataque de inyección SQL. Sin embargo, la vulnerabilidad de inyección existe en el código generado por la capa ORM.</p>
+<p>Entre los beneficios de usar una herramienta ORM se incluyen la generación rápida de una capa de objetos para comunicarse con una base de datos relacional, la estandarización de las plantillas de código para esos objetos y que, por lo general, proporcionan un conjunto de funciones seguras para protegerse contra ataques de inyección SQL. Los objetos generados por un ORM pueden usar SQL o, en algunos casos, una variante de SQL, para realizar operaciones CRUD (Create, Read, Update, Delete) sobre una base de datos. Sin embargo, es posible que una aplicación web que use objetos generados por un ORM sea vulnerable a ataques de inyección SQL si los métodos pueden aceptar parámetros de entrada sin sanitizar.</p>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las capas ORM pueden ser propensas a vulnerabilidades, ya que amplían la superficie de ataque. En lugar de atacar directamente la aplicación con consultas SQL, el enfoque estaría en abusar de la capa ORM para enviar consultas SQL maliciosas.</p>
+<h3 id="identify-the-orm-layer">Identificar la capa ORM</h3>
+<p>Para probar de forma eficiente y entender qué sucede entre las peticiones y las consultas del backend, y como con todo lo relacionado con llevar a cabo pruebas adecuadas, es esencial identificar la tecnología que se está usando. Siguiendo el capítulo de <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">recopilación de información</a>, se debería conocer la tecnología que usa la aplicación en cuestión. Consúltese esta <a href="https://en.wikipedia.org/wiki/List_of_object-relational_mapping_software" target="_blank" rel="noopener">lista que asocia lenguajes con sus respectivos ORM</a>.</p>
+<h3 id="abusing-the-orm-layer">Abusar de la capa ORM</h3>
+<p>Tras identificar el posible ORM que se esté usando, resulta esencial entender cómo funciona su analizador (parser) y estudiar métodos para abusar de él, o incluso, si la aplicación usa una versión antigua, identificar los CVE relacionados con la biblioteca utilizada. A veces, las capas ORM no están correctamente implementadas y, por tanto, permiten al evaluador realizar <a href="#/4-Web_Application_Security_Testing/07-Injection/05-SQL_Injection">inyección SQL</a> normal, sin preocuparse por la capa ORM.</p>
+<h4 id="weak-orm-implementation">Implementación débil del ORM</h4>
+<p>Un escenario vulnerable en el que la capa ORM no se implementó correctamente, tomado de <a href="https://web.archive.org/web/20191122124952/https://software-security.sans.org/developer-how-to/fix-sql-injection-in-java-hibernate" target="_blank" rel="noopener">SANS</a>:</p>
+<pre><code class="language-java">List results = session.createQuery(&quot;from Orders as orders where orders.id = &quot; + currentOrder.getId()).list();
+List results = session.createSQLQuery(&quot;Select * from Books where author = &quot; + book.getAuthor()).list();
+</code></pre>
+<p>Lo anterior no implementó el parámetro posicional, que permite al desarrollador reemplazar la entrada por un <code>?</code>. Un ejemplo sería el siguiente:</p>
+<pre><code class="language-java">Query hqlQuery = session.createQuery(&quot;from Orders as orders where orders.id = ?&quot;);
+List results = hqlQuery.setString(0, &quot;123-ADB-567-QTWYTFDL&quot;).list(); // 0 is the first position, where it is dynamically replaced by the string set
+</code></pre>
+<p>Esta implementación deja la validación y la sanitización a cargo de la capa ORM, y la única forma de eludirla sería identificando un problema en la propia capa ORM.</p>
+<h4 id="vulnerable-orm-layer">Capa ORM vulnerable</h4>
+<p>Las capas ORM son código, y la mayoría de las veces son bibliotecas de terceros. Pueden ser vulnerables igual que cualquier otra pieza de código. Un ejemplo podría ser la <a href="https://snyk.io/blog/sequelize-orm-npm-library-found-vulnerable-to-sql-injection-attacks/" target="_blank" rel="noopener">biblioteca npm del ORM sequelize</a>, que se descubrió vulnerable en 2019. En otra investigación realizada por <a href="https://www.ripstech.com/" target="_blank" rel="noopener">RIPS Tech</a>, se identificaron formas de eludir el <a href="https://hibernate.org/orm/" target="_blank" rel="noopener">ORM hibernate usado en Java</a>.</p>
+<p>Basándose en su <a href="https://www.sonarsource.com/blog/exploiting-hibernate-injections/" target="_blank" rel="noopener">artículo de blog</a>, se puede esbozar una hoja de referencia que podría permitir al evaluador identificar problemas, como sigue:</p>
+<div class="tabla"><table><thead><tr>
+<th>DBMS</th>
+<th>Inyección SQL</th>
+</tr>
+</thead><tbody><tr>
+<td>MySQL</td>
+<td><code>abc\&#39; INTO OUTFILE --</code></td>
+</tr>
+</tbody></table></div>
+<!-- markdownlint-disable-next-line MD055 MD056 -->
+<p>| PostgreSQL | <code>$$=&#39;$$=chr(61) || chr(0x27) and 1=pg_sleep(2) || version()&#39;</code>         |
+| Oracle     | <code>NVL(TO_CHAR(DBMS_XMLGEN.getxml(&#39;select 1 where 1337&gt;1&#39;)),&#39;1&#39;)!=&#39;1&#39;</code>  |
+| MS SQL     | <code>1&lt;LEN(%C2%A0(select%C2%A0top%C2%A01%C2%A0name%C2%A0from%C2%A0users)</code> |</p>
+<p>Otro ejemplo sería el <a href="https://laravel.com/docs/queries" target="_blank" rel="noopener">Laravel Query Builder</a>, que se descubrió <a href="https://freek.dev/1317-an-important-security-release-for-laravel-query-builder" target="_blank" rel="noopener">vulnerable en 2019</a>.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Object-relational_mapping" target="_blank" rel="noopener">Wikipedia - ORM</a></li>
+<li><a href="https://insinuator.net/2016/06/new-methods-for-exploiting-orm-injections-in-java-applications-hitb16/" target="_blank" rel="noopener">New Methods for Exploiting ORM Injections in Java Applications (HITB16)</a></li>
+<li><a href="https://archive.conference.hitb.org/hitbsecconf2016ams/sessions/new-methods-for-exploiting-orm-injections-in-java-applications/" target="_blank" rel="noopener">HITB2016 Slides - ORM Injections in Java Applications</a></li>
+<li><a href="https://snyk.io/blog/sql-injection-orm-vulnerabilities/" target="_blank" rel="noopener">Fixing SQL Injection: ORM is not enough</a></li>
+<li><a href="https://web.archive.org/web/20240918174724/https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/HQL%20Injection.md" target="_blank" rel="noopener">PayloadsAllTheThings - HQL Injection</a></li>
+</ul>

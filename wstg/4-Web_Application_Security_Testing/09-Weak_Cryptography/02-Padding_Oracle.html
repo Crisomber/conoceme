@@ -1,0 +1,68 @@
+<h1 id="padding-oracle">Padding Oracle</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CRYP-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Un padding oracle es una función de una aplicación que descifra datos cifrados proporcionados por el cliente, p. ej. el estado interno de la sesión almacenado en el cliente, y que filtra el estado de validez del relleno (padding) después del descifrado. La existencia de un padding oracle permite a un atacante descifrar datos cifrados y cifrar datos arbitrarios sin conocer la clave utilizada para estas operaciones criptográficas. Esto puede conducir a la filtración de datos sensibles o a vulnerabilidades de escalada de privilegios, si la aplicación asume la integridad de los datos cifrados.</p>
+<p>Los cifrados por bloques cifran los datos solo en bloques de ciertos tamaños. Los tamaños de bloque utilizados por los cifrados comunes son de 8 y 16 bytes. Los datos cuyo tamaño no coincide con un múltiplo del tamaño de bloque del cifrado utilizado deben rellenarse de una manera específica para que quien descifra pueda eliminar el relleno. Un esquema de relleno de uso común es PKCS#7. Este llena los bytes restantes con el valor de la longitud del relleno.</p>
+<h3 id="example-1">Ejemplo 1</h3>
+<p>Si el relleno tiene una longitud de 5 bytes, el valor de byte <code>0x05</code> se repite cinco veces después del texto plano.</p>
+<p>Existe una condición de error si el relleno no coincide con la sintaxis del esquema de relleno utilizado. Hay un padding oracle si una aplicación filtra esta condición de error específica del relleno para datos cifrados proporcionados por el cliente. Esto puede ocurrir al exponer directamente excepciones (p. ej. <code>BadPaddingException</code> en Java), por diferencias sutiles en las respuestas enviadas al cliente o por otro canal lateral como el comportamiento temporal (timing).</p>
+<p>Ciertos modos de operación de la criptografía permiten ataques de volteo de bits (bit-flipping), en los que voltear un bit en el texto cifrado provoca que el bit también se voltee en el texto plano. Voltear un bit en el n-ésimo bloque de datos cifrados con CBC provoca que el mismo bit en el bloque (n+1) se voltee en los datos descifrados. El n-ésimo bloque del texto cifrado descifrado queda corrompido por esta manipulación.</p>
+<p>El ataque de padding oracle permite a un atacante descifrar datos cifrados sin conocer la clave de cifrado ni el cifrado utilizado, enviando al padding oracle textos cifrados manipulados hábilmente y observando los resultados que este devuelve. Esto provoca la pérdida de confidencialidad de los datos cifrados. P. ej., en el caso de datos de sesión almacenados del lado del cliente, el atacante puede obtener información sobre el estado interno y la estructura de la aplicación.</p>
+<p>Un ataque de padding oracle también permite a un atacante cifrar textos planos arbitrarios sin conocer la clave ni el cifrado utilizados. Si la aplicación asume que la integridad y la autenticidad de los datos descifrados están garantizadas, un atacante podría manipular el estado interno de la sesión y posiblemente obtener mayores privilegios.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar mensajes cifrados que dependen de relleno (padding).</li>
+<li>Intentar romper el relleno de los mensajes cifrados y analizar los mensajes de error devueltos para un análisis posterior.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>Primero se deben identificar los posibles puntos de entrada para padding oracles. Por lo general, deben cumplirse las siguientes condiciones:</p>
+<ol>
+<li>Los datos están cifrados. Buenos candidatos son los valores que parecen aleatorios.</li>
+<li>Se utiliza un cifrado por bloques. La longitud del texto cifrado decodificado (a menudo se usa Base64) es un múltiplo de tamaños de bloque de cifrado comunes como 8 o 16 bytes. Distintos textos cifrados (p. ej. obtenidos en diferentes sesiones o mediante la manipulación del estado de la sesión) comparten un divisor común en su longitud.</li>
+</ol>
+<h4 id="example-2">Ejemplo 2</h4>
+<p><code>Dg6W8OiWMIdVokIDH15T/A==</code> resulta, tras decodificar base64, en <code>0e 0e 96 f0 e8 96 30 87 55 a2 42 03 1f 5e 53 fc</code>. Esto parece aleatorio y tiene 16 bytes de longitud.</p>
+<p>Si se identifica un valor de entrada candidato de este tipo, se debe verificar el comportamiento de la aplicación ante la manipulación bit a bit del valor cifrado. Normalmente este valor codificado en base64 incluirá el vector de inicialización (IV) antepuesto al texto cifrado. Dado un texto plano <em><code>p</code></em> y un cifrado con un tamaño de bloque <em><code>n</code></em>, el número de bloques será <em><code>b = ceil( length(p) / n)</code></em>. La longitud de la cadena cifrada será <em><code>y=(b+1)*n</code></em> debido al vector de inicialización. Para verificar la presencia del oracle, se decodifica la cadena, se voltea el último bit del penúltimo bloque <em><code>b-1</code></em> (el bit menos significativo del byte en <em><code>y-n-1</code></em>), se vuelve a codificar y se envía. A continuación, se decodifica la cadena original, se voltea el último bit del bloque <em><code>b-2</code></em> (el bit menos significativo del byte en <em><code>y-2*n-1</code></em>), se vuelve a codificar y se envía.</p>
+<p>Si se sabe que la cadena cifrada es de un solo bloque (el IV se almacena en el servidor o la aplicación usa un IV codificado de forma fija, una mala práctica), se deben realizar varios volteos de bits sucesivamente. Un enfoque alternativo podría ser anteponer un bloque aleatorio y voltear bits para que el último byte del bloque añadido tome todos los valores posibles (0 a 255).</p>
+<p>Las pruebas y el valor base deben provocar al menos tres estados diferentes durante y después del descifrado:</p>
+<ul>
+<li>El texto cifrado se descifra y los datos resultantes son correctos.</li>
+<li>El texto cifrado se descifra, los datos resultantes están corrompidos y provocan alguna excepción o manejo de errores en la lógica de la aplicación.</li>
+<li>El descifrado del texto cifrado falla debido a errores de relleno.</li>
+</ul>
+<p>Se deben comparar cuidadosamente las respuestas. Se deben buscar especialmente excepciones y mensajes que indiquen que algo anda mal con el relleno. Si aparecen tales mensajes, la aplicación contiene un padding oracle. Si los tres estados descritos anteriormente son observables de forma implícita (mensajes de error diferentes, canales laterales de tiempo), hay una alta probabilidad de que exista un padding oracle en este punto. Se debe intentar realizar el ataque de padding oracle para confirmarlo.</p>
+<h5 id="example-3">Ejemplo 3</h5>
+<ul>
+<li>ASP.NET lanza <code>System.Security.Cryptography.CryptographicException: Padding is invalid and cannot be removed.</code> si el relleno de un texto cifrado descifrado está roto.</li>
+<li>En Java se lanza en este caso una <code>javax.crypto.BadPaddingException</code>.</li>
+<li>Los errores de descifrado o similares pueden ser posibles padding oracles.</li>
+</ul>
+<blockquote>
+<p>Una implementación segura verificará la integridad y provocará solo dos respuestas: <code>ok</code> y <code>failed</code>. No hay canales laterales que puedan usarse para determinar estados de error internos.</p>
+</blockquote>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Se debe verificar todos los lugares donde se descifran datos cifrados provenientes del cliente que solo debería conocer el servidor. Dicho código debe cumplir las siguientes condiciones:</p>
+<ol>
+<li>La integridad del texto cifrado debe verificarse mediante un mecanismo seguro, como HMAC o modos de operación de cifrado autenticado como GCM o CCM.</li>
+<li>Todos los estados de error durante el descifrado y el procesamiento posterior se manejan de manera uniforme.</li>
+</ol>
+<h3 id="example-4">Ejemplo 4</h3>
+<p><a href="https://erlend.oftedal.no/blog/poet/" target="_blank" rel="noopener">Visualización del proceso de descifrado</a></p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/GDSSecurity/PadBuster" target="_blank" rel="noopener">PadBuster</a></li>
+<li><a href="https://github.com/iagox86/Poracle" target="_blank" rel="noopener">Poracle</a></li>
+<li><a href="https://github.com/mwielgoszewski/python-paddingoracle" target="_blank" rel="noopener">python-paddingoracle</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Padding_oracle_attack" target="_blank" rel="noopener">Wikipedia - Padding Oracle Attack</a></li>
+<li><a href="https://www.usenix.org/event/woot10/tech/full_papers/Rizzo.pdf" target="_blank" rel="noopener">Juliano Rizzo, Thai Duong, &quot;Practical Padding Oracle Attacks&quot;</a></li>
+</ul>

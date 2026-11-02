@@ -1,0 +1,53 @@
+<h1 id="xpath-injection">Inyección XPath</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-09</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>XPath es un lenguaje diseñado y desarrollado principalmente para direccionar partes de un documento XML. En las pruebas de inyección XPath se comprueba si es posible inyectar sintaxis XPath en una petición interpretada por la aplicación, lo que permitiría a un atacante ejecutar consultas XPath controladas por el usuario. Cuando se explota con éxito, esta vulnerabilidad puede permitir a un atacante eludir los mecanismos de autenticación o acceder a información sin la debida autorización.</p>
+<p>Las aplicaciones web usan intensamente bases de datos para almacenar y acceder a los datos que necesitan para su funcionamiento. Históricamente, las bases de datos relacionales han sido, por mucho, la tecnología más común para el almacenamiento de datos, pero en los últimos años se observa una popularidad creciente de las bases de datos que organizan los datos mediante el lenguaje XML. Así como se accede a las bases de datos relacionales mediante el lenguaje SQL, las bases de datos XML utilizan XPath como su lenguaje de consulta estándar.</p>
+<p>Dado que, desde un punto de vista conceptual, XPath es muy similar a SQL en su propósito y aplicaciones, un resultado interesante es que los ataques de inyección XPath siguen la misma lógica que los ataques de <a href="https://owasp.org/www-community/attacks/SQL_Injection" target="_blank" rel="noopener">Inyección SQL</a>. En algunos aspectos, XPath es incluso más poderoso que el SQL estándar, ya que todo su poder ya está presente en sus especificaciones, mientras que un gran número de las técnicas que pueden usarse en un ataque de Inyección SQL dependen de las características del dialecto SQL utilizado por la base de datos objetivo. Esto significa que los ataques de inyección XPath pueden ser mucho más adaptables y ubicuos. Otra ventaja de un ataque de inyección XPath es que, a diferencia de SQL, no se aplican ACL, ya que nuestra consulta puede acceder a cualquier parte del documento XML.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección XPATH.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El <a href="https://dl.packetstormsecurity.net/papers/bypass/Blind_XPath_Injection_20040518.pdf" target="_blank" rel="noopener">patrón de ataque XPath fue publicado por primera vez por Amit Klein</a> y es muy similar a la Inyección SQL habitual. Para tener una primera idea del problema, imaginemos una página de inicio de sesión que gestiona la autenticación de una aplicación en la que el usuario debe introducir su nombre de usuario y su contraseña. Supongamos que nuestra base de datos está representada por el siguiente archivo XML:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;ISO-8859-1&quot;?&gt;
+&lt;users&gt;
+    &lt;user&gt;
+        &lt;username&gt;gandalf&lt;/username&gt;
+        &lt;password&gt;!c3&lt;/password&gt;
+        &lt;account&gt;admin&lt;/account&gt;
+    &lt;/user&gt;
+    &lt;user&gt;
+        &lt;username&gt;Stefan0&lt;/username&gt;
+        &lt;password&gt;w1s3c&lt;/password&gt;
+        &lt;account&gt;guest&lt;/account&gt;
+    &lt;/user&gt;
+    &lt;user&gt;
+        &lt;username&gt;tony&lt;/username&gt;
+        &lt;password&gt;Un6R34kb!e&lt;/password&gt;
+        &lt;account&gt;guest&lt;/account&gt;
+    &lt;/user&gt;
+&lt;/users&gt;
+</code></pre>
+<p>Una consulta XPath que devuelve la cuenta cuyo nombre de usuario es <code>gandalf</code> y cuya contraseña es <code>!c3</code> sería la siguiente:</p>
+<p><code>string(//user[username/text()=&#39;gandalf&#39; and password/text()=&#39;!c3&#39;]/account/text())</code></p>
+<p>Si la aplicación no filtra correctamente la entrada del usuario, el evaluador podrá inyectar código XPath e interferir con el resultado de la consulta. Por ejemplo, el evaluador podría introducir los siguientes valores:</p>
+<pre><code class="language-text">Username: &#39; or &#39;1&#39; = &#39;1
+Password: &#39; or &#39;1&#39; = &#39;1
+</code></pre>
+<p>Con estos parámetros, la consulta se convierte en:</p>
+<p><code>string(//user[username/text()=&#39;&#39; or &#39;1&#39; = &#39;1&#39; and password/text()=&#39;&#39; or &#39;1&#39; = &#39;1&#39;]/account/text())</code></p>
+<p>Como en un ataque común de Inyección SQL, hemos creado una consulta que siempre se evalúa como verdadera, lo que significa que la aplicación autenticará al usuario aunque no se hayan proporcionado ni nombre de usuario ni contraseña. Y como en un ataque común de Inyección SQL, con la inyección XPath el primer paso es insertar una comilla simple (<code>&#39;</code>) en el campo que se va a probar, introduciendo un error de sintaxis en la consulta, y comprobar si la aplicación devuelve un mensaje de error.</p>
+<p>Si no se conocen los detalles internos de los datos XML y la aplicación no proporciona mensajes de error útiles que ayuden a reconstruir su lógica interna, es posible realizar un ataque de <a href="https://owasp.org/www-community/attacks/Blind_XPath_Injection" target="_blank" rel="noopener">Blind XPath Injection</a>, cuyo objetivo es reconstruir toda la estructura de datos. La técnica es similar a la Inyección SQL basada en inferencia, ya que el enfoque consiste en inyectar código que crea una consulta que devuelve un bit de información. <a href="https://owasp.org/www-community/attacks/Blind_XPath_Injection" target="_blank" rel="noopener">Blind XPath Injection</a> es explicada con más detalle por Amit Klein en el documento referenciado.</p>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Documentos técnicos (whitepapers)</h3>
+<ul>
+<li><a href="https://dl.packetstormsecurity.net/papers/bypass/Blind_XPath_Injection_20040518.pdf" target="_blank" rel="noopener">Amit Klein: &quot;Blind XPath Injection&quot;</a></li>
+<li><a href="https://www.w3.org/TR/1999/REC-xpath-19991116/" target="_blank" rel="noopener">XPath 1.0 specifications</a></li>
+</ul>

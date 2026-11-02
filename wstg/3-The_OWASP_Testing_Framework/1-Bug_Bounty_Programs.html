@@ -1,0 +1,85 @@
+<h1 id="bug-bounty-programs-as-a-testing-technique">Programas de bug bounty como técnica de prueba</h1>
+<h2 id="overview">Descripción general</h2>
+<p>Un programa de bug bounty o de divulgación coordinada de vulnerabilidades es una técnica de prueba complementaria. La organización publica un alcance, unas reglas de compromiso y una estructura de recompensas. Investigadores de seguridad externos (conocidos como &quot;cazadores de bugs&quot; o &quot;hackers&quot;) sondean el objetivo en busca de vulnerabilidades. Los hallazgos aceptados se reportan de forma confidencial, se corrigen y se compensa al investigador. A diferencia de una prueba de penetración tradicional, un programa de recompensas es continuo (no limitado en el tiempo), colaborativo (no un único equipo) y a menudo se realiza como caja negra (los investigadores no tienen acceso especial ni documentación).</p>
+<p>El <a href="https://www.hackerone.com/resources/reports/hacker-powered-security-report-2025" target="_blank" rel="noopener">2025 HackerOne Hacker-Powered Security Report</a> encontró que solo HackerOne procesó más de 85.000 reportes de vulnerabilidades válidos en 2025, con pagos que alcanzaron los 81 millones de dólares (USD). La adopción de herramientas de IA por parte de los investigadores es alta (el 82 % de los hackers encuestados por Bugcrowd en su informe de 2026 usa IA), y los programas con alcance explícito para sistemas de IA y API están creciendo rápidamente, lo que refleja tanto el valor como la madurez operativa de los programas de recompensas como canal de pruebas.</p>
+<h2 id="how-this-differs-from-traditional-penetration-testing">En qué se diferencia de las pruebas de penetración tradicionales</h2>
+<div class="tabla"><table><thead><tr>
+<th>Aspecto</th>
+<th>Prueba de penetración</th>
+<th>Programa de bug bounty</th>
+</tr>
+</thead><tbody><tr>
+<td><strong>Duración</strong></td>
+<td>Limitada en el tiempo (p. ej., 2 semanas)</td>
+<td>Continua (6 meses - indefinida)</td>
+</tr>
+<tr>
+<td><strong>Evaluador</strong></td>
+<td>Un solo equipo o consultor</td>
+<td>Colaborativo, anónimo</td>
+</tr>
+<tr>
+<td><strong>Acceso y documentación</strong></td>
+<td>Normalmente caja blanca o caja gris; se proporciona código fuente, arquitectura y modelos de amenazas</td>
+<td>Caja negra; solo el alcance publicado y las reglas de compromiso</td>
+</tr>
+<tr>
+<td><strong>Alcance</strong></td>
+<td>Declaración de trabajo (SOW) negociada; puede ampliarse a medida que cambian las necesidades</td>
+<td>Definido unilateralmente por el responsable del programa; los investigadores deben trabajar estrictamente dentro del alcance publicado</td>
+</tr>
+<tr>
+<td><strong>Reglas</strong></td>
+<td>Personalizadas por compromiso</td>
+<td>Términos estándar del programa y política de divulgación</td>
+</tr>
+<tr>
+<td><strong>Modelo de costos</strong></td>
+<td>Tarifa fija o por hora</td>
+<td>Pago por hallazgo (niveles de recompensa según la severidad)</td>
+</tr>
+<tr>
+<td><strong>Informes</strong></td>
+<td>Informe formal de consultoría con resumen ejecutivo, causas raíz y corrección</td>
+<td>Un envío por hallazgo (detallado, pero no un informe integrado)</td>
+</tr>
+</tbody></table></div>
+<h2 id="applying-wstg-techniques-within-a-bug-bounty-program">Aplicar las técnicas del WSTG dentro de un programa de bug bounty</h2>
+<p>Las técnicas de prueba descritas en la <a href="#/4-Web_Application_Security_Testing/README">Sección 4</a> del WSTG, desde la recopilación de información hasta las pruebas de lógica de negocio, siguen siendo plenamente aplicables dentro de un programa de bug bounty. Lo que cambia es cómo y cuándo se seleccionan:</p>
+<ul>
+<li>Un evaluador de penetración al que se le entrega una SOW y documentación de la arquitectura puede planificar una hoja de ruta de pruebas. Un investigador de bug bounty trabaja de forma reactiva, descubriendo la aplicación sobre la marcha, dentro del alcance publicado.</li>
+<li>Un consultor generalmente se enfoca en profundidad en una sola área u objetivo (p. ej., la autorización del flujo de pagos). Un investigador de bug bounty lanza una red más amplia, descubriendo vulnerabilidades en múltiples superficies de ataque y reportando los hallazgos de mayor impacto.</li>
+<li>La metodología de un pentest es estructurada y secuencial. Los investigadores de bug bounty a menudo ejecutan herramientas automatizadas en paralelo y siguen las pistas prometedoras.</li>
+</ul>
+<h2 id="reporting-under-a-bounty-program">Informes en un programa de recompensas</h2>
+<p>Consulta la sección de <a href="#/5-Reporting/01-Reporting_Structure">Informes</a> de esta guía para la orientación general sobre reportes. Los envíos de bug bounty suelen diferir en formato y contexto:</p>
+<ul>
+<li><strong>Mínimo requerido</strong>: pasos de reproducción (cómo desencadenar la vulnerabilidad, incluido cómo un atacante llega al endpoint o al código vulnerable), impacto (qué podría hacer un atacante) y orientación de corrección (qué debería arreglar el desarrollador). Demostrar la alcanzabilidad, y no solo el fallo en sí, es fundamental; una vulnerabilidad válida a la que un atacante no puede llegar suele cerrarse.</li>
+<li><strong>Evaluación de la severidad</strong>: muchos programas usan la puntuación CVSS, mientras que otros definen rúbricas de severidad específicas del programa (Crítica / Alta / Media / Baja). Aclara la rúbrica en los términos de tu programa.</li>
+<li><strong>Claridad del alcance</strong>: un reporte de bug bounty solo es valioso si cae claramente dentro del alcance declarado del programa. Un reporte sobre un servicio de terceros fuera del alcance, un entorno de staging o de pruebas, o una rama de código obsoleta será rechazado independientemente de su validez. El alcance del programa puede cambiar durante su ejecución; vuelve a leer el documento de alcance del programa con regularidad, y no solo el día en que comienzas a probar, para evitar que los hallazgos sean rechazados retroactivamente.</li>
+</ul>
+<p>La <a href="https://cheatsheetseries.owasp.org/" target="_blank" rel="noopener">OWASP Cheat Sheet Series</a> y la sección de <a href="#/5-Reporting/README">Informes</a> proporcionan orientación sobre cómo redactar hallazgos claros y accionables.</p>
+<h2 id="designing-a-program-scope-and-disclosure">Diseñar un programa: alcance y divulgación</h2>
+<p>Un programa de bug bounty exitoso comienza con un documento de alcance claro y publicado que responda:</p>
+<ul>
+<li><strong>Objetivos dentro del alcance</strong>: ¿qué dominios, aplicaciones, API e infraestructura pueden probar los investigadores? (p. ej., &quot;api.example.com y todos los subdominios; NO example-staging.com ni las integraciones de terceros&quot;). Los cambios de alcance durante el programa son comunes, pero deben comunicarse claramente a los investigadores activos, con orientación sobre cómo el cambio afecta los envíos pendientes y los activos probados previamente.</li>
+<li><strong>Autorización y puerto seguro legal</strong>: los investigadores que actúan de buena fe dentro del alcance están autorizados y no enfrentarán acciones legales (otorgado explícitamente en los términos del programa).</li>
+<li><strong>Reglas de compromiso</strong>: ¿qué técnicas de prueba están permitidas? (la mayoría de los programas permiten el reconocimiento y las pruebas de vulnerabilidades, pero prohíben la ingeniería social, los ataques DoS y la destrucción o exfiltración de datos más allá de la prueba de concepto). Cada vez más, los programas también definen políticas sobre los reportes generados o asistidos por IA. Algunos exigen que se divulgue, otros rechazan por completo los envíos redactados por IA. Aclara explícitamente la postura de tu programa.</li>
+<li><strong>Plazo de divulgación</strong>: ¿cuánto tiempo tiene la organización para corregir antes de que el investigador pueda divulgar públicamente? (típico: 30-90 días).</li>
+<li><strong>Niveles de recompensa</strong>: ¿cuál es el pago de la recompensa por hallazgos Críticos / Altos / Medios / Bajos? (el monto varía según el tamaño de la organización y su tolerancia al riesgo; también puede variar según el tipo de hallazgo, p. ej., una elusión de autenticación paga más que un XSS).</li>
+</ul>
+<p>Publica estos detalles en un archivo público <code>security.txt</code> (<a href="https://datatracker.ietf.org/doc/html/rfc9116" target="_blank" rel="noopener">RFC 9116</a>) o en una página de seguridad dedicada, y regístrate en plataformas como <a href="https://www.hackerone.com/" target="_blank" rel="noopener">HackerOne</a>, <a href="https://www.bugcrowd.com/" target="_blank" rel="noopener">Bugcrowd</a> o <a href="https://www.intigriti.com/" target="_blank" rel="noopener">Intigriti</a> si deseas un programa gestionado. Los programas autoalojados (formulario web propio o recepción por correo electrónico) también son viables para organizaciones más pequeñas.</p>
+<p>Para las organizaciones que buscan un punto de partida con menos fricción, la <a href="https://owasp.org/www-project-bug-logging-tool/" target="_blank" rel="noopener">OWASP Bug Logging Tool (BLT)</a> proporciona un marco para programas de bug bounty internos y ad hoc, donde los desarrolladores, los equipos de seguridad u otro personal pueden registrar y dar seguimiento a las vulnerabilidades encontradas al atacar sus propias aplicaciones de forma programada o continua. BLT es ideal para madurar una cultura de seguridad y ejecutar campañas internas de pruebas de penetración sin la carga de un programa formal de bug bounty externo.</p>
+<h2 id="where-to-learn-more">Dónde aprender más</h2>
+<ul>
+<li><a href="https://github.com/EdOverflow/bugbounty-cheatsheet" target="_blank" rel="noopener">EdOverflow Bug Bounty Cheat Sheet</a>: consejos prácticos para investigadores que envían reportes a programas de recompensas.</li>
+<li><a href="https://www.hackerone.com/" target="_blank" rel="noopener">HackerOne Community</a>: reportes, investigaciones y recursos de la comunidad.</li>
+<li><a href="https://www.bugcrowd.com/resources/" target="_blank" rel="noopener">Bugcrowd Resources</a>: informes sobre las tendencias de los hackers y las mejores prácticas de los programas.</li>
+<li><a href="https://www.openbugbounty.org/" target="_blank" rel="noopener">Open Bug Bounty</a>: divulgación coordinada formal para infraestructura crítica de internet y proyectos de código abierto.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.hackerone.com/resources/reports/hacker-powered-security-report-2025" target="_blank" rel="noopener">2025 HackerOne Hacker-Powered Security Report</a></li>
+<li><a href="https://www.bugcrowd.com/blog/inside-the-mind-of-a-hacker-2026/" target="_blank" rel="noopener">2026 Bugcrowd Inside the Mind of a Hacker Report</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Vulnerability_Disclosure_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Vulnerability Disclosure Cheat Sheet</a></li>
+</ul>

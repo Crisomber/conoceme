@@ -1,0 +1,301 @@
+<h1 id="leveraging-dev-tools">F. Aprovechamiento de las herramientas de desarrollo</h1>
+<p>Este apéndice describe diversos detalles sobre el uso de la funcionalidad de las herramientas para desarrolladores (Developer Tools) del navegador como apoyo a las actividades de pruebas de seguridad.</p>
+<p>Obviamente, la funcionalidad del navegador no sustituye a las herramientas DAST (Dynamic Application Security Testing), a las herramientas SAST (Static Application Security Testing) ni a la experiencia de un evaluador; sin embargo, puede aprovecharse para algunas actividades de prueba y para tareas relacionadas con la producción de informes.</p>
+<h2 id="accessing-dev-tools">Acceso a las Dev Tools</h2>
+<p>Abrir las Dev Tools puede lograrse de varias maneras.</p>
+<ol>
+<li>Mediante el atajo de teclado <code>F12</code>.</li>
+<li>Mediante el atajo de teclado <code>ctrl</code> + <code>shift</code> + <code>i</code> en Windows.</li>
+<li>Mediante el atajo de teclado <code>cmd</code> + <code>option</code> + <code>i</code> en Mac.</li>
+<li>Mediante el menú contextual del clic derecho en la página web y luego seleccionando <code>Inspect</code> en Google Chrome.</li>
+<li>Mediante el menú contextual del clic derecho en la página web y luego seleccionando <code>Inspect Element</code> en Mozilla Firefox.</li>
+<li>Mediante el menú de tres puntos (&#39;kebab&#39;) en Google Chrome y luego seleccionando <code>More Tools</code> y después <code>Developer Tools</code>.</li>
+<li>Mediante el menú de tres líneas (&#39;hamburguesa&#39;) en Mozilla Firefox y luego seleccionando <code>Web Developer</code> y después <code>Toggle Tools</code>.</li>
+</ol>
+<blockquote>
+<p>NOTA: La mayoría de las instrucciones siguientes asumen que las Dev Tools ya están abiertas o activas.</p>
+</blockquote>
+<h2 id="capabilities">Capacidades</h2>
+<div class="tabla"><table><thead><tr>
+<th>Funcionalidad</th>
+<th align="center">Chrome*</th>
+<th align="center">Firefox</th>
+<th align="center">Safari</th>
+</tr>
+</thead><tbody><tr>
+<td>Cambio de User-Agent</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+<tr>
+<td>Editar/reenviar peticiones</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">N</td>
+</tr>
+<tr>
+<td>Edición de cookies</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">N</td>
+</tr>
+<tr>
+<td>Edición del almacenamiento local (Local Storage)</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">N</td>
+</tr>
+<tr>
+<td>Deshabilitar CSS</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+<tr>
+<td>Deshabilitar JavaScript</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+<tr>
+<td>Ver cabeceras HTTP</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+<tr>
+<td>Capturas de pantalla</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">N</td>
+</tr>
+<tr>
+<td>Modo sin conexión (offline)</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">N</td>
+</tr>
+<tr>
+<td>Codificación y decodificación</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+<tr>
+<td>Modo de diseño adaptable (responsive)</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+<td align="center">Y</td>
+</tr>
+</tbody></table></div>
+<p><code>*</code> Todo lo que aplique a Google Chrome debería ser aplicable a todas las aplicaciones basadas en Chromium. (Lo cual incluye a Microsoft Edge tras su cambio de marca hacia 2019/2020.)</p>
+<h2 id="user-agent-switching">Cambio de User-Agent</h2>
+<h3 id="related-testing">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/06-Browser_Cache_Weaknesses">Debilidades de la caché del navegador</a></li>
+</ul>
+<h3 id="google-chrome">Google Chrome</h3>
+<ol>
+<li>Haz clic en el menú de tres puntos (&#39;kebab&#39;) en el lado derecho del panel de Developer Tools, selecciona <code>More tools</code> y luego selecciona <code>Network conditions</code>.</li>
+<li>Desmarca la casilla &quot;Select automatically&quot;.</li>
+<li>Selecciona el user agent en el menú desplegable o introduce un user agent personalizado</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-chrome_devtools_ua_switch.png" alt="Menú desplegable de selección de User-Agent en Google Chrome" loading="lazy"><br><em>Figura 6.F-1: Funcionalidad de cambio de User-Agent en las Dev Tools de Google Chrome</em></p>
+<h3 id="mozilla-firefox">Mozilla Firefox</h3>
+<ol>
+<li>Navega a la página <code>about:config</code> de Firefox y haz clic en <code>I accept the risk!</code>.</li>
+<li>Introduce <code>general.useragent.override</code> en el campo de búsqueda.</li>
+<li>Busca <code>general.useragent.override</code>; si no ves esta preferencia, busca una que muestre un conjunto de botones de opción <code>Boolean, Number, String</code>, selecciona <code>String</code> y luego haz clic en el botón del signo más <code>Add</code> en la página <code>about:config</code>.</li>
+<li>Establece el valor de <code>general.useragent.override</code> con el <a href="https://developers.whatismybrowser.com/useragents/explore/" target="_blank" rel="noopener">User-Agent</a> que necesites.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-firefox_ua_switch.png" alt="Preferencia de configuración del User-Agent en Mozilla Firefox" loading="lazy"><br><em>Figura 6.F-2: Funcionalidad de cambio de User-Agent en Mozilla Firefox</em></p>
+<p>Después, haz clic en el botón del bote de basura <code>Delete</code> a la derecha de la preferencia <code>general.useragent.override</code> para eliminar la sustitución y volver al user agent por defecto.</p>
+<h2 id="editresend-requests">Editar/reenviar peticiones</h2>
+<h3 id="related-testing-1">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/README">Pruebas de autenticación</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/README">Pruebas de autorización</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/README">Pruebas de gestión de sesiones</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/README">Pruebas de inyección</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/README">Pruebas de lógica de negocio</a></li>
+</ul>
+<h3 id="mozilla-firefox-1">Mozilla Firefox</h3>
+<ol>
+<li>Selecciona la pestaña <code>Network</code>.</li>
+<li>Realiza cualquier acción en la aplicación web.</li>
+<li>Haz clic derecho en la petición HTTP de la lista y selecciona <code>Edit and Resend</code>.</li>
+<li>Realiza las modificaciones deseadas y haz clic en el botón <code>Send</code>.</li>
+<li>Haz clic derecho en la petición modificada y selecciona <code>Open in New Tab</code>.</li>
+</ol>
+<h3 id="google-chrome-1">Google Chrome</h3>
+<ol>
+<li>Selecciona la pestaña <code>Network</code>.</li>
+<li>Realiza cualquier acción en la aplicación web.</li>
+<li>Haz clic derecho en la petición HTTP de la lista y selecciona <code>Copy &gt; Copy as fetch</code>.</li>
+<li>Pega el código JavaScript proporcionado en la pestaña <code>Console</code>.</li>
+<li>Realiza las modificaciones necesarias y luego presiona enter para enviar la petición.</li>
+</ol>
+<h2 id="cookie-editing">Edición de cookies</h2>
+<h3 id="related-testing-2">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/README">Pruebas de autenticación</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/05-Authorization/README">Pruebas de autorización</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/README">Pruebas de gestión de sesiones</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes">Atributos de las cookies</a></li>
+</ul>
+<h3 id="google-chrome-2">Google Chrome</h3>
+<ol>
+<li>Haz clic en la pestaña <code>Application</code>.</li>
+<li>Expande <code>Cookies</code> bajo el encabezado <code>Storage</code>.</li>
+<li>Selecciona el nombre de dominio correspondiente.</li>
+<li>Haz doble clic en la columna <code>Value</code> para editar el valor de cualquier cookie.</li>
+</ol>
+<blockquote>
+<p>Nota: Las cookies se pueden eliminar una vez seleccionadas presionando la tecla <code>delete</code>, o desde el menú contextual del clic derecho.</p>
+</blockquote>
+<h3 id="mozilla-firefox-2">Mozilla Firefox</h3>
+<ol>
+<li>Haz clic en la pestaña <code>Storage</code>.</li>
+<li>Expande la sección <code>Cookies</code>.</li>
+<li>Selecciona el nombre de dominio correspondiente.</li>
+<li>Haz doble clic en la columna <code>Value</code> para editar el valor de cualquier cookie.</li>
+</ol>
+<blockquote>
+<p>Nota: Las cookies se pueden eliminar una vez seleccionadas presionando la tecla <code>delete</code>, o con varias opciones del menú contextual del clic derecho.</p>
+</blockquote>
+<p><img src="wstg/6-Appendix/images/f-firefox_cookie_edit.png" alt="Funcionalidad de edición de cookies en Mozilla Firefox" loading="lazy"><br><em>Figura 6.F-3: Funcionalidad de edición de cookies en Mozilla Firefox</em></p>
+<h2 id="local-storage-editing">Edición del almacenamiento local (Local Storage)</h2>
+<h3 id="related-testing-3">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/12-Browser_Storage">Pruebas del almacenamiento del navegador</a></li>
+</ul>
+<h3 id="google-chrome-3">Google Chrome</h3>
+<ol>
+<li>Haz clic en la pestaña <code>Application</code>.</li>
+<li>Expande <code>Local Storage</code> bajo el encabezado <code>Storage</code>.</li>
+<li>Selecciona el nombre de dominio correspondiente.</li>
+<li>Haz doble clic en la columna <code>Value</code> para editar el valor de cualquier cookie.</li>
+<li>Haz doble clic en la celda correspondiente para editar la <code>Key</code> o el <code>Value</code>.</li>
+</ol>
+<blockquote>
+<p>Nota: Editar <code>Session Storage</code> o <code>Index DB</code> sigue esencialmente los mismos pasos.</p>
+<p>Nota: Se pueden agregar o eliminar elementos desde el menú contextual del clic derecho.</p>
+</blockquote>
+<h3 id="mozilla-firefox-3">Mozilla Firefox</h3>
+<ol>
+<li>Haz clic en la pestaña <code>Storage</code>.</li>
+<li>Expande la sección <code>Local Storage</code>.</li>
+<li>Selecciona el nombre de dominio correspondiente.</li>
+<li>Haz doble clic en la celda correspondiente para editar la <code>Key</code> o el <code>Value</code>.</li>
+</ol>
+<blockquote>
+<p>Nota: Editar <code>Session Storage</code> o <code>Index DB</code> sigue esencialmente los mismos pasos.</p>
+<p>Nota: Se pueden agregar o eliminar elementos desde el menú contextual del clic derecho.</p>
+</blockquote>
+<h2 id="disable-css">Deshabilitar CSS</h2>
+<h3 id="related-testing-4">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/06-Client-side_Resource_Manipulation">Manipulación de recursos del lado del cliente</a></li>
+</ul>
+<h3 id="general">General</h3>
+<p>Todos los navegadores principales admiten la manipulación de CSS aprovechando la Console de las Dev Tools y la funcionalidad de JavaScript:</p>
+<ul>
+<li>Para eliminar todas las hojas de estilo externas: <code>$(&#39;style,link[rel=&quot;stylesheet&quot;]&#39;).remove();</code></li>
+<li>Para eliminar todas las hojas de estilo internas: <code>$(&#39;style&#39;).remove();</code></li>
+<li>Para eliminar todos los estilos en línea: <code>Array.prototype.forEach.call(document.querySelectorAll(&#39;*&#39;),function(el){el.removeAttribute(&#39;style&#39;);});</code></li>
+<li>Para eliminar todo el contenido de la etiqueta head: <code>$(&#39;head&#39;).remove();</code></li>
+</ul>
+<h2 id="disable-javascript">Deshabilitar JavaScript</h2>
+<h3 id="google-chrome-4">Google Chrome</h3>
+<ol>
+<li>Haz clic en el menú de tres puntos (&#39;kebab&#39;) en el lado derecho de la barra de herramientas del desarrollador web y haz clic en <code>Settings</code>.</li>
+<li>En la pestaña <code>Preferences</code>, en la sección <code>Debugger</code>, marca la casilla <code>Disable JavaScript</code>.</li>
+</ol>
+<h3 id="mozilla-firefox-4">Mozilla Firefox</h3>
+<ol>
+<li>En la pestaña <code>Debugger</code> de las Dev Tools, haz clic en el botón del engranaje de configuración en la esquina superior derecha de la barra de herramientas del desarrollador.</li>
+<li>Selecciona <code>Disable JavaScript</code> en el menú desplegable (es un elemento de menú de activación/desactivación; cuando JavaScript está deshabilitado, el elemento del menú muestra una marca de verificación).</li>
+</ol>
+<h2 id="view-http-headers">Ver cabeceras HTTP</h2>
+<h3 id="related-testing-5">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">Recopilación de información</a></li>
+</ul>
+<h3 id="google-chrome-5">Google Chrome</h3>
+<ol>
+<li>En la pestaña <code>Networking</code> de las Dev Tools, selecciona cualquier URL o petición.</li>
+<li>En el panel inferior derecho, selecciona la pestaña <code>Headers</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-chrome_devtools_headers.png" alt="Vista de cabeceras en Google Chrome" loading="lazy"><br><em>Figura 6.F-4: Vista de cabeceras en Google Chrome</em></p>
+<h3 id="mozilla-firefox-5">Mozilla Firefox</h3>
+<ol>
+<li>En la pestaña <code>Networking</code> de las Dev Tools, selecciona cualquier URL o petición.</li>
+<li>En el panel inferior derecho, selecciona la pestaña <code>Headers</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-firefox_devtools_headers.png" alt="Vista de cabeceras en Mozilla Firefox" loading="lazy"><br><em>Figura 6.F-5: Vista de cabeceras en Mozilla Firefox</em></p>
+<h2 id="screenshots">Capturas de pantalla</h2>
+<h3 id="related-testing-6">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/5-Reporting/README">Informes</a></li>
+</ul>
+<h3 id="google-chrome-6">Google Chrome</h3>
+<ol>
+<li>Presiona el botón <code>Toggle Device Toolbar</code> o presiona <code>ctrl</code> + <code>shift</code> + <code>m</code>.</li>
+<li>Haz clic en el menú de tres puntos (&#39;kebab&#39;) de la Device Toolbar.</li>
+<li>Selecciona <code>Capture screenshot</code> o <code>Capture full size screenshot</code>.</li>
+</ol>
+<h3 id="mozilla-firefox-6">Mozilla Firefox</h3>
+<ol>
+<li>Presiona el botón de tres puntos <code>ellipsis</code> en la barra de direcciones.</li>
+<li>Selecciona <code>Take a Screenshot</code>.</li>
+<li>Selecciona la opción <code>Save full page</code> o <code>Save visible</code>.</li>
+</ol>
+<h2 id="offline-mode">Modo sin conexión (offline)</h2>
+<h3 id="google-chrome-7">Google Chrome</h3>
+<ol>
+<li>Navega a la pestaña <code>Network</code>.</li>
+<li>En el menú desplegable <code>Throttle</code>, selecciona <code>Offline</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-chrome_devtools_offline.png" alt="Opción Offline en Google Chrome" loading="lazy"><br><em>Figura 6.F-6: Opción Offline en Google Chrome</em></p>
+<h3 id="mozilla-firefox-7">Mozilla Firefox</h3>
+<ol>
+<li>En el menú de tres líneas (&#39;hamburguesa&#39;), selecciona <code>Web Developer</code> y luego <code>Work Offline</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-firefox_devtools_offline.png" alt="Opción Offline en Mozilla Firefox" loading="lazy"><br><em>Figura 6.F-7: Opción Offline en Mozilla Firefox</em></p>
+<h2 id="encoding-and-decoding">Codificación y decodificación</h2>
+<h3 id="related-testing-7">Pruebas relacionadas</h3>
+<ul>
+<li>Muchos (quizás incluso la mayoría de) los tipos de <a href="#/4-Web_Application_Security_Testing/README">Pruebas de seguridad de aplicaciones web</a> pueden beneficiarse de diversos tipos de codificación.</li>
+</ul>
+<h3 id="general-1">General</h3>
+<p>Todos los navegadores principales admiten la codificación y decodificación de cadenas de varias maneras aprovechando la Console de las Dev Tools y la funcionalidad de JavaScript:</p>
+<ul>
+<li>Codificación base64: <code>btoa(&quot;string-to-encode&quot;)</code> y decodificación base64: <code>atob(&quot;string-to-decode&quot;)</code> - funciones integradas de JavaScript que se utilizan para codificar una cadena a base64 y decodificar una cadena desde base64.</li>
+<li>Codificación de URL: <code>encodeURIComponent(&quot;string-to-encode&quot;)</code> y decodificación de URL: <code>decodeURIComponent(&quot;string-to-decode&quot;)</code> - codifica y decodifica la entrada proporcionada por el usuario que se utilizará como parte de una URL, y codifica todos los caracteres que tienen significados especiales en una URL, incluidos los caracteres reservados.</li>
+<li>Codificación de URI: <code>encodeURI()</code> y decodificación de URI: <code>decodeURI()</code> son funciones utilizadas para codificar y decodificar un URI completo, como parámetros de consulta, segmentos de ruta o fragmentos, incluidos los caracteres especiales pero excluyendo los caracteres reservados como <code>:/?#[]@!$&#39;()*+,;=</code> que tienen significados especiales en una URL.</li>
+</ul>
+<h2 id="responsive-design-mode">Modo de diseño adaptable (responsive)</h2>
+<h3 id="related-testing-8">Pruebas relacionadas</h3>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/06-Browser_Cache_Weaknesses">Debilidades de la caché del navegador</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/10-Weaker_Authentication_in_Alternative_Channel">Autenticación más débil en canales alternativos</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a></li>
+</ul>
+<h3 id="google-chrome-8">Google Chrome</h3>
+<ol>
+<li>Haz clic en el botón <code>Toggle device toolbar</code> o presiona <code>ctrl</code> + <code>shift</code> + <code>m</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-chrome_responsive_design_mode.png" alt="Modo de diseño adaptable en Google Chrome" loading="lazy"><br><em>Figura 6.F-8: Modo de diseño adaptable en Google Chrome</em></p>
+<h3 id="mozilla-firefox-8">Mozilla Firefox</h3>
+<ol>
+<li>Haz clic en el botón <code>Responsive Design Mode</code> o presiona <code>ctrl</code> + <code>shift</code> + <code>m</code>.</li>
+</ol>
+<p><img src="wstg/6-Appendix/images/f-firefox_responsive_design_mode.png" alt="Modo de diseño adaptable en Mozilla Firefox" loading="lazy"><br><em>Figura 6.F-9: Modo de diseño adaptable en Mozilla Firefox</em></p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://getmantra.com/web-app-security-testing-with-browsers/" target="_blank" rel="noopener">Web App Security Testing with Browsers</a></li>
+<li><a href="https://www.blackhillsinfosec.com/webcast-free-tools-how-to-use-developer-tools-and-javascript-in-webapp-pentests/" target="_blank" rel="noopener">Black Hills Information Security - Webcast: Free Tools! How to Use Developer Tools and JavaScript in Webapp Pentests</a></li>
+<li><a href="https://github.com/gregmalcolm/wacky-wandas-wicked-weapons-frontend/blob/fix-it/README.md" target="_blank" rel="noopener">Greg Malcolm - Chrome Developer Tools: Raiding the Armory</a></li>
+<li><a href="https://techblog.willshouse.com/2012/01/03/most-common-user-agents/" target="_blank" rel="noopener">List of UserAgent Strings</a></li>
+</ul>

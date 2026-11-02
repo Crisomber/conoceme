@@ -1,0 +1,137 @@
+<h1 id="file-permissions">Permisos de archivos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-09</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Cuando a un recurso se le asigna una configuración de permisos que da acceso a un rango más amplio de actores del necesario, puede producirse la exposición de información sensible o la modificación de ese recurso por partes no previstas. Esto es especialmente peligroso cuando el recurso está relacionado con la configuración de un programa, su ejecución o datos sensibles de usuarios.</p>
+<p>Un ejemplo claro sería un archivo ejecutable que pueden ejecutar usuarios no autorizados. Otro ejemplo es la información de una cuenta o el valor de un token usado para acceder a una API. Estos se ven cada vez más en los servicios web modernos y los microservicios, y pueden almacenarse en un archivo de configuración que tiene permisos de lectura para todo el mundo por defecto tras la instalación. Estos datos sensibles podrían quedar expuestos tanto por actores internos malintencionados dentro del sistema anfitrión como por atacantes remotos. Estos últimos pueden haber comprometido el servicio mediante otras vulnerabilidades, obteniendo únicamente privilegios de usuario normal.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar e identificar cualquier permiso de archivo indebido en el sistema de archivos del host, en imágenes/sistemas de archivos de contenedores y en objetos de almacenamiento en la nube.</li>
+<li>Evaluar si los montajes de volúmenes de Kubernetes y los ajustes de <code>securityContext</code> aplican acceso de mínimo privilegio a archivos y secretos.</li>
+<li>Identificar secretos almacenados con permisos excesivamente amplios, dondequiera que se guarden (sistema de archivos, imagen de contenedor, almacén de secretos de orquestación, exportación de un gestor de secretos en la nube, artefactos de CI).</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="traditional-osfilesystem-permissions">Permisos tradicionales del SO y del sistema de archivos</h3>
+<p>En Linux, se usa el comando <code>ls</code> para comprobar los permisos de archivos. Alternativamente, también puede usarse <code>namei</code> para listar recursivamente los permisos de archivos.</p>
+<p><code>$ namei -l /PathToCheck/</code></p>
+<p>Los archivos y directorios que requieren pruebas de permisos de archivos pueden incluir, entre otros, los siguientes:</p>
+<ul>
+<li>Archivos/directorio web</li>
+<li>Archivos/directorio de configuración</li>
+<li>Archivos/directorio sensibles (datos cifrados, contraseñas, claves)</li>
+<li>Archivos/directorio de logs (logs de seguridad, de operación, de administración)</li>
+<li>Ejecutables (scripts, EXE, JAR, class, PHP, ASP)/directorio</li>
+<li>Archivos/directorio de bases de datos</li>
+<li>Archivos/directorio temporales</li>
+<li>Archivos/directorio de cargas (uploads)</li>
+</ul>
+<h3 id="container-filesystem-permissions">Permisos del sistema de archivos de contenedores</h3>
+<p>Las imágenes de contenedor con frecuencia incorporan permisos excesivamente amplios en archivos que acaban siendo propiedad de root o con permisos de escritura/lectura para todos dentro del contenedor en ejecución:</p>
+<ul>
+<li>Inspeccionar la construcción de la imagen en busca de instrucciones que amplíen permisos: <code>docker history --no-trunc &lt;image&gt;</code> y revisar el <code>Dockerfile</code> en busca de <code>COPY</code>/<code>ADD</code> sin un <code>chmod</code>/<code>chown</code> posterior, o <code>RUN chmod -R 777 ...</code> usado para sortear errores de permisos.</li>
+<li>Desde un contenedor en ejecución (o con <code>docker exec</code>), buscar archivos con permiso de escritura para todos fuera de las rutas temporales esperadas: <code>find / -perm -0002 -type f 2&gt;/dev/null</code>. Aquí se omite <code>-xdev</code>, a diferencia de un escaneo del host, ya que los archivos sensibles suelen estar en un volumen montado/PVC y no en el sistema de archivos raíz propio del contenedor. Los permisos de un volumen montado los establece el host o el orquestador en el momento del montaje y pueden diferir de lo que especifiquen las propias capas de la imagen para esa ruta, y prevalecer sobre ello, por lo que ambos deben comprobarse por separado: los permisos de las capas de la imagen mediante <code>docker history</code>/inspección de capas (véase arriba), y los permisos de los volúmenes montados mediante este <code>find</code> ejecutado contra el contenedor en vivo.</li>
+<li>Comprobar si el contenedor se ejecuta como root por defecto (<code>docker inspect --format &#39;{{.Config.User}}&#39; &lt;image&gt;</code> vacío o <code>0</code> significa root); un proceso root combinado con una ruta del host montada con bind y con permiso de escritura es una vía común de escalada.</li>
+<li>Comprobar los secretos o la configuración incorporados en las capas de la imagen con modos permisivos: <code>docker history</code> más la extracción de capas (p. ej., con <code>dive</code> o <code>docker save</code> + <code>tar</code>) para confirmar que archivos como <code>/app/.env</code> o el material de claves no estén en <code>644</code>/<code>666</code> cuando deberían estar en <code>600</code> y solo de root.</li>
+</ul>
+<h3 id="kubernetes-volume-mounts-and-securitycontext">Montajes de volúmenes de Kubernetes y securityContext</h3>
+<ul>
+<li>Revisar las especificaciones de Pod/Deployment en busca de <code>securityContext.fsGroup</code>, <code>runAsUser</code>, <code>runAsNonRoot</code> y <code>readOnlyRootFilesystem</code>; su ausencia suele significar que los volúmenes y el sistema de archivos raíz pueden ser escritos por más procesos/usuarios de lo necesario.</li>
+<li>Comprobar los volúmenes montados de <code>Secret</code> y <code>ConfigMap</code> en busca de un <code>defaultMode</code> explícito (modo de archivo en octal); el valor predeterminado de Kubernetes (<code>0644</code>) hace que los archivos de secretos sean legibles por el grupo y por todos dentro del pod. Confirmar que los montajes sensibles establecen un modo más restrictivo (p. ej., <code>0400</code> o <code>0440</code>) mediante <code>defaultMode</code> o <code>mode</code> por elemento.</li>
+<li>Para los volúmenes <code>hostPath</code>, confirmar los permisos del propio directorio del host montado y que el UID/GID del contenedor (de <code>securityContext</code>) no otorgue más acceso del previsto en el host.</li>
+<li>Revisar <code>automountServiceAccountToken</code> y si el volumen proyectado del token de la cuenta de servicio es legible/montable de forma más amplia de lo que necesita la carga de trabajo.</li>
+<li><code>kubectl auth can-i --list --as=system:serviceaccount:&lt;ns&gt;:&lt;sa&gt;</code> ayuda a confirmar que el acceso efectivo vinculado a la identidad de un pod no es más amplio de lo que implican los permisos de archivos/volúmenes.</li>
+</ul>
+<h4 id="securitycontext-and-container-hardening-checklist">Lista de verificación de SecurityContext y endurecimiento de contenedores</h4>
+<p>Los campos anteriores son el subconjunto específico de permisos de una revisión más amplia de <code>securityContext</code>/endurecimiento de contenedores. La siguiente lista de verificación cubre los campos que con más frecuencia se dejan en su valor predeterminado inseguro, para usarla como referencia compacta en las pruebas de contenedores y Kubernetes de esta sección y en <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/02-Application_Platform_Configuration@container-images">Configuración de la plataforma de aplicaciones</a>:</p>
+<div class="tabla"><table><thead><tr>
+<th>Campo/ajuste</th>
+<th>Valor predeterminado inseguro</th>
+<th>Qué comprobar</th>
+</tr>
+</thead><tbody><tr>
+<td><code>runAsNonRoot</code> / <code>USER</code> del contenedor</td>
+<td>Sin establecer; el contenedor se ejecuta como root (UID 0)</td>
+<td><code>securityContext.runAsNonRoot: true</code> en la especificación del pod y <code>runAsUser</code> establecido con un UID distinto de cero, o <code>docker inspect --format &#39;{{.Config.User}}&#39; &lt;image&gt;</code> no vacío y distinto de cero.</td>
+</tr>
+<tr>
+<td><code>readOnlyRootFilesystem</code></td>
+<td>Sin establecer; sistema de archivos raíz con permiso de escritura</td>
+<td>La especificación del pod establece <code>readOnlyRootFilesystem: true</code>, con las rutas en las que el proceso realmente necesita escribir montadas como volúmenes separados.</td>
+</tr>
+<tr>
+<td><code>allowPrivilegeEscalation</code></td>
+<td>Sin establecer; por defecto permite la escalada</td>
+<td>La especificación del pod establece <code>allowPrivilegeEscalation: false</code>.</td>
+</tr>
+<tr>
+<td><code>privileged</code></td>
+<td>Sin establecer; el contenedor no es privilegiado por defecto, pero hay que revisar si se activó explícitamente</td>
+<td>Confirmar que <code>privileged: true</code> no esté establecido, salvo donde sea realmente necesario (poco común en cargas de trabajo de aplicaciones).</td>
+</tr>
+<tr>
+<td>Linux capabilities</td>
+<td>El contenedor conserva el conjunto completo de capabilities predeterminado</td>
+<td><code>capabilities.drop: [&quot;ALL&quot;]</code> en la especificación del pod, volviendo a añadir mediante <code>capabilities.add</code> solo las capabilities específicas que necesita la carga de trabajo.</td>
+</tr>
+<tr>
+<td><code>seccompProfile</code></td>
+<td>Sin establecer en clústeres antiguos; sin confinamiento</td>
+<td><code>securityContext.seccompProfile.type: RuntimeDefault</code> a nivel de pod o de contenedor (o un perfil personalizado más estricto).</td>
+</tr>
+<tr>
+<td>Namespaces del host (<code>hostNetwork</code>, <code>hostPID</code>, <code>hostIPC</code>)</td>
+<td>Sin establecer; los namespaces están aislados por defecto, pero hay que revisar si se activaron explícitamente</td>
+<td>Confirmar que ninguno esté establecido en <code>true</code>, a menos que la carga de trabajo realmente necesite acceso a nivel de host.</td>
+</tr>
+<tr>
+<td><code>defaultMode</code> de volúmenes / permisos de capas de la imagen</td>
+<td>Cubierto arriba en permisos del sistema de archivos y de volúmenes</td>
+<td>Véanse <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions@container-filesystem-permissions">Permisos del sistema de archivos de contenedores</a> y <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions@kubernetes-volume-mounts-and-securitycontext">Montajes de volúmenes de Kubernetes y securityContext</a> más arriba.</td>
+</tr>
+</tbody></table></div>
+<p>Al igual que con las demás comprobaciones de este documento, un ajuste ausente o inseguro debe tratarse como un hallazgo candidato que se debe confirmar frente al comportamiento real de la carga de trabajo (por ejemplo, una capability innecesaria que el proceso en ejecución en realidad no usa sigue mereciendo ser señalada, pero demostrar que es explotable, como mediante una fuga del contenedor usando una capability retenida, es un hallazgo más sólido que la sola observación de la configuración).</p>
+<h3 id="cloud-object-acls-and-iam">ACL de objetos en la nube e IAM</h3>
+<p>Las configuraciones incorrectas del almacenamiento en la nube son un análogo directo de los permisos de archivos y deben probarse de la misma manera:</p>
+<ul>
+<li>AWS S3: comprobar las ACL de buckets y objetos y las políticas de buckets en busca de permisos públicos o excesivamente amplios: <code>aws s3api get-bucket-acl --bucket &lt;name&gt;</code>, <code>aws s3api get-bucket-policy --bucket &lt;name&gt;</code>, y confirmar que los ajustes de S3 Block Public Access estén habilitados, salvo que se requiera explícitamente lo contrario.</li>
+<li>Azure Blob Storage: comprobar el nivel de acceso público del contenedor (<code>Private</code>/<code>Blob</code>/<code>Container</code>) y cualquier token SAS con un alcance excesivo o una expiración larga: <code>az storage container show-permission</code>.</li>
+<li>GCP Cloud Storage: comprobar los enlaces IAM de buckets/objetos y las ACL heredadas en busca de <code>allUsers</code>/<code>allAuthenticatedUsers</code>: <code>gsutil iam get gs://&lt;bucket&gt;</code>.</li>
+<li>En todos los casos, distinguir entre &quot;legible públicamente por diseño&quot; (p. ej., recursos estáticos de un sitio) y la exposición no intencionada de configuración, respaldos o credenciales; es la misma distinción que en la revisión de permisos de archivos en un sistema de archivos.</li>
+</ul>
+<h3 id="secrets-stored-with-overly-broad-permissions">Secretos almacenados con permisos excesivamente amplios</h3>
+<p>Independientemente de dónde residan los secretos (sistema de archivos, imagen de contenedor, <code>Secret</code> de Kubernetes, exportación de un gestor de secretos en la nube, artefacto de CI), hay que verificar:</p>
+<ul>
+<li>Los secretos basados en archivos (<code>.env</code>, claves privadas, JSON de cuentas de servicio, kubeconfig) no son legibles por el grupo ni por todos (<code>600</code>/<code>400</code> y propiedad únicamente del usuario/cuenta de servicio previsto).</li>
+<li>Los secretos no se incluyen en las capas de las imágenes de contenedor ni son accesibles mediante <code>docker history</code>/inspección de capas, aunque se hayan eliminado en una capa posterior.</li>
+<li>Los secretos incorporados en artefactos o logs de compilación de CI no terminan en cachés de compilación ni en almacenamiento de artefactos legibles por todos con ACL predeterminadas (a menudo permisivas).</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Establecer correctamente los permisos de archivos y directorios para que los usuarios no autorizados no puedan acceder a recursos críticos, aplicando el mínimo privilegio en el host, en las imágenes de contenedor y en la capa de orquestación.</li>
+<li>En contenedores, evitar ejecutar como root y evitar <code>chmod -R 777</code> o soluciones alternativas similares de permisos amplios; en su lugar, corregir la discrepancia subyacente de propiedad/UID.</li>
+<li>En Kubernetes, establecer <code>securityContext</code> (<code>runAsNonRoot</code>, <code>readOnlyRootFilesystem</code>, <code>fsGroup</code>) y un <code>defaultMode</code> restrictivo en los volúmenes de <code>Secret</code>/<code>ConfigMap</code>.</li>
+<li>En el almacenamiento en la nube, habilitar por defecto el bloqueo de acceso público y conceder el acceso mediante roles/políticas IAM acotados en lugar de ACL amplias o tokens SAS de larga duración y amplio alcance.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/sysinternals/downloads/accessenum" target="_blank" rel="noopener">Windows AccessEnum</a></li>
+<li><a href="https://learn.microsoft.com/en-us/sysinternals/downloads/accesschk" target="_blank" rel="noopener">Windows AccessChk</a></li>
+<li><a href="https://linux.die.net/man/1/namei" target="_blank" rel="noopener">Linux namei</a></li>
+<li><a href="https://github.com/wagoodman/dive" target="_blank" rel="noopener">dive - Docker image layer/permission explorer</a></li>
+<li><a href="https://github.com/aquasecurity/kube-bench" target="_blank" rel="noopener">kube-bench - CIS Kubernetes Benchmark scanner</a></li>
+<li><a href="https://github.com/nccgroup/ScoutSuite" target="_blank" rel="noopener">ScoutSuite - Multi-cloud security auditing (AWS/Azure/GCP)</a></li>
+<li><a href="https://github.com/prowler-cloud/prowler" target="_blank" rel="noopener">Prowler - AWS/Azure/GCP security assessment</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cwe.mitre.org/data/definitions/732.html" target="_blank" rel="noopener">CWE-732: Incorrect Permission Assignment for Critical Resource</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/" target="_blank" rel="noopener">Kubernetes: Configure a Security Context for a Pod or Container</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/configuration/secret/#secret-files-permissions" target="_blank" rel="noopener">Kubernetes: Secrets - defaultMode</a></li>
+<li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html" target="_blank" rel="noopener">AWS: Blocking public access to your S3 storage</a></li>
+<li><a href="https://www.cisecurity.org/benchmark/docker" target="_blank" rel="noopener">CIS Docker Benchmark</a></li>
+</ul>

@@ -1,0 +1,179 @@
+<h1 id="upload-of-malicious-files">Carga de archivos maliciosos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-09</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los procesos de negocio de muchas aplicaciones permiten a los usuarios cargar datos en ellas. Aunque la validación de entrada se entiende ampliamente para los campos de entrada basados en texto, es más complicada de implementar cuando se aceptan archivos. Aunque muchos sitios implementan restricciones simples basadas en una lista de extensiones permitidas (o bloqueadas), esto no es suficiente para impedir que los atacantes carguen tipos de archivo legítimos con contenido malicioso.</p>
+<p>Las vulnerabilidades relacionadas con la carga de archivos maliciosos son particulares en cuanto a que estos archivos &quot;maliciosos&quot; pueden rechazarse fácilmente incluyendo lógica de negocio que analice los archivos durante el proceso de carga y rechace los que se perciban como maliciosos. Además, esto es distinto de la carga de archivos inesperados en que, aunque el tipo de archivo pueda ser aceptado, el archivo aún puede ser malicioso para el sistema.</p>
+<p>Por último, &quot;malicioso&quot; significa cosas distintas para sistemas distintos; por ejemplo, los archivos maliciosos que pueden explotar vulnerabilidades de SQL Server pueden no considerarse &quot;maliciosos&quot; en un entorno que usa un almacén de datos NoSQL.</p>
+<p>La aplicación puede permitir la carga de archivos maliciosos que incluyen exploits o shellcode sin someterlos a un análisis de archivos maliciosos. Los archivos maliciosos podrían detectarse y detenerse en varios puntos de la arquitectura de la aplicación, tales como: un sistema de detección o prevención de intrusiones, el software antivirus del servidor de aplicaciones o el análisis antivirus por parte de la aplicación a medida que se cargan los archivos (quizá delegando el análisis mediante SCAP).</p>
+<h3 id="example">Ejemplo</h3>
+<p>Un ejemplo común de esta vulnerabilidad es una aplicación como un blog o un foro que permite a los usuarios cargar imágenes y otros archivos multimedia. Aunque estos se consideran seguros, si un atacante puede cargar código ejecutable (como un script PHP), esto podría permitirle ejecutar comandos del sistema operativo, leer y modificar información en el sistema de archivos, acceder a la base de datos del backend y comprometer por completo el servidor.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar la funcionalidad de carga de archivos.</li>
+<li>Revisar la documentación del proyecto para identificar qué tipos de archivo se consideran aceptables y cuáles se considerarían peligrosos o maliciosos.<ul>
+<li>Si no hay documentación disponible, considerar qué sería apropiado según el propósito de la aplicación.</li>
+</ul>
+</li>
+<li>Determinar cómo se procesan los archivos cargados.</li>
+<li>Obtener o crear un conjunto de archivos maliciosos para las pruebas.</li>
+<li>Intentar cargar los archivos maliciosos en la aplicación y determinar si se aceptan y procesan.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="malicious-file-types">Tipos de archivo maliciosos</h3>
+<p>Las comprobaciones más simples que puede hacer una aplicación son determinar que solo se puedan cargar tipos de archivo de confianza.</p>
+<h4 id="web-shells">Web Shells</h4>
+<p>Si el servidor está configurado para ejecutar código, puede ser posible obtener ejecución de comandos en el servidor cargando un archivo conocido como web shell, que permite ejecutar código arbitrario o comandos del sistema operativo. Para que este ataque tenga éxito, el archivo debe cargarse dentro del webroot y el servidor debe estar configurado para ejecutar el código.</p>
+<p>Cargar este tipo de shell en un servidor expuesto a internet es peligroso, porque permite a cualquiera que conozca (o adivine) la ubicación de la shell ejecutar código en el servidor. Se pueden usar varias técnicas para proteger la shell del acceso no autorizado, como:</p>
+<ul>
+<li>Cargar la shell con un nombre generado aleatoriamente.</li>
+<li>Proteger la shell con contraseña.</li>
+<li>Implementar restricciones basadas en IP en la shell.</li>
+</ul>
+<p><strong>Recuerda eliminar la shell cuando hayas terminado.</strong></p>
+<p>El siguiente ejemplo muestra una shell simple basada en PHP, que ejecuta comandos del sistema operativo que se le pasan en un parámetro GET, y a la que solo se puede acceder desde una dirección IP específica:</p>
+<pre><code class="language-php">&lt;?php
+    if ($_SERVER[&#39;REMOTE_HOST&#39;] === &quot;FIXME&quot;) { // Set your IP address here
+        if(isset($_REQUEST[&#39;cmd&#39;])){
+            $cmd = ($_REQUEST[&#39;cmd&#39;]);
+            echo &quot;&lt;pre&gt;\n&quot;;
+            system($cmd);
+            echo &quot;&lt;/pre&gt;&quot;;
+        }
+    }
+?&gt;
+</code></pre>
+<p>Una vez cargada la shell (con un nombre aleatorio), se pueden ejecutar comandos del sistema operativo pasándolos en el parámetro GET <code>cmd</code>:</p>
+<p><code>https://example.org/7sna8uuorvcx3x4fx.php?cmd=cat+/etc/passwd</code></p>
+<h4 id="filter-evasion">Evasión de filtros</h4>
+<p>El primer paso es determinar qué permiten o bloquean los filtros y dónde se implementan. Si las restricciones se aplican en el lado del cliente mediante JavaScript, pueden eludirse trivialmente con un proxy de interceptación.</p>
+<p>Si el filtrado se realiza en el lado del servidor, se pueden intentar diversas técnicas para eludirlo, entre ellas:</p>
+<ul>
+<li>Cambiar el valor de <code>Content-Type</code> a <code>image/jpeg</code> en la petición HTTP.</li>
+<li>Cambiar las extensiones por una extensión menos común, como <code>file.php5</code>, <code>file.shtml</code>, <code>file.asa</code>, <code>file.jsp</code>, <code>file.jspx</code>, <code>file.aspx</code>, <code>file.asp</code>, <code>file.phtml</code>, <code>file.cshtml</code></li>
+<li>Usar extensiones dobles como <code>file.jpg.php</code> o <code>file.png.php</code>. Para que esto funcione correctamente, primero hay que entender cómo maneja el servidor web los archivos con múltiples extensiones. Por ejemplo, en ciertos escenarios, el servidor web puede comprobar solo si <code>.jpg</code> o <code>.png</code> forma parte de la extensión del archivo, lo que puede permitir a los atacantes eludir el filtro de extensiones de archivo.</li>
+<li>Cambiar la <a href="https://en.wikipedia.org/wiki/List_of_file_signatures" target="_blank" rel="noopener">file signature</a> o magic byte del archivo cargado.</li>
+<li>Cambiar el uso de mayúsculas y minúsculas de la extensión, como <code>file.PhP</code> o <code>file.AspX</code></li>
+<li>Si la petición incluye varios nombres de archivo, cambiarlos por valores distintos.</li>
+<li>Usar caracteres finales especiales como espacios, puntos o caracteres nulos, como <code>file.asp...</code>, <code>file.php;jpg</code>, <code>file.asp%00.jpg</code>, <code>1.jpg%00.php</code></li>
+<li>En versiones mal configuradas de Nginx, cargar un archivo como <code>test.jpg/x.php</code> puede permitir que se ejecute como <code>x.php</code>.</li>
+<li>Cargar un archivo <code>.htaccess</code> con el siguiente contenido: <code>AddType application/x-httpd-php .png</code>. Esto hará que el servidor Apache ejecute las imágenes <code>.png</code> como si fueran recursos <code>.php</code>.</li>
+</ul>
+<p>En algunas situaciones, puede ser necesario combinar las diferentes técnicas de evasión de filtros descritas anteriormente para eludir con éxito los filtros del lado del servidor.**</p>
+<h3 id="malicious-file-contents">Contenido de archivos maliciosos</h3>
+<p>Una vez validado el tipo de archivo, es importante asegurarse también de que el contenido del archivo es seguro. Esto es significativamente más difícil de hacer, ya que los pasos necesarios variarán según los tipos de archivo permitidos.</p>
+<h4 id="malware">Malware</h4>
+<p>En general, las aplicaciones deben analizar los archivos cargados con software antimalware para asegurar que no contienen nada malicioso. La forma más fácil de probar esto es usar el <a href="https://www.eicar.org/download-anti-malware-testfile/" target="_blank" rel="noopener">EICAR test file</a>, que es un archivo seguro que todo el software antimalware marca como malicioso.</p>
+<p>Según el tipo de aplicación, puede ser necesario probar otros tipos de archivo peligrosos, como documentos de Office que contengan macros maliciosas. Herramientas como <a href="https://github.com/rapid7/metasploit-framework" target="_blank" rel="noopener">Metasploit Framework</a> y <a href="https://github.com/trustedsec/social-engineer-toolkit" target="_blank" rel="noopener">Social Engineer Toolkit (SET)</a> se pueden usar para generar archivos maliciosos de varios formatos.</p>
+<p>Cuando se carga este archivo, la aplicación debería detectarlo y ponerlo en cuarentena o eliminarlo. Según cómo procese el archivo la aplicación, puede no ser evidente si esto ha ocurrido.</p>
+<h4 id="archive-directory-traversal">Directory Traversal en archivos comprimidos</h4>
+<p>Si la aplicación extrae archivos comprimidos (como ZIP), puede ser posible escribir en ubicaciones no previstas mediante directory traversal. Esto se puede explotar cargando un archivo ZIP malicioso que contenga rutas que recorran el sistema de archivos con secuencias como <code>..\..\..\..\shell.php</code>. Esta técnica se analiza con más detalle en el <a href="https://security.snyk.io/research/zip-slip-vulnerability" target="_blank" rel="noopener">snyk advisory</a>.</p>
+<p>Una prueba contra Archive Directory Traversal debe incluir dos partes:</p>
+<ol>
+<li>Un archivo comprimido malicioso que se salga del directorio de destino al extraerse. Este archivo malicioso debe contener dos archivos: un archivo <code>base</code>, extraído en el directorio de destino, y un archivo <code>traversed</code> que intenta ascender por el árbol de directorios hasta llegar a la carpeta raíz, añadiendo un archivo en el directorio <code>tmp</code>. Una ruta maliciosa contendrá muchos niveles de <code>../</code> (<em>es decir</em>, <code>../../../../../../../../tmp/traversed</code>) para tener más posibilidades de llegar al directorio raíz. Una vez que el ataque tiene éxito, el evaluador puede encontrar <code>/tmp/traversed</code> creado en el servidor web mediante el ataque ZIP slip.</li>
+<li>Lógica que extrae archivos comprimidos, ya sea con código personalizado o con una biblioteca. Las vulnerabilidades de Archive Directory Traversal existen cuando la funcionalidad de extracción no valida las rutas de archivo del archivo comprimido. El siguiente ejemplo muestra una implementación vulnerable en Java:</li>
+</ol>
+<pre><code class="language-java">Enumeration&lt;ZipEntry&gt; entries =​ ​zip​.g​etEntries();
+
+while(entries​.h​asMoreElements()){
+    ZipEntry e ​= ​entries.nextElement();
+    File f = new File(destinationDir, e.getName());
+    InputStream input = zip​.g​etInputStream(e);
+    IOUtils​.c​opy(input, write(f));
+}
+</code></pre>
+<p>Sigue los pasos siguientes para crear un archivo ZIP que pueda abusar del código vulnerable anterior una vez cargado en el servidor web:</p>
+<pre><code class="language-bash"># Open a new terminal and create a tree structure
+# (more directory levels might be required based on the system being targeted)
+mkdir -p a/b/c
+# Create a base file
+echo &#39;base&#39; &gt; a/b/c/base
+# Create a traversed file
+echo &#39;traversed&#39; &gt; traversed
+# You can double check the tree structure using `tree` at this stage
+# Navigate to a/b/c root directory
+cd a/b/c
+# Compress the files
+zip test.zip base ../../../traversed
+# Verify compressed files content
+unzip -l test.zip
+</code></pre>
+<h4 id="archive-symlink-attacks">Ataques de enlaces simbólicos en archivos comprimidos</h4>
+<p>Si la aplicación extrae archivos comprimidos (como ZIP o TAR), es importante verificar cómo se manejan los enlaces simbólicos contenidos en el archivo. A diferencia del Archive Directory Traversal (ZIP Slip), esta técnica no depende de secuencias de directory traversal <code>../</code>.</p>
+<p>Un atacante puede crear un archivo comprimido que contenga un enlace simbólico que apunte a un archivo sensible del servidor (por ejemplo, <code>/etc/passwd</code>). Si el proceso de extracción conserva los enlaces simbólicos sin validación, y la aplicación luego procesa o expone los archivos extraídos, esto puede resultar en acceso no previsto a archivos sensibles del sistema.</p>
+<p>Por ejemplo, un archivo comprimido malicioso puede contener: <code>link.txt -&gt; /etc/passwd</code></p>
+<p>Si el backend extrae este archivo sin validar ni rechazar los enlaces simbólicos, y la aplicación lee <code>link.txt</code>, podría revelar inadvertidamente el contenido de <code>/etc/passwd</code>.</p>
+<h5 id="how-to-test-1">Cómo probar</h5>
+<ol>
+<li>Crear un enlace simbólico: <code>ln -s /etc/passwd link.txt</code></li>
+<li>Crear un archivo comprimido: <code>tar -czf malicious.tar.gz link.txt</code></li>
+<li>Cargar el archivo comprimido en la aplicación.</li>
+<li>Comprobar:<ul>
+<li>¿Se extrae el enlace simbólico?</li>
+<li>¿La aplicación sigue el enlace?</li>
+<li>¿Se puede acceder al contenido de archivos sensibles?</li>
+</ul>
+</li>
+</ol>
+<h5 id="impact">Impacto</h5>
+<ul>
+<li>Lectura arbitraria de archivos</li>
+<li>Divulgación de información sensible</li>
+</ul>
+<h4 id="zip-bombs">ZIP Bombs</h4>
+<p>Una <a href="https://en.wikipedia.org/wiki/zip_bomb" target="_blank" rel="noopener">ZIP bomb</a> (más generalmente conocida como bomba de descompresión) es un archivo comprimido que contiene un gran volumen de datos. Su propósito es causar una denegación de servicio agotando el espacio en disco o la memoria del sistema objetivo que intenta extraer el archivo. Aunque el formato ZIP es el ejemplo más usado, otros formatos también se ven afectados, incluido gzip (que se usa con frecuencia para comprimir datos en tránsito).</p>
+<p>En su nivel más simple, una ZIP bomb se puede crear comprimiendo un archivo grande formado por un único carácter. El siguiente ejemplo muestra cómo crear un archivo de 1 MB que se descomprimirá a 1 GB:</p>
+<pre><code class="language-bash">dd if=/dev/zero bs=1M count=1024 | zip -9 &gt; bomb.zip
+</code></pre>
+<p>Existen varios métodos para lograr relaciones de compresión mucho más altas, incluidos múltiples niveles de compresión, <a href="https://www.bamsoftware.com/hacks/zipbomb/" target="_blank" rel="noopener">abusing the ZIP format</a> y <a href="https://research.swtch.com/zip" target="_blank" rel="noopener">quines</a> (que son archivos comprimidos que contienen una copia de sí mismos, causando recursión infinita).</p>
+<p>Un ataque exitoso de ZIP bomb producirá una denegación de servicio y también puede generar mayores costos si se usa una plataforma en la nube con escalado automático. <strong>No se debe realizar este tipo de ataque a menos que se hayan considerado estos riesgos y se cuente con aprobación por escrito para hacerlo.</strong></p>
+<h4 id="xml-files">Archivos XML</h4>
+<p>Los archivos XML tienen varias vulnerabilidades potenciales, como XML eXternal Entities (XXE) y ataques de denegación de servicio como el <a href="https://en.wikipedia.org/wiki/Billion_laughs_attack" target="_blank" rel="noopener">billion laughs attack</a>.</p>
+<p>Estas se analizan con más detalle en la guía de <a href="#/4-Web_Application_Security_Testing/07-Injection/07-XML_Injection">XML Injection</a>.</p>
+<h4 id="other-file-formats">Otros formatos de archivo</h4>
+<p>Muchos otros formatos de archivo también tienen preocupaciones de seguridad específicas que deben tenerse en cuenta, como:</p>
+<ul>
+<li>Los archivos de imagen deben comprobarse en cuanto a tamaño máximo de píxeles o de fotogramas.</li>
+<li>Los archivos CSV pueden permitir <a href="https://owasp.org/www-community/attacks/CSV_Injection" target="_blank" rel="noopener">CSV injection attacks</a>.</li>
+<li>Los archivos de Office pueden contener macros maliciosas o código PowerShell.</li>
+<li>Los PDF pueden contener JavaScript malicioso.</li>
+</ul>
+<p>Se deben revisar con cuidado los formatos de archivo permitidos en busca de funcionalidad potencialmente peligrosa y, cuando sea posible, se debe intentar explotarla durante las pruebas.</p>
+<h3 id="source-code-review">Revisión del código fuente</h3>
+<p>Cuando se admite la función de carga de archivos, es común encontrar en el código fuente las siguientes API o métodos.</p>
+<ul>
+<li>Java: <code>new file</code>, <code>import</code>, <code>upload</code>, <code>getFileName</code>, <code>Download</code>, <code>getOutputString</code></li>
+<li>C/C++: <code>open</code>, <code>fopen</code></li>
+<li>PHP: <code>move_uploaded_file()</code>, <code>Readfile</code>, <code>file_put_contents()</code>, <code>file()</code>, <code>parse_ini_file()</code>, <code>copy()</code>, <code>fopen()</code>, <code>include()</code>, <code>require()</code></li>
+</ul>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/03-File_Extensions_Handling_for_Sensitive_Information">File Extensions Handling for Sensitive Information</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/07-XML_Injection">XML Injection</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/08-Upload_of_Unexpected_File_Types">Test Upload of Unexpected File Types</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Protegerse por completo contra la carga de archivos maliciosos puede ser complejo, y los pasos exactos necesarios variarán según los tipos de archivo que se carguen y cómo se procesen o analicen los archivos en el servidor. Esto se analiza más a fondo en la <a href="https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html" target="_blank" rel="noopener">File Upload Cheat Sheet</a>.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>Funcionalidad de generación de payloads de Metasploit</li>
+<li>Proxy de interceptación</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP - File Upload Cheat Sheet</a></li>
+<li><a href="https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload" target="_blank" rel="noopener">OWASP - Unrestricted File Upload</a></li>
+<li><a href="https://www.acunetix.com/websitesecurity/upload-forms-threat/" target="_blank" rel="noopener">Why File Upload Forms are a Major Security Threat</a></li>
+<li><a href="https://www.sans.org/blog/8-basic-rules-to-implement-secure-file-uploads" target="_blank" rel="noopener">8 Basic Rules to Implement Secure File Uploads</a></li>
+<li><a href="https://stackoverflow.com/questions/602539/stop-people-uploading-malicious-php-files-via-forms" target="_blank" rel="noopener">Stop people uploading malicious PHP files via forms</a></li>
+<li><a href="https://web.archive.org/web/20210710090809/https://www.techsupportalert.com/content/how-tell-if-file-malicious.htm" target="_blank" rel="noopener">How to Tell if a File is Malicious</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/434.html" target="_blank" rel="noopener">CWE-434: Unrestricted Upload of File with Dangerous Type</a></li>
+<li><a href="https://infosecauditor.wordpress.com/tag/malicious-file-upload/" target="_blank" rel="noopener">Implementing Secure File Upload</a></li>
+<li><a href="https://www.offsec.com/metasploit-unleashed/generating-payloads/" target="_blank" rel="noopener">Metasploit Generating Payloads</a></li>
+<li><a href="https://en.wikipedia.org/wiki/List_of_file_signatures" target="_blank" rel="noopener">List of file signatures</a></li>
+</ul>

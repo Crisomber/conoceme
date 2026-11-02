@@ -1,0 +1,111 @@
+<h1 id="ldap-injection">Inyección LDAP</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El Lightweight Directory Access Protocol (LDAP) se utiliza para almacenar información sobre usuarios, hosts y muchos otros objetos. La <a href="https://community.owasp.org/attacks/LDAP_Injection" target="_blank" rel="noopener">inyección LDAP</a> es un ataque del lado del servidor que podría permitir que se divulgue, modifique o inserte información sensible sobre usuarios y hosts representados en una estructura LDAP. Esto se logra manipulando parámetros de entrada que luego se pasan a funciones internas de búsqueda, adición y modificación.</p>
+<p>Una aplicación web podría usar LDAP para permitir que los usuarios se autentiquen o busquen información de otros usuarios dentro de una estructura corporativa. El objetivo de los ataques de inyección LDAP es inyectar metacaracteres de filtros de búsqueda LDAP en una consulta que será ejecutada por la aplicación.</p>
+<p><a href="https://www.ietf.org/rfc/rfc2254.txt" target="_blank" rel="noopener">Rfc2254</a> define una gramática sobre cómo construir un filtro de búsqueda en LDAPv3 y extiende <a href="https://www.ietf.org/rfc/rfc1960.txt" target="_blank" rel="noopener">Rfc1960</a> (LDAPv2).</p>
+<p>Un filtro de búsqueda LDAP se construye en notación polaca, también conocida como <a href="https://en.wikipedia.org/wiki/Polish_notation" target="_blank" rel="noopener">notación polaca prefija</a>.</p>
+<p>Esto significa que una condición en pseudocódigo sobre un filtro de búsqueda como esta:</p>
+<p><code>find(&quot;cn=John &amp; userPassword=mypass&quot;)</code></p>
+<p>se representará como:</p>
+<p><code>find(&quot;(&amp;(cn=John)(userPassword=mypass))&quot;)</code></p>
+<p>Las condiciones booleanas y las agrupaciones en un filtro de búsqueda LDAP se pueden aplicar utilizando los siguientes metacaracteres:</p>
+<div class="tabla"><table><thead><tr>
+<th>Metacarácter</th>
+<th>Significado</th>
+</tr>
+</thead><tbody><tr>
+<td>&amp;</td>
+<td>AND booleano</td>
+</tr>
+<tr>
+<td>|</td>
+<td>OR booleano</td>
+</tr>
+<tr>
+<td>!</td>
+<td>NOT booleano</td>
+</tr>
+<tr>
+<td>=</td>
+<td>Igual a</td>
+</tr>
+<tr>
+<td>~=</td>
+<td>Aproximado</td>
+</tr>
+<tr>
+<td>&gt;=</td>
+<td>Mayor que</td>
+</tr>
+<tr>
+<td>&lt;=</td>
+<td>Menor que</td>
+</tr>
+<tr>
+<td>*</td>
+<td>Cualquier carácter</td>
+</tr>
+<tr>
+<td>()</td>
+<td>Paréntesis de agrupación</td>
+</tr>
+</tbody></table></div>
+<p>Se pueden encontrar ejemplos más completos sobre cómo construir un filtro de búsqueda en la RFC correspondiente.</p>
+<p>Una explotación exitosa de una vulnerabilidad de inyección LDAP podría permitir al evaluador:</p>
+<ul>
+<li>Acceder a contenido no autorizado</li>
+<li>Evadir las restricciones de la aplicación</li>
+<li>Recopilar información no autorizada</li>
+<li>Agregar o modificar objetos dentro de la estructura de árbol de LDAP</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección LDAP.</li>
+<li>Evaluar la severidad de la inyección.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="example-1-search-filters">Ejemplo 1: filtros de búsqueda</h3>
+<p>Supongamos que tenemos una aplicación web que utiliza un filtro de búsqueda como el siguiente:</p>
+<p><code>searchfilter=&quot;(cn=&quot;+user+&quot;)&quot;</code></p>
+<p>que se instancia mediante una petición HTTP como esta:</p>
+<p><code>https://www.example.com/ldapsearch?user=John</code></p>
+<p>Si el valor <code>John</code> se reemplaza por un <code>*</code>, enviando la petición:</p>
+<p><code>https://www.example.com/ldapsearch?user=*</code></p>
+<p>el filtro quedará así:</p>
+<p><code>searchfilter=&quot;(cn=*)&quot;</code></p>
+<p>que coincide con todos los objetos que tengan un atributo &#39;cn&#39; igual a cualquier valor.</p>
+<p>Si la aplicación es vulnerable a la inyección LDAP, mostrará algunos o todos los atributos de los usuarios, dependiendo del flujo de ejecución de la aplicación y de los permisos del usuario LDAP conectado.</p>
+<p>Un evaluador podría usar un enfoque de prueba y error, insertando en el parámetro <code>(</code>, <code>|</code>, <code>&amp;</code>, <code>*</code> y otros caracteres, para comprobar si la aplicación genera errores.</p>
+<h3 id="example-2-login">Ejemplo 2: inicio de sesión</h3>
+<p>Si una aplicación web utiliza LDAP para verificar las credenciales de los usuarios durante el proceso de inicio de sesión y es vulnerable a la inyección LDAP, es posible eludir la verificación de autenticación inyectando una consulta LDAP que siempre sea verdadera (de manera similar a la inyección SQL y XPATH).</p>
+<p>Supongamos que una aplicación web utiliza un filtro para hacer coincidir el par usuario/contraseña en LDAP.</p>
+<p><code>searchlogin= &quot;(&amp;(uid=&quot;+user+&quot;)(userPassword={MD5}&quot;+base64(pack(&quot;H*&quot;,md5(pass)))+&quot;))&quot;;</code></p>
+<p>Utilizando los siguientes valores:</p>
+<pre><code class="language-txt">user=*)(uid=*))(|(uid=*
+pass=password
+</code></pre>
+<p>el filtro de búsqueda resultará en:</p>
+<p><code>searchlogin=&quot;(&amp;(uid=*)(uid=*))(|(uid=*)(userPassword={MD5}X03MO1qnZdYdgyfeuILPmQ==))&quot;;</code></p>
+<p>que es correcto y siempre verdadero. De esta manera, el evaluador obtendrá el estado de sesión iniciada como el primer usuario del árbol LDAP.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.ldapadministrator.com" target="_blank" rel="noopener">Softerra LDAP Browser</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">LDAP Injection Prevention Cheat Sheet</a></li>
+</ul>
+<h3 id="whitepapers">Documentos técnicos (whitepapers)</h3>
+<ul>
+<li><a href="https://networkdls.com/File/Entity/article-archive/ldap-injection.pdf" target="_blank" rel="noopener">Sacha Faust: LDAP Injection: Are Your Applications Vulnerable?</a></li>
+<li><a href="https://www.redbooks.ibm.com/redbooks/pdfs/sg244986.pdf" target="_blank" rel="noopener">IBM paper: Understanding LDAP</a></li>
+<li><a href="https://www.ietf.org/rfc/rfc1960.txt" target="_blank" rel="noopener">RFC 1960: A String Representation of LDAP Search Filters</a></li>
+<li><a href="https://www.blackhat.com/presentations/bh-europe-08/Alonso-Parada/Whitepaper/bh-eu-08-alonso-parada-WP.pdf" target="_blank" rel="noopener">LDAP injection</a></li>
+</ul>

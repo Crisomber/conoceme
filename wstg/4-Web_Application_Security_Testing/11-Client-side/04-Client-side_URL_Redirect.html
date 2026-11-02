@@ -1,0 +1,43 @@
+<h1 id="client-side-url-redirect">Redirección de URL del lado del cliente</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Esta sección describe cómo comprobar la redirección de URL del lado del cliente, también conocida como redirección abierta (open redirection). Es un fallo de validación de entrada que existe cuando una aplicación acepta entrada controlada por el usuario que especifica un enlace que conduce a una URL externa potencialmente maliciosa. Este tipo de vulnerabilidad podría usarse para llevar a cabo un ataque de phishing o redirigir a una víctima a una página de infección.</p>
+<p>Esta vulnerabilidad ocurre cuando una aplicación acepta entrada no confiable que contiene un valor de URL y no la sanea. Este valor de URL podría hacer que la aplicación web redirija al usuario a otra página, como una página maliciosa controlada por el atacante.</p>
+<p>Esta vulnerabilidad puede permitir a un atacante lanzar con éxito una estafa de phishing y robar las credenciales de los usuarios. Dado que la redirección se origina en la aplicación real, los intentos de phishing pueden tener una apariencia más confiable.</p>
+<p>A continuación se muestra un ejemplo de URL de un ataque de phishing.</p>
+<pre><code class="language-text">https://www.target.site?#redirect=www.fake-target.site
+</code></pre>
+<p>La víctima que visite esta URL será redirigida automáticamente a <code>fake-target.site</code>, donde un atacante podría colocar una página falsa que se asemeje al sitio previsto, con el fin de robar las credenciales de la víctima.</p>
+<p>La redirección abierta también podría usarse para construir una URL que eluda las comprobaciones de control de acceso de la aplicación y envíe al atacante a funciones privilegiadas a las que normalmente no podría acceder.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar puntos de inyección que manejen URLs o rutas.</li>
+<li>Evaluar los destinos a los que el sistema podría redirigir.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Cuando los evaluadores comprueban manualmente este tipo de vulnerabilidad, primero identifican si hay redirecciones del lado del cliente implementadas en el código del lado del cliente. Estas redirecciones pueden implementarse, por ejemplo en JavaScript, mediante el objeto <code>window.location</code>. Este puede usarse para dirigir el navegador a otra página simplemente asignándole una cadena. Esto se demuestra en el siguiente fragmento:</p>
+<pre><code class="language-js">var redir = location.hash.substring(1);
+if (redir) {
+    window.location=&#39;https://&#39;+decodeURIComponent(redir);
+}
+</code></pre>
+<p>En este ejemplo, el script no realiza ninguna validación de la variable <code>redir</code>, que contiene la entrada proporcionada por el usuario a través de la cadena de consulta. Como no se aplica ninguna forma de codificación, esta entrada sin validar se pasa al objeto <code>windows.location</code>, creando una vulnerabilidad de redirección de URL.</p>
+<p>Esto implica que un atacante podría redirigir a la víctima a un sitio malicioso simplemente enviando la siguiente cadena de consulta:</p>
+<pre><code class="language-text">https://www.victim.site/?#www.malicious.site
+</code></pre>
+<p>Con una ligera modificación, el fragmento de ejemplo anterior puede ser vulnerable a la inyección de JavaScript.</p>
+<pre><code class="language-js">var redir = location.hash.substring(1);
+if (redir) {
+    window.location=decodeURIComponent(redir);
+}
+</code></pre>
+<p>Esto puede explotarse enviando la siguiente cadena de consulta:</p>
+<pre><code class="language-text">https://www.victim.site/?#javascript:alert(document.cookie)
+</code></pre>
+<p>Al probar esta vulnerabilidad, hay que considerar que algunos caracteres son tratados de manera diferente por distintos navegadores. Como referencia, consulte <a href="https://owasp.org/www-community/attacks/DOM_Based_XSS" target="_blank" rel="noopener">DOM-based XSS</a>.</p>

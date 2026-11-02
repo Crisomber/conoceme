@@ -1,0 +1,80 @@
+<h1 id="web-messaging">Mensajería web (Web Messaging)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-11</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Web Messaging (también conocido como <a href="https://html.spec.whatwg.org/multipage/web-messaging.html#web-messaging" target="_blank" rel="noopener">Cross Document Messaging</a>) permite que aplicaciones que se ejecutan en dominios diferentes se comuniquen de manera segura. Antes de la introducción de la mensajería web, la comunicación entre orígenes distintos (entre iframes, pestañas y ventanas) estaba restringida por la política del mismo origen (same origin policy) y era impuesta por el navegador. Los desarrolladores utilizaban múltiples trucos para lograr estas tareas, y la mayoría eran principalmente inseguros.</p>
+<p>Esta restricción dentro del navegador existe para evitar que un sitio web malicioso lea datos confidenciales de otros iframes, pestañas, etc.; sin embargo, hay algunos casos legítimos en los que dos sitios web de confianza necesitan intercambiar datos entre sí. Para satisfacer esta necesidad, se introdujo Cross Document Messaging en el borrador de especificación <a href="https://html.spec.whatwg.org/multipage/" target="_blank" rel="noopener">WHATWG HTML5</a> y se implementó en todos los navegadores principales. Permite comunicaciones seguras entre múltiples orígenes a través de iframes, pestañas y ventanas.</p>
+<p>La API de mensajería introdujo el <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage" target="_blank" rel="noopener">método <code>postMessage()</code></a>, con el que se pueden enviar mensajes de texto plano entre orígenes. Consta de dos parámetros: el mensaje y el dominio.</p>
+<p>Existen algunas preocupaciones de seguridad al usar <code>*</code> como dominio, que se tratan más abajo. Para recibir mensajes, el sitio web receptor necesita añadir un nuevo manejador de eventos, que tiene los siguientes atributos:</p>
+<ul>
+<li>Data, el contenido del mensaje entrante;</li>
+<li>Origin del documento emisor; y</li>
+<li>Source, la ventana de origen.</li>
+</ul>
+<p>Este es un ejemplo del uso de la API de mensajería. Para enviar un mensaje:</p>
+<pre><code class="language-js">iframe1.contentWindow.postMessage(&quot;Hello world&quot;,&quot;https://www.example.com&quot;);
+</code></pre>
+<p>Para recibir un mensaje:</p>
+<pre><code class="language-js">window.addEventListener(&quot;message&quot;, handler, true);
+function handler(event) {
+    if(event.origin === &#39;chat.example.com&#39;) {
+        /* process message (event.data) */
+    } else {
+        /* ignore messages from untrusted domains */
+    }
+}
+</code></pre>
+<h3 id="origin-security">Seguridad del origen</h3>
+<p>El origen está compuesto por un esquema, un nombre de host y un puerto. Identifica de forma única el dominio que envía o recibe el mensaje, y no incluye la ruta ni la parte de fragmento de la URL. Por ejemplo, <code>https://example.com</code> se considerará diferente de <code>http://example.com</code> porque el esquema del primero es <code>https</code>, mientras que el del segundo es <code>http</code>. Esto también aplica a servidores web que se ejecutan en el mismo dominio pero en puertos diferentes.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar la seguridad del origen del mensaje.</li>
+<li>Validar que se usan métodos seguros y que se valida su entrada.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="examine-origin-security">Examinar la seguridad del origen</h3>
+<p>Los evaluadores deben comprobar si el código de la aplicación filtra y procesa los mensajes provenientes de dominios de confianza. Dentro del dominio emisor, también hay que asegurarse de que el dominio receptor se indique explícitamente y de que no se use <code>*</code> como segundo argumento de <code>postMessage()</code>. Esta práctica podría introducir problemas de seguridad y podría conducir a que, en caso de una redirección o si el origen cambia por otros medios, el sitio web envíe datos a hosts desconocidos y, por tanto, filtre datos confidenciales a servidores maliciosos.</p>
+<p>Si el sitio web no añade controles de seguridad para restringir los dominios u orígenes que pueden enviarle mensajes, es probable que introduzca un riesgo de seguridad. Los evaluadores deben examinar el código en busca de listeners de eventos de mensaje y obtener la función callback del método <code>addEventListener</code> para su análisis posterior. Siempre se deben verificar los dominios antes de manipular los datos.</p>
+<h3 id="examine-input-validation">Examinar la validación de entrada</h3>
+<p>Aunque en teoría el sitio web solo acepte mensajes de dominios de confianza, los datos deben tratarse igualmente como datos de origen externo y no confiables, y procesarse con los controles de seguridad adecuados. Los evaluadores deben analizar el código y buscar métodos inseguros, en particular donde los datos se evalúan mediante <code>eval()</code> o se insertan en el DOM mediante la propiedad <code>innerHTML</code>, lo que puede crear vulnerabilidades de XSS basado en DOM.</p>
+<h3 id="static-code-analysis">Análisis estático de código</h3>
+<p>Se debe analizar el código JavaScript para determinar cómo se implementa la mensajería web. En particular, a los evaluadores les debe interesar cómo el sitio web restringe los mensajes de dominios no confiables y cómo se manejan los datos incluso de dominios de confianza.</p>
+<p>En este ejemplo, se necesita acceso para todos los subdominios (www, chat, forums, ...) dentro del dominio owasp.org. El código intenta aceptar cualquier dominio con <code>.owasp.org</code>:</p>
+<pre><code class="language-js">window.addEventListener(&quot;message&quot;, callback, true);
+
+function callback(e) {
+    if(e.origin.indexOf(&quot;.owasp.org&quot;)!=-1) {
+        /* process message (e.data) */
+    }
+}
+</code></pre>
+<p>La intención es permitir subdominios como:</p>
+<ul>
+<li><code>www.owasp.org</code></li>
+<li><code>chat.owasp.org</code></li>
+<li><code>forums.owasp.org</code></li>
+</ul>
+<p>Lamentablemente, esto introduce vulnerabilidades. Un atacante puede eludir fácilmente el filtro, ya que un dominio como <code>www.owasp.org.attacker.com</code> coincidirá.</p>
+<p>Este es un ejemplo de código que carece de una comprobación de origen. Esto es muy inseguro, ya que aceptará entrada de cualquier dominio:</p>
+<pre><code class="language-js">window.addEventListener(&quot;message&quot;, callback, true);
+
+function callback(e) {
+        /* process message (e.data) */
+}
+</code></pre>
+<p>Este es un ejemplo con vulnerabilidades de validación de entrada que pueden conducir a un ataque de XSS:</p>
+<pre><code class="language-js">window.addEventListener(&quot;message&quot;, callback, true);
+
+function callback(e) {
+        if(e.origin === &quot;trusted.domain.com&quot;) {
+            element.innerHTML= e.data;
+        }
+}
+</code></pre>
+<p>Un enfoque más seguro sería usar la propiedad <code>innerText</code> en lugar de <code>innerHTML</code>.</p>
+<p>Para más recursos de OWASP sobre mensajería web, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP HTML5 Security Cheat Sheet</a></p>

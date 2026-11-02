@@ -1,0 +1,57 @@
+<h1 id="session-hijacking">Secuestro de sesión</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-09</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Un atacante que obtiene acceso a las cookies de sesión de los usuarios puede suplantarlos presentando dichas cookies. Este ataque se conoce como secuestro de sesión (session hijacking). Al considerar atacantes de red, es decir, atacantes que controlan la red utilizada por la víctima, las cookies de sesión pueden quedar indebidamente expuestas al atacante a través de HTTP. Para prevenirlo, las cookies de sesión deben marcarse con el atributo <code>Secure</code> de modo que solo se comuniquen por HTTPS.</p>
+<p>El atributo <code>Secure</code> también debe utilizarse cuando la aplicación web está desplegada íntegramente sobre HTTPS; de lo contrario, es posible el siguiente ataque de robo de cookies. Supóngase que <code>example.com</code> está desplegado íntegramente sobre HTTPS, pero no marca sus cookies de sesión como <code>Secure</code>. Son posibles los siguientes pasos de ataque:</p>
+<ol>
+<li>La víctima envía una petición a <code>https://another-site.com</code>.</li>
+<li>El atacante corrompe la respuesta correspondiente para que provoque una petición a <code>https://example.com</code>.</li>
+<li>El navegador intenta ahora acceder a <code>https://example.com</code>.</li>
+<li>Aunque la petición falla, las cookies de sesión se filtran en claro a través de HTTP.</li>
+</ol>
+<p>Alternativamente, el secuestro de sesión puede prevenirse prohibiendo el uso de HTTP mediante <a href="https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security" target="_blank" rel="noopener">HSTS</a>. Obsérvese que aquí hay una sutileza relacionada con el alcance de las cookies. En particular, se requiere la adopción completa de HSTS cuando las cookies de sesión se emiten con el atributo <code>Domain</code> establecido.</p>
+<p>La adopción completa de HSTS se describe en un artículo titulado <em>Testing for Integrity Flaws in Web Sessions</em> de Stefano Calzavara, Alvise Rabitti, Alessio Ragazzo y Michele Bugliesi. La adopción completa de HSTS ocurre cuando un host activa HSTS para sí mismo y para todos sus subdominios. La adopción parcial de HSTS es cuando un host activa HSTS solo para sí mismo.</p>
+<p>Con el atributo <code>Domain</code> establecido, las cookies de sesión pueden compartirse entre subdominios. Debe evitarse el uso de HTTP con subdominios para prevenir la divulgación de cookies sin cifrar enviadas por HTTP. Para ejemplificar esta falla de seguridad, supóngase que el sitio <code>example.com</code> activa HSTS sin la opción <code>includeSubDomains</code>. El sitio emite cookies de sesión con el atributo <code>Domain</code> establecido en <code>example.com</code>. Es posible el siguiente ataque:</p>
+<ol>
+<li>La víctima envía una petición a <code>https://another-site.com</code>.</li>
+<li>El atacante corrompe la respuesta correspondiente para que provoque una petición a <code>https://fake.example.com</code>.</li>
+<li>El navegador intenta ahora acceder a <code>https://fake.example.com</code>, lo cual está permitido por la configuración de HSTS.</li>
+<li>Dado que la petición se envía a un subdominio de <code>example.com</code> con el atributo <code>Domain</code> establecido, incluye las cookies de sesión, que se filtran en claro a través de HTTP.</li>
+</ol>
+<p>Debe activarse HSTS completo en el dominio apex para prevenir este ataque.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las cookies de sesión vulnerables.</li>
+<li>Secuestrar las cookies vulnerables y evaluar el nivel de riesgo.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>La estrategia de pruebas está dirigida a atacantes de red, por lo que solo necesita aplicarse a sitios sin adopción completa de HSTS (los sitios con adopción completa de HSTS son seguros, ya que sus cookies no se comunican por HTTP). Se asume que se tienen dos cuentas de prueba en el sitio evaluado, una que actúa como víctima y otra como atacante. Se simula un escenario en el que el atacante roba todas las cookies que no están protegidas contra su divulgación por HTTP y las presenta al sitio para acceder a la cuenta de la víctima. Si estas cookies son suficientes para actuar en nombre de la víctima, el secuestro de sesión es posible.</p>
+<p>Estos son los pasos para ejecutar esta prueba:</p>
+<ol>
+<li>Iniciar sesión en el sitio como la víctima y acceder a cualquier página que ofrezca una función segura que requiera autenticación.</li>
+<li>Eliminar del almacén de cookies (cookie jar) todas las cookies que cumplan alguna de las siguientes condiciones.<ul>
+<li>en caso de que no haya adopción de HSTS: el atributo <code>Secure</code> está establecido.</li>
+<li>en caso de adopción parcial de HSTS: el atributo <code>Secure</code> está establecido o el atributo <code>Domain</code> no está establecido.</li>
+</ul>
+</li>
+<li>Guardar una instantánea del almacén de cookies.</li>
+<li>Activar la función segura identificada en el paso 1.</li>
+<li>Observar si la operación del paso 4 se ha realizado con éxito. Si es así, el ataque tuvo éxito.</li>
+<li>Limpiar el almacén de cookies, iniciar sesión como el atacante y acceder a la página del paso 1.</li>
+<li>Escribir en el almacén de cookies, una por una, las cookies guardadas en el paso 3.</li>
+<li>Activar de nuevo la función segura identificada en el paso 1.</li>
+<li>Limpiar el almacén de cookies e iniciar sesión de nuevo como la víctima.</li>
+<li>Observar si la operación del paso 8 se ha realizado con éxito en la cuenta de la víctima. Si es así, el ataque tuvo éxito; de lo contrario, el sitio es seguro frente al secuestro de sesión.</li>
+</ol>
+<p>Se recomienda usar dos máquinas o navegadores diferentes para la víctima y el atacante. Esto permite reducir el número de falsos positivos si la aplicación web realiza una identificación (fingerprinting) para verificar el acceso habilitado desde una cookie dada. Una variante más corta pero menos precisa de la estrategia de pruebas requiere solo una cuenta de prueba. Sigue el mismo patrón, pero se detiene en el paso 5 (obsérvese que esto hace inútil el paso 3).</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://github.com/yehgdotnet/JHijack" target="_blank" rel="noopener">JHijack</a></li>
+</ul>

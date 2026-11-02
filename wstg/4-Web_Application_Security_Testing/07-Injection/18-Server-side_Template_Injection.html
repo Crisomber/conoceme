@@ -1,0 +1,97 @@
+<h1 id="server-side-template-injection">Inyección de plantillas del lado del servidor (Server-side Template Injection)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-18</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las aplicaciones web suelen utilizar tecnologías de plantillas del lado del servidor (Jinja2, Twig, FreeMaker, etc.) para generar respuestas HTML dinámicas. Las vulnerabilidades de Server-side Template Injection (SSTI) ocurren cuando la entrada del usuario se incrusta en una plantilla de forma insegura y resulta en ejecución remota de código en el servidor. Cualquier funcionalidad que admita marcado avanzado suministrado por el usuario puede ser vulnerable a SSTI, incluidas las páginas wiki, las reseñas, las aplicaciones de marketing, los sistemas CMS, etc. Algunos motores de plantillas emplean diversos mecanismos (p. ej., sandbox, listas de permitidos, etc.) para protegerse contra SSTI.</p>
+<h3 id="example---twig">Ejemplo - Twig</h3>
+<p>El siguiente ejemplo es un extracto del proyecto <a href="https://github.com/s4n7h0/xvwa" target="_blank" rel="noopener">Extreme Vulnerable Web Application</a>.</p>
+<pre><code class="language-php">public function getFilter($name)
+{
+        [snip]
+        foreach ($this-&gt;filterCallbacks as $callback) {
+        if (false !== $filter = call_user_func($callback, $name)) {
+            return $filter;
+        }
+    }
+    return false;
+}
+</code></pre>
+<p>En la función getFilter, <code>call_user_func($callback, $name)</code> es vulnerable a SSTI: el parámetro <code>name</code> se obtiene de la petición HTTP GET y es ejecutado por el servidor:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/07-Injection/images/07-ssti_xvwa.jpeg" alt="Ejemplo de SSTI en XVWA" loading="lazy"><br><em>Figura 4.7.18-1: Ejemplo de SSTI en XVWA</em></p>
+<h3 id="example---flaskjinja2">Ejemplo - Flask/Jinja2</h3>
+<p>El siguiente ejemplo utiliza Flask y el motor de plantillas Jinja2. La función <code>page</code> acepta un parámetro &#39;name&#39; de una petición HTTP GET y renderiza una respuesta HTML con el contenido de la variable <code>name</code>:</p>
+<pre><code class="language-python">@app.route(&quot;/page&quot;)
+def page():
+    name = request.values.get(&#39;name&#39;)
+    output = Jinja2.from_string(&#39;Hello &#39; + name + &#39;!&#39;).render()
+    return output
+</code></pre>
+<p>Este fragmento de código es vulnerable a XSS, pero también es vulnerable a SSTI. Usando lo siguiente como payload en el parámetro <code>name</code>:</p>
+<pre><code class="language-bash">$ curl -g &#39;https://www.target.com/page?name={{7*7}}&#39;
+Hello 49!
+</code></pre>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Detectar los puntos vulnerables a inyección de plantillas.</li>
+<li>Identificar el motor de plantillas.</li>
+<li>Construir el exploit.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las vulnerabilidades SSTI existen en contexto de texto o de código. En el contexto de texto plano se permite a los usuarios usar &#39;texto&#39; de forma libre con código HTML directo. En el contexto de código, la entrada del usuario también puede colocarse dentro de una sentencia de plantilla (p. ej., en el nombre de una variable).</p>
+<h3 id="identify-template-injection-vulnerability">Identificar la vulnerabilidad de inyección de plantillas</h3>
+<p>El primer paso para probar SSTI en contexto de texto plano es construir, como payloads, expresiones de plantilla comunes utilizadas por varios motores de plantillas y monitorear las respuestas del servidor para identificar qué expresión de plantilla fue ejecutada por el servidor.</p>
+<p>Ejemplos de expresiones de plantilla comunes:</p>
+<pre><code class="language-text">a{{bar}}b
+a{{7*7}}
+{var} ${var} {{var}} &lt;%var%&gt; [% var %]
+</code></pre>
+<p>La sintaxis de expresiones no es la única superficie alcanzable. Apache Velocity y FreeMarker también evalúan sintaxis de <em>directivas</em>, que ninguna de las pruebas anteriores activará. Una directiva de asignación almacena su resultado en lugar de imprimirlo, por lo que se debe combinar con una interpolación para hacer observable el valor:</p>
+<pre><code class="language-text">#set($x=7*7)$x
+&lt;#assign x=7*7&gt;${x}
+</code></pre>
+<p>Ambas muestran <code>49</code> donde se evaluó la directiva. Enviadas sin la interpolación final no muestran nada en absoluto, lo cual es importante al construir el exploit: una asignación como <code>&lt;#assign result=runner(&quot;id&quot;)&gt;</code>, donde <code>runner</code> es un objeto instanciado por una directiva anterior y no algo proporcionado por el motor, invoca el método y no devuelve ninguna salida. Por lo tanto, una respuesta sin cambios no es evidencia de que el payload no se haya ejecutado. Cuando la salida está suprimida, se debe confirmar la evaluación mediante un efecto secundario observable, como una consulta DNS fuera de banda o un retardo medible.</p>
+<p>En este paso se recomienda una extensa <a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection" target="_blank" rel="noopener">lista de cadenas/payloads de prueba de expresiones de plantilla</a>.</p>
+<p>Probar SSTI en contexto de código es ligeramente diferente. Primero, el evaluador construye la petición que resulta en respuestas del servidor en blanco o con error. En el ejemplo siguiente, el parámetro HTTP GET se inserta en la variable <code>personal_greeting</code> en una sentencia de plantilla:</p>
+<pre><code class="language-text">personal_greeting=username
+Hello user01
+</code></pre>
+<p>Usando el siguiente payload, la respuesta del servidor es &quot;Hello&quot; en blanco:</p>
+<pre><code class="language-text">personal_greeting=username&lt;tag&gt;
+Hello
+</code></pre>
+<p>En el siguiente paso se debe salir de la sentencia de plantilla e inyectar una etiqueta HTML después de ella, usando el siguiente payload</p>
+<pre><code class="language-text">personal_greeting=username}}&lt;tag&gt;
+Hello user01 &lt;tag&gt;
+</code></pre>
+<h3 id="identify-the-templating-engine">Identificar el motor de plantillas</h3>
+<p>Con base en la información del paso anterior, ahora el evaluador debe identificar qué motor de plantillas se utiliza suministrando varias expresiones de plantilla. A partir de las respuestas del servidor, el evaluador deduce el motor de plantillas utilizado. Este enfoque manual se analiza con mayor detalle en <a href="https://portswigger.net/blog/server-side-template-injection?#Identify" target="_blank" rel="noopener">este</a> artículo de PortSwigger. Para automatizar la identificación de la vulnerabilidad SSTI y del motor de plantillas, hay varias herramientas disponibles, incluidas <a href="https://github.com/vladko312/SSTImap" target="_blank" rel="noopener">SSTImap</a> o la <a href="https://github.com/PortSwigger/backslash-powered-scanner" target="_blank" rel="noopener">extensión Backslash Powered Scanner de Burp Suite</a>.</p>
+<h3 id="build-the-rce-exploit">Construir el exploit de RCE</h3>
+<p>El objetivo principal en este paso es obtener un mayor control sobre el servidor con un exploit de RCE, estudiando la documentación de la plantilla y la investigación existente. Las áreas clave de interés son:</p>
+<ul>
+<li>Las secciones <strong>para autores de plantillas</strong> que cubren la sintaxis básica.</li>
+<li>Las secciones de <strong>consideraciones de seguridad</strong>.</li>
+<li>Listas de métodos, funciones, filtros y variables integrados.</li>
+<li>Listas de extensiones/plugins.</li>
+</ul>
+<p>El evaluador también puede identificar qué otros objetos, métodos y propiedades pueden estar expuestos centrándose en el objeto <code>self</code>. Si el objeto <code>self</code> no está disponible y la documentación no revela los detalles técnicos, se recomienda aplicar fuerza bruta al nombre de la variable. Una vez identificado el objeto, el siguiente paso es recorrerlo en un bucle para identificar todos los métodos, propiedades y atributos accesibles a través del motor de plantillas. Esto podría conducir a otros tipos de hallazgos de seguridad, incluidas escaladas de privilegios, divulgación de información sobre contraseñas de la aplicación, claves de API, configuraciones y variables de entorno, etc.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/vladko312/SSTImap" target="_blank" rel="noopener">SSTImap</a></li>
+<li><a href="https://github.com/epinna/tplmap" target="_blank" rel="noopener">Tplmap</a> - ya no se mantiene; SSTImap es un fork en desarrollo activo</li>
+<li><a href="https://github.com/PortSwigger/backslash-powered-scanner" target="_blank" rel="noopener">Backslash Powered Scanner Burp Suite extension</a></li>
+<li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection" target="_blank" rel="noopener">Template expression test strings/payloads list</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://portswigger.net/kb/papers/serversidetemplateinjection.pdf" target="_blank" rel="noopener">James Kettle: Server-Side Template Injection:RCE for the modern webapp (whitepaper)</a></li>
+<li><a href="https://portswigger.net/blog/server-side-template-injection" target="_blank" rel="noopener">Server-Side Template Injection</a></li>
+<li><a href="https://www.lanmaster53.com/blog/2016/03/09/exploring-ssti-flask-jinja2/" target="_blank" rel="noopener">Exploring SSTI in Flask/Jinja2</a></li>
+<li><a href="https://www.okiok.com/server-side-template-injection-from-detection-to-remote-shell/" target="_blank" rel="noopener">Server-Side Template Injection: from detection to Remote shell</a></li>
+<li><a href="https://github.com/s4n7h0/xvwa" target="_blank" rel="noopener">Extreme Vulnerable Web Application</a></li>
+<li><a href="https://www.acunetix.com/blog/web-security-zone/exploiting-ssti-in-thymeleaf/" target="_blank" rel="noopener">Exploiting SSTI in Thymeleaf</a></li>
+</ul>

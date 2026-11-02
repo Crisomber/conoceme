@@ -1,0 +1,201 @@
+<h1 id="webassembly-reconnaissance">Reconocimiento de WebAssembly</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-WASM-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>WebAssembly (Wasm) es un formato de instrucciones binarias que se entrega al navegador como un módulo compilado. Como a primera vista no es legible para las personas, a menudo se trata como algo opaco y, por lo tanto, más seguro que JavaScript. En la práctica, igual que los binarios de escritorio tradicionales, los módulos Wasm pueden localizarse, identificarse (fingerprinting) y analizarse.</p>
+<p>El reconocimiento es el primer paso de las pruebas de seguridad de WebAssembly. Esta fase se centra en localizar los módulos Wasm dentro de la aplicación web, identificar la cadena de herramientas (toolchain) que los produjo, comprobar si hay artefactos de depuración expuestos, como source maps, DWARF (Debugging With Attributed Record Formats) y la sección <code>name</code>, y mapear la superficie de ataque de la infraestructura (URLs, endpoints de API, hosts) que los módulos revelan.</p>
+<p>Esta fase solo <strong>recopila información</strong> sobre el objetivo. Se detiene deliberadamente antes de descompilar el código, leer su lógica o ejecutar el módulo en un depurador. Reunir con éxito esta inteligencia proporciona el mapa fundamental necesario para las fases de prueba posteriores.</p>
+<p>Este capítulo se centra en los módulos Wasm <strong>entregados por el navegador</strong>. El reconocimiento de Wasm que se ejecuta fuera del navegador (runtimes WASI, plataformas de borde o serverless) es distinto, porque los módulos normalmente no se sirven al cliente y deben obtenerse por otros medios. Véase la <a href="#/4-Web_Application_Security_Testing/13-WebAssembly_Testing/README">Visión general de las pruebas de WebAssembly</a> para la distinción.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Encontrar todos los módulos WebAssembly que carga la aplicación objetivo, incluidos los que no se llaman <code>.wasm</code>, los comprimidos, los de carga diferida (lazy-loaded), los cargados mediante <code>fetch</code> e instanciación manual, o los incrustados en JavaScript.</li>
+<li>Identificar la cadena de herramientas del compilador y el lenguaje de origen (p. ej., C/C++, Rust, Go, .NET) a partir de los metadatos de las secciones, las importaciones, las exportaciones y el código pegamento (glue code).</li>
+<li>Detectar artefactos de depuración expuestos: source maps, información DWARF y la sección personalizada <code>name</code>.</li>
+<li>Mapear la superficie de ataque de la infraestructura extrayendo URLs incrustadas, endpoints de API y nombres de host o direcciones IP internos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="locating-webassembly-modules">Localización de módulos WebAssembly</h3>
+<p>Los binarios de WebAssembly son cargados por JavaScript, normalmente de forma asíncrona. La forma más directa de descubrirlos es mediante las herramientas para desarrolladores del navegador y la inspección del JavaScript del lado del cliente.</p>
+<h4 id="browser-developer-tools">Herramientas para desarrolladores del navegador</h4>
+<ol>
+<li>Abrir las Herramientas para desarrolladores e ir a la pestaña <strong>Network</strong>.</li>
+<li>Recargar la aplicación objetivo e interactuar con ella para que se activen las funciones de carga diferida.</li>
+<li>En Chrome y Edge, seleccionar el filtro <strong>Wasm</strong> para mostrar solo las peticiones de WebAssembly. Firefox no tiene un filtro dedicado a Wasm, por lo que hay que buscar <code>.wasm</code> en la lista de peticiones y revisar la columna de tipo de contenido en busca de <code>application/wasm</code>.</li>
+<li>Revisar también los Web Workers y los Service Workers. Son lugares comunes donde se carga Wasm, y su tráfico puede aparecer bajo destinos separados en las DevTools.</li>
+</ol>
+<h4 id="inspecting-the-javascript-code">Inspección del código JavaScript</h4>
+<p>Si la aplicación usa carga diferida o empaquetado (bundling), hay que buscar en los archivos JavaScript las API de carga de WebAssembly:</p>
+<ul>
+<li><code>WebAssembly.instantiate</code> / <code>WebAssembly.instantiateStreaming</code></li>
+<li><code>WebAssembly.compile</code> / <code>WebAssembly.compileStreaming</code></li>
+<li><code>new WebAssembly.Module</code> / <code>new WebAssembly.Instance</code></li>
+</ul>
+<p>Las aplicaciones no siempre cargan Wasm mediante una URL <code>.wasm</code> simple. Un módulo puede obtenerse con <code>fetch</code> o <code>XMLHttpRequest</code> y luego instanciarse manualmente a partir de un <code>ArrayBuffer</code>, descomprimirse en JavaScript antes de la instanciación o ensamblarse a partir de varios fragmentos. En estos casos, la pestaña Network solo muestra una petición genérica, por lo que buscar las API de carga anteriores es el enfoque más fiable.</p>
+<p>Si un módulo se crea en tiempo de ejecución y nunca aparece como una petición descargable, se puede capturar en el momento de la instanciación. Por ejemplo, un script inyectado antes de que se ejecute el código de la aplicación (usando Local Overrides de las DevTools, un snippet ejecutado antes de la carga de la página o una extensión de user-scripts) puede envolver la API y conservar una copia de los bytes:</p>
+<pre><code class="language-js">const _instantiate = WebAssembly.instantiate;
+window.__wasmDumps = [];
+WebAssembly.instantiate = function (source, ...rest) {
+  if (source instanceof ArrayBuffer || ArrayBuffer.isView(source)) {
+    window.__wasmDumps.push(new Uint8Array(source.buffer || source).slice());
+  }
+  return _instantiate.call(this, source, ...rest);
+};
+</code></pre>
+<p>El mismo enfoque de envoltura se aplica a <code>WebAssembly.compile</code>, <code>WebAssembly.Module</code> y las variantes de streaming (que reciben una <code>Response</code> en lugar de bytes y requieren clonarla). Los bytes capturados pueden guardarse luego en un archivo para los pasos de análisis siguientes.</p>
+<h4 id="embedded-modules">Módulos incrustados</h4>
+<p>Los binarios Wasm también pueden incrustarse directamente en JavaScript para evitar una petición HTTP adicional. Hay que buscar:</p>
+<ul>
+<li>Cadenas Base64 grandes que se pasan mediante <code>atob</code> o un decodificador personalizado a un <code>Uint8Array</code>.</li>
+<li>URIs <code>data:</code> como <code>data:application/octet-stream;base64,</code>.</li>
+<li>Literales de cadena muy largos, que a menudo contienen muchos caracteres escapados o no ASCII, que una función auxiliar decodifica al inicio y pasa a una de las API anteriores.</li>
+</ul>
+<p>Las compilaciones de Emscripten con la opción <code>SINGLE_FILE</code> hacen esto. Las versiones recientes de Emscripten incrustan el binario con una codificación de cadena UTF-8 personalizada de forma predeterminada (Base64 se usa solo si <code>SINGLE_FILE_BINARY_ENCODE</code> está deshabilitado), por lo que el segundo y el tercer patrón son los que con más probabilidad se verán en las compilaciones actuales. Véase la <a href="https://emscripten.org/docs/tools_reference/settings_reference.html#single-file-binary-encode" target="_blank" rel="noopener">Emscripten settings reference</a> para más detalles. Como la codificación difiere entre versiones, la captura en el momento de la instanciación mostrada arriba suele ser más fácil que decodificar la cadena a mano.</p>
+<h4 id="identifying-wasm-files-by-content">Identificación de archivos Wasm por su contenido</h4>
+<p>No hay que confiar únicamente en la extensión del archivo ni en el tipo MIME. Los módulos pueden servirse como <code>.bin</code>, <code>.dat</code> o sin extensión, o comprimidos como <code>.wasm.gz</code> o <code>.wasm.br</code>. Los archivos comprimidos deben descomprimirse primero (por ejemplo con <code>gunzip</code> o <code>brotli -d</code>) antes de poder comprobar la cabecera. Los navegadores descomprimen de forma transparente las respuestas con <code>Content-Encoding</code>, por lo que un archivo guardado desde las DevTools suele estar ya descomprimido, mientras que uno obtenido con una herramienta de línea de comandos puede no estarlo.</p>
+<p>Todo binario Wasm comienza con la misma cabecera de 8 bytes (los bytes mágicos <code>\0asm</code> seguidos de la versión):</p>
+<pre><code class="language-text">00 61 73 6D 01 00 00 00
+</code></pre>
+<p>Un archivo descargado puede comprobarse con <code>file module.bin</code> o <code>od -An -tx1 -N8 module.bin</code>. En el código fuente JavaScript, la misma cabecera aparece como el prefijo Base64 <code>AGFzbQ</code>.</p>
+<p>Si un archivo que la aplicación carga como módulo no comienza con estos bytes y no está comprimido, la aplicación puede codificarlo o cifrarlo y decodificarlo en JavaScript antes de cargarlo. En ese caso, hay que leer la rutina de decodificación en el código pegamento y aplicarla al archivo descargado para obtener el binario real.</p>
+<p>Una vez confirmada la cabecera, se comprueba que el módulo sea válido con <code>wasm-validate</code> del WebAssembly Binary Toolkit (WABT):</p>
+<pre><code class="language-sh">wasm-validate module.wasm
+</code></pre>
+<p>Si la validación falla porque el módulo usa características más recientes del lenguaje (por ejemplo, recolección de basura), se reintenta con <code>--enable-all</code>.</p>
+<p>Hay que tener en cuenta que <code>WebAssembly.instantiateStreaming</code> y <code>WebAssembly.compileStreaming</code> requieren que el servidor envíe el tipo MIME <code>application/wasm</code>, por lo que un archivo Wasm servido con un tipo distinto puede indicar una mala configuración del servidor.</p>
+<h3 id="inspecting-custom-sections">Inspección de secciones personalizadas</h3>
+<p>Una vez descargado un módulo, se listan sus secciones con <code>wasm-objdump</code> (parte de WABT). La mayoría de los pasos de reconocimiento restantes se responden con esta única salida:</p>
+<pre><code class="language-sh">wasm-objdump -h module.wasm
+</code></pre>
+<p>Hay que buscar las siguientes secciones personalizadas:</p>
+<div class="tabla"><table><thead><tr>
+<th>Sección</th>
+<th>Qué revela</th>
+<th>Tratada en</th>
+</tr>
+</thead><tbody><tr>
+<td><code>producers</code></td>
+<td>Lenguaje de origen y herramientas usadas para construir el módulo</td>
+<td>Identificación del compilador y la cadena de herramientas</td>
+</tr>
+<tr>
+<td><code>sourceMappingURL</code></td>
+<td>URL de un source map externo</td>
+<td>Source Maps</td>
+</tr>
+<tr>
+<td><code>.debug_*</code>, <code>external_debug_info</code></td>
+<td>Información de depuración DWARF, incrustada o en un archivo separado</td>
+<td>Información de depuración DWARF</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Nombres originales de funciones y variables</td>
+<td>Sección name</td>
+</tr>
+</tbody></table></div>
+<p>Las secciones personalizadas son opcionales y pueden eliminarse en cualquier momento. Es común que un módulo de una compilación de producción no tenga ninguna sección personalizada.</p>
+<h3 id="identifying-the-compiler-and-toolchain">Identificación del compilador y la cadena de herramientas</h3>
+<p>Saber si un módulo fue compilado desde C/C++, Rust, Go u otro lenguaje ayuda al evaluador a comprender su modelo de memoria, sus convenciones de llamada, su comportamiento en tiempo de ejecución y el código pegamento de JavaScript esperado.</p>
+<p>Esta información también puede ayudar a priorizar las pruebas de seguridad posteriores. Por ejemplo, una cadena de herramientas de lenguaje nativo puede indicar que merecen un examen más detallado la seguridad de memoria, el manejo de la memoria lineal, las operaciones inseguras y las interacciones en el límite entre el código nativo y JavaScript, mientras que las cadenas de herramientas específicas de un framework pueden señalar sus correspondientes superficies de runtime e integración.</p>
+<p>La identificación del compilador debe usarse para guiar la selección y priorización de pruebas, no como evidencia de que exista una vulnerabilidad concreta.</p>
+<h4 id="automated-detection">Detección automatizada</h4>
+<p>Herramientas como WASM-Hunter pueden proporcionar una identificación rápida del compilador o la cadena de herramientas analizando el binario Wasm en busca de cadenas características, símbolos, importaciones y marcadores de runtime.</p>
+<pre><code class="language-sh">wasm-hunter -compiler -i target_module.wasm
+</code></pre>
+<p>La identificación automatizada es heurística y no definitiva. Los módulos optimizados, despojados (stripped) u ofuscados pueden eliminar o alterar los marcadores usados para la detección, por lo que el resultado debe tratarse como una clasificación inicial y verificarse manualmente cuando sea posible.</p>
+<h4 id="manual-identification">Identificación manual</h4>
+<p>Cuando la detección automatizada no está disponible o produce un resultado incierto, hay que inspeccionar múltiples indicadores en lugar de confiar en una sola firma.</p>
+<p>La sección personalizada <code>producers</code> suele ser un indicador directo útil, porque las cadenas de herramientas pueden registrar los lenguajes y herramientas usados para construir el módulo, como <code>clang</code>, <code>rustc</code> o <code>wasm-bindgen</code>. Se puede inspeccionar con <code>wasm-objdump</code> de WABT:</p>
+<pre><code class="language-sh">wasm-objdump -s -j producers module.wasm
+</code></pre>
+<p>La sección <code>producers</code> es opcional y con frecuencia falta en las compilaciones optimizadas o endurecidas. En ese caso, hay que examinar las importaciones, las exportaciones, las cadenas de runtime, el código pegamento de JavaScript asociado y los artefactos de compilación circundantes. Las importaciones y exportaciones pueden listarse con <code>wasm-objdump -x -j Import module.wasm</code> y <code>wasm-objdump -x -j Export module.wasm</code>. Los indicadores individuales deben tratarse como pistas y, cuando sea posible, confirmar la identificación con un segundo indicador independiente:</p>
+<ul>
+<li><strong>Emscripten (C/C++):</strong> Importaciones como <code>emscripten_resize_heap</code>, <code>__syscall_*</code> o <code>invoke_*</code>. Un módulo de importación genérico <code>env</code> <strong>no</strong> es evidencia suficiente porque otras cadenas de herramientas también lo usan. Las compilaciones de release suelen minificar los nombres de las importaciones (por ejemplo, un módulo llamado <code>a</code>), lo que oculta estos patrones.</li>
+<li><strong>WASI:</strong> Un módulo de importación como <code>wasi_snapshot_preview1</code> o <code>wasi_unstable</code> indica una compilación que usa llamadas al sistema WASI. No identifica el lenguaje de origen, y los módulos de Emscripten también lo importan, por lo que deben comprobarse marcadores adicionales.</li>
+<li><strong>Rust (wasm-bindgen):</strong> Importaciones o exportaciones que comienzan con <code>__wbindgen_</code> o <code>__wbg_</code>, un módulo de importación llamado <code>wbg</code> y un archivo generado <code>*_bg.wasm</code> junto a un archivo de código pegamento <code>*_bg.js</code>. La sección <code>producers</code> normalmente lista <code>rustc</code> y <code>wasm-bindgen</code>.</li>
+<li><strong>Go:</strong> El archivo de código pegamento <code>wasm_exec.js</code>, un módulo de importación llamado <code>gojs</code> (Go 1.21 y posteriores) o <code>go</code> (versiones anteriores), y cadenas como <code>runtime.wasmExit</code>, <code>runtime.gopanic</code> o <code>Go build ID</code>. Las versiones recientes de Go también añaden una sección personalizada llamada <code>go:buildid</code>.</li>
+<li><strong>.NET (Blazor WebAssembly):</strong> Un archivo <code>dotnet.wasm</code> o <code>dotnet.native.wasm</code> cargado desde una ruta <code>_framework/</code>. Antes de .NET 10, también hay un manifiesto <code>blazor.boot.json</code>. A partir de .NET 10, la configuración de arranque se incorpora en línea en <code>dotnet.js</code>.</li>
+<li><strong>AssemblyScript:</strong> Las compilaciones de release casi no tienen marcadores: normalmente una única importación <code>env.abort</code> y una exportación <code>memory</code>. Las compilaciones de depuración conservan rutas como <code>~lib/rt/</code> en la sección <code>name</code>, y los módulos construidos con <code>--exportRuntime</code> exportan funciones como <code>__new</code> y <code>__pin</code>.</li>
+</ul>
+<p>Ningún marcador individual debe considerarse concluyente. La identificación más sólida surge de combinar múltiples indicadores independientes, como los metadatos de <code>producers</code>, los símbolos de runtime, las importaciones y exportaciones, el código pegamento y los artefactos de despliegue.</p>
+<p>El stripping y la ofuscación pueden anular la mayoría de los marcadores anteriores. Eliminar las secciones <code>producers</code> y <code>name</code>, minificar los nombres de importaciones y exportaciones y eliminar mediante tree-shaking los auxiliares de runtime son prácticas comunes en las compilaciones de release, y es posible que el evaluador no pueda identificar la cadena de herramientas en absoluto. Un resultado no concluyente es un resultado válido de esta fase y debe registrarse como tal, en lugar de adivinarse.</p>
+<h3 id="testing-for-source-maps-and-debugging-symbols">Pruebas de source maps y símbolos de depuración</h3>
+<p>A veces los desarrolladores dejan artefactos de depuración en las compilaciones de producción. Esto es un hallazgo en sí mismo y además proporciona al evaluador una gran cantidad de contexto.</p>
+<h4 id="source-maps">Source Maps</h4>
+<p>Igual que en JavaScript, un módulo WebAssembly puede hacer referencia a un source map externo. La referencia se almacena en una sección personalizada llamada <code>sourceMappingURL</code>, cuyo contenido es la URL del archivo del mapa (por ejemplo <code>module.wasm.map</code>).</p>
+<p>Si la sección no está presente, hay que solicitar directamente ubicaciones probables como <code>module.wasm.map</code>. El código pegamento de JavaScript también puede hacer referencia a su propio source map, mediante un comentario <code>//# sourceMappingURL=</code> o una cabecera de respuesta <code>SourceMap</code>. Ese mapa describe el JavaScript y no el módulo, pero aun así puede exponer archivos fuente originales.</p>
+<p>Si un mapa es accesible, se abre la pestaña <strong>Sources</strong> (o <strong>Debugger</strong>) del navegador. El navegador analiza el mapa y muestra la estructura original de archivos. Cuánto se recupera depende del mapa:</p>
+<ul>
+<li>Si el mapa contiene <code>sourcesContent</code>, o los archivos fuente referenciados se pueden descargar, se puede leer el código fuente original.</li>
+<li>De lo contrario, solo se recuperan las rutas de archivo y las asignaciones de línea, lo cual aun así revela la estructura del proyecto, los nombres de dependencias y las rutas de los desarrolladores.</li>
+</ul>
+<h4 id="dwarf-debug-information">Información de depuración DWARF</h4>
+<p>Para C, C++ y Rust, los datos de depuración se entregan con más frecuencia como DWARF que como source map. En la etapa de reconocimiento, solo hay que comprobar si está presente: ya sea como secciones <code>.debug_*</code> dentro del módulo, o como una sección <code>external_debug_info</code> que apunta a un archivo de depuración separado (&quot;split DWARF&quot;) que puede ser descargable desde el servidor.</p>
+<h4 id="name-section">Sección name</h4>
+<p>Incluso cuando se eliminan los source maps y DWARF, a veces se deja la sección personalizada <code>name</code>. Contiene los nombres originales de las funciones y, en algunos casos, de las variables locales. Hay que comprobar su presencia en el listado de secciones y volcarla con:</p>
+<pre><code class="language-sh">wasm-objdump -x -j name module.wasm
+</code></pre>
+<p>Los nombres de Rust y C++ suelen estar mangled. Nombres recuperados como <code>check_license_key</code> o <code>encrypt_password</code> proporcionan objetivos inmediatos para análisis posteriores.</p>
+<h3 id="attack-surface-mapping-urls-apis-and-ips">Mapeo de la superficie de ataque (URLs, API e IP)</h3>
+<p>Los módulos WebAssembly suelen contener detalles de infraestructura codificados de forma fija (hardcoded). Ejemplos típicos incluyen:</p>
+<ul>
+<li>URLs base y rutas de API de backend (<code>https://api.example.com/v2/</code>, <code>/internal/admin/</code>).</li>
+<li>WebSocket y otros endpoints no HTTP (<code>wss://realtime.example.com</code>).</li>
+<li>Nombres de host de staging, desarrollo o internos (<code>build-server.corp.local</code>, <code>staging-api.example.com</code>).</li>
+<li>Direcciones IP privadas y puertos (<code>10.x.x.x</code>, <code>172.16-31.x.x</code>, <code>192.168.x.x</code>).</li>
+<li>URLs de servicios de terceros, como servidores de analítica, de comprobación de licencias o de actualización.</li>
+</ul>
+<p>Extraer esta información de enrutamiento permite mapear la arquitectura de backend de la aplicación y puede revelar endpoints que no se mencionan en ninguna parte del JavaScript visible.</p>
+<h4 id="automated-extraction">Extracción automatizada</h4>
+<p><code>wasm-hunter</code> puede automatizar esta extracción a partir de un archivo local o de una URL remota:</p>
+<pre><code class="language-sh">wasm-hunter -i target_module.wasm
+</code></pre>
+<h4 id="manual-extraction">Extracción manual</h4>
+<p>La misma información se puede recopilar con herramientas genéricas, lo cual es útil cuando no se dispone de una herramienta dedicada. Los literales de cadena se almacenan en los segmentos de datos del módulo, por lo que pueden buscarse directamente en el binario:</p>
+<pre><code class="language-sh"># URLs and endpoints
+strings -n 6 module.wasm | grep -Eio &#39;(https?|wss?|ftp)://[^[:space:]&quot;&#39;&quot;&#39;&quot;&#39;]+&#39;
+
+# Common internal hostname patterns and API paths
+strings -n 6 module.wasm | grep -Ei &#39;\.(internal|local|corp|lan)\b|/api/|/v[0-9]+/&#39;
+
+# Private IPv4 addresses
+strings -n 6 module.wasm | grep -Eo &#39;\b(10\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.[0-9]{1,3}\.[0-9]{1,3}\b&#39;
+
+# Same search for UTF-16 strings (used by some toolchains such as .NET)
+strings -n 6 -el module.wasm | grep -Ei &#39;https?://&#39;
+</code></pre>
+<p>Los segmentos de datos sin procesar también pueden volcarse para su revisión manual con <code>wasm-objdump -s -j Data module.wasm</code>. Las cadenas que están comprimidas, cifradas o ensambladas en tiempo de ejecución no aparecerán en estos resultados, y también deben recopilarse las cadenas que se encuentren en el código pegamento de JavaScript o en archivos de configuración acompañantes.</p>
+<p>(Nota: Extraer del binario credenciales, tokens y claves criptográficas reales queda fuera del alcance del reconocimiento.)</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/13-WebAssembly_Testing/README">WebAssembly Testing Overview</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Web_Page_Content_for_Information_Leakage">Review Web Page Content for Information Leakage (WSTG-INFO-05)</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>No enviar a producción source maps, datos DWARF ni archivos de depuración divididos. Mantener la información de depuración y de símbolos en un servidor de símbolos restringido o en otro entorno controlado.</li>
+<li>Eliminar de las compilaciones de release la depuración y los metadatos de compilación innecesarios. Por ejemplo, <code>wasm-strip</code> (WABT) elimina todas las secciones personalizadas, y <code>wasm-opt --strip-debug --strip-producers</code> (Binaryen) elimina la información de depuración y la sección <code>producers</code>. Configurar el compilador y el enlazador (linker) para producir artefactos de release despojados (stripped) cuando se admita.</li>
+<li>No codificar de forma fija (hardcode) nombres de host internos, direcciones IP, credenciales ni endpoints sensibles en los módulos entregados al cliente. Hay que tratar como público todo lo que se entrega al navegador.</li>
+<li>Servir Wasm con el tipo MIME correcto <code>application/wasm</code>, y verificar que los source maps, los artefactos de depuración y otros archivos de compilación que no son de producción no sean accesibles públicamente.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/WebAssembly/wabt" target="_blank" rel="noopener">WebAssembly Binary Toolkit (WABT)</a> - Incluye <code>wasm-objdump</code> para listar secciones, importaciones, exportaciones y nombres, y <code>wasm-strip</code>. También proporciona <code>wasm2wat</code> y <code>wasm-decompile</code>, que pertenecen a fases de análisis posteriores.</li>
+<li><a href="https://github.com/bytecodealliance/wasm-tools" target="_blank" rel="noopener">wasm-tools</a> - Kit de herramientas de la Bytecode Alliance con un volcado de secciones y estructura (<code>wasm-tools objdump</code>) y un analizador que puede servir como alternativa a WABT.</li>
+<li><a href="https://github.com/WebAssembly/binaryen" target="_blank" rel="noopener">Binaryen</a> - Proporciona <code>wasm-opt</code>, usado para eliminar la información de depuración y la sección <code>producers</code>, y <code>wasm-dis</code> para el desensamblado.</li>
+<li><a href="https://github.com/Galaxy-sc/WASM-Hunter" target="_blank" rel="noopener">WASM-Hunter</a> - Herramienta de análisis estático para el mapeo de la superficie de ataque y la detección rápida de compilador, con análisis directo de URL remotas.</li>
+<li><code>strings</code>, <code>od</code>, <code>file</code>, <code>grep</code> - Utilidades genéricas suficientes para comprobar cabeceras y extraer cadenas básicas.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://webassembly.github.io/spec/core/appendix/custom.html" target="_blank" rel="noopener">WebAssembly Specification: Custom Sections and the Name Section</a></li>
+<li><a href="https://github.com/WebAssembly/tool-conventions/blob/main/Debugging.md" target="_blank" rel="noopener">WebAssembly tool-conventions: Debugging (sourceMappingURL, external_debug_info, DWARF)</a></li>
+<li><a href="https://github.com/WebAssembly/tool-conventions/blob/main/ProducersSection.md" target="_blank" rel="noopener">WebAssembly tool-conventions: Producers Section</a></li>
+<li><a href="https://yurydelendik.github.io/webassembly-dwarf/" target="_blank" rel="noopener">WebAssembly DWARF Debugging Standard</a></li>
+<li><a href="https://emscripten.org/docs/tools_reference/settings_reference.html#single-file-binary-encode" target="_blank" rel="noopener">Emscripten Settings Reference: SINGLE_FILE_BINARY_ENCODE</a></li>
+</ul>

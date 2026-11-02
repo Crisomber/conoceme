@@ -1,0 +1,203 @@
+<h1 id="insecure-deserialization">Deserialización insegura</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-23</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La serialización de datos es el proceso de convertir un objeto en un formato que pueda
+almacenarse (por ejemplo, en un archivo o base de datos) o transmitirse (por ejemplo, a
+través de una red) y reconstruirse más tarde. La deserialización es el proceso inverso:
+tomar datos estructurados en algún formato y reconstruirlos como un objeto.</p>
+<p>La deserialización insegura ocurre cuando una aplicación deserializa datos no confiables sin
+verificar lo suficiente que los datos resultantes serán válidos. Los atacantes pueden
+aprovechar esto para manipular objetos serializados con el fin de influir en el
+comportamiento de la aplicación o desencadenar acciones no previstas durante el proceso de
+deserialización.</p>
+<p>El impacto más crítico de la deserialización insegura es la ejecución remota de código (RCE).
+Sin embargo, también puede resultar en denegación de servicio (DoS), elusión de autenticación,
+problemas de control de acceso o abuso de la lógica de la aplicación.</p>
+<p>El JSON que se mezcla en objetos en entornos de ejecución de JavaScript también puede habilitar
+la <a href="#/4-Web_Application_Security_Testing/07-Injection/22-Prototype_Pollution">contaminación de prototipos</a>. Se debe tratar eso como un caso de
+prueba relacionado y no como un formato de deserialización independiente.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de entrada donde la aplicación acepta objetos serializados de fuentes
+no confiables (por ejemplo, cabeceras HTTP, parámetros o cookies).</li>
+<li>Determinar el formato de serialización utilizado por la aplicación.</li>
+<li>Evaluar si la entrada serializada se valida o restringe antes de la deserialización.</li>
+<li>Evaluar si la manipulación de los datos serializados conduce a un comportamiento inseguro o
+a un impacto en la seguridad.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="identification-of-serialized-data">Identificación de datos serializados</h4>
+<p>Se identifica dónde procesa la aplicación datos serializados. Se inspeccionan las cookies, los
+campos ocultos, los cuerpos de las API, las cabeceras y las cargas de archivos en busca de
+patrones, codificaciones o características estructurales reconocibles.</p>
+<h5 id="java-serialization">Serialización de Java</h5>
+<p>Los objetos serializados de Java normalmente comienzan con los bytes hexadecimales <code>AC ED 00 05</code>.
+Cuando se codifican en base64, esto frecuentemente aparece como <code>rO0</code>.</p>
+<pre><code class="language-http">Cookie: rememberMe=rO0ABXNyABpY...
+</code></pre>
+<h5 id="php-serialization">Serialización de PHP</h5>
+<p>La serialización de PHP es legible para los humanos y utiliza caracteres específicos para
+representar los tipos de datos (por ejemplo, <code>O</code> para objeto, <code>a</code> para arreglo, <code>s</code> para cadena).</p>
+<pre><code class="language-http">Cookie: user_data=O:4:&quot;User&quot;:2:{s:8:&quot;username&quot;;s:5:&quot;admin&quot;;s:8:&quot;isAdmin&quot;;b:1;}
+</code></pre>
+<h5 id="python-pickle">Python Pickle</h5>
+<p>Python pickle es un formato binario que puede ser más difícil de reconocer visualmente. Los
+payloads del protocolo 0 son más legibles y a menudo terminan con un punto (<code>.</code>). Los
+protocolos superiores parecen blobs binarios opacos o en base64 en cookies, tokens o
+parámetros de trabajos/colas.</p>
+<p>Después de identificar (fingerprinting) un candidato, se envía una sonda controlada fuera de
+banda (OOB) o un fallo benigno generado para pickle (por ejemplo, un payload que realice una
+llamada DNS o HTTP a un servidor que usted controle). Se confirma si la aplicación deserializa
+el valor observando la llamada de retorno (callback), un error distintivo o un bloqueo del
+proceso. Nunca se debe comenzar con un payload de RCE destructivo.</p>
+<h5 id="nodejs-node-serialize">Node.js (node-serialize)</h5>
+<p>En aplicaciones Node.js que usan la biblioteca <code>node-serialize</code>, los datos serializados suelen
+representarse como una cadena similar a JSON. Un indicador clave de riesgo es un marcador de
+expresión de función invocada inmediatamente (IIFE) que comienza con <code>_$$ND_FUNC$$_</code>.</p>
+<pre><code class="language-javascript">{&quot;rce&quot;:&quot;_$$ND_FUNC$$_function (){require(&#39;child_process&#39;).exec(&#39;id&#39;)}()&quot;}
+</code></pre>
+<p>Si se observa este marcador en el tráfico de la aplicación, se reemplaza el cuerpo de la
+función por una llamada de retorno OOB inofensiva y se vuelve a enviar para confirmar la
+ejecución.</p>
+<h5 id="net-serialization">Serialización de .NET</h5>
+<p>Las aplicaciones heredadas que aún usan <code>BinaryFormatter</code> o <code>NetDataContractSerializer</code> suelen
+codificar la salida en base64. Un patrón común para datos serializados de .NET comienza con
+los bytes hexadecimales <code>00 01 00 00 00 FF FF FF FF</code> o con la cadena base64 <code>AAEAAAD/////</code>.
+Se debe tratar <code>BinaryFormatter</code> como de uso exclusivamente heredado; está obsoleto y ha sido
+eliminado del .NET moderno.</p>
+<pre><code class="language-http">Cookie: SessionData=AAEAAAD/////AQAAAAAAAAAMAgAAAF...
+</code></pre>
+<h5 id="json-based-deserialization-with-type-metadata">Deserialización basada en JSON con metadatos de tipo</h5>
+<p>Algunas bibliotecas JSON admiten tipado polimórfico. Si se aceptan metadatos de tipo
+controlados por el atacante, la deserialización puede instanciar clases inesperadas.</p>
+<p>Jackson con tipado por defecto (default typing) a menudo incluye un identificador de tipo como <code>@class</code>:</p>
+<pre><code class="language-json">{&quot;@class&quot;:&quot;com.example.Exploit&quot;,&quot;cmd&quot;:&quot;id&quot;}
+</code></pre>
+<p>Fastjson comúnmente usa <code>@type</code>:</p>
+<pre><code class="language-json">{&quot;@type&quot;:&quot;com.example.Exploit&quot;,&quot;cmd&quot;:&quot;id&quot;}
+</code></pre>
+<p>Se debe tratar los especificadores de tipo <code>@class</code>, <code>@type</code> o similares controlados por el
+atacante como un hallazgo de alta prioridad, y luego confirmar con un gadget OOB seguro para
+esa biblioteca.</p>
+<h4 id="manipulation-of-serialized-objects">Manipulación de objetos serializados</h4>
+<p>Una vez identificado un punto de entrada, se modifican los datos serializados y se observa
+cómo responde la aplicación.</p>
+<p>Las técnicas comunes de manipulación incluyen:</p>
+<ul>
+<li>Cambiar atributos o indicadores (flags) del objeto.</li>
+<li>Inyectar campos adicionales.</li>
+<li>Modificar tipos de datos.</li>
+<li>Reproducir (replay) payloads serializados modificados.</li>
+</ul>
+<p>Ejemplo (PHP):</p>
+<p>Un objeto serializado que representa el estado de un usuario:</p>
+<pre><code class="language-php">O:4:&quot;User&quot;:2:{s:8:&quot;username&quot;;s:3:&quot;bob&quot;;s:8:&quot;isAdmin&quot;;b:0;}
+</code></pre>
+<p>Si la aplicación depende de este objeto para tomar decisiones de autorización, se cambia <code>b:0;</code>
+por <code>b:1;</code> y se vuelve a enviar. La escalada de privilegios confirma una confianza insegura en
+el objeto deserializado. Al editar longitudes de cadenas o de arreglos, se deben mantener
+coherentes los prefijos de longitud de la serialización de PHP, o el analizador rechazará el
+payload.</p>
+<h4 id="dangerous-side-effects">Efectos secundarios peligrosos</h4>
+<p>Se comprueba si la deserialización desencadena un comportamiento no previsto, como:</p>
+<ul>
+<li>Ejecución de comandos del sistema.</li>
+<li>Invocación de funcionalidad interna de la aplicación.</li>
+<li>Consumo excesivo de recursos (memoria, CPU).</li>
+<li>Bloqueos de la aplicación o cambios de estado inesperados.</li>
+</ul>
+<p>Se busca evidencia a través de:</p>
+<ul>
+<li>Cambios de comportamiento en las respuestas.</li>
+<li>Mensajes de error o trazas de pila (stack traces).</li>
+<li>Anomalías de tiempo o degradación del servicio.</li>
+<li>Llamadas de retorno DNS o HTTP OOB provenientes de payloads de sonda seguros.</li>
+</ul>
+<h4 id="gadget-chain-abuse">Abuso de cadenas de gadgets</h4>
+<p>En muchos entornos, las vulnerabilidades de deserialización requieren una cadena de gadgets:
+una secuencia de fragmentos de código existentes (gadgets) dentro de la aplicación o sus
+dependencias que, durante la reconstrucción, producen un resultado malicioso.</p>
+<p>Se prueba con esta secuencia:</p>
+<ol>
+<li>Identificar las bibliotecas de terceros en uso (por ejemplo, Commons Collections, Spring o
+Jackson) a partir de cabeceras, errores, archivos de dependencias o herramientas de
+identificación (fingerprinting).</li>
+<li>Generar un payload de confirmación no destructivo con una herramienta especializada.</li>
+<li>Enviar el payload al sink de datos serializados y vigilar una llamada de retorno OOB. La RCE
+a menudo no produce un cuerpo de respuesta directo, por lo que las llamadas de retorno DNS
+o HTTP son la señal fiable.</li>
+</ol>
+<p>Ejemplo (Java, usando el gadget <code>URLDNS</code> de ysoserial solo para confirmación):</p>
+<pre><code class="language-bash">java -jar ysoserial.jar URLDNS http://&lt;collaborator-host&gt;/
+</code></pre>
+<p>Se codifica en base64 la salida sin procesar si la aplicación espera base64, se coloca en el
+parámetro o la cookie candidata y se vuelve a enviar. Una consulta DNS para <code>&lt;collaborator-host&gt;</code>
+confirma que la aplicación deserializó el objeto. Los gadgets de RCE se deben usar únicamente
+después de la confirmación y solo en entornos de prueba autorizados.</p>
+<p>Para PHP, se usa PHPGGC para generar un payload de prueba equivalente OOB o de escritura de
+archivos para una cadena de gadgets conocida presente en la aplicación.</p>
+<h3 id="white-box-testing">Pruebas de caja blanca</h3>
+<h4 id="code-review-and-sink-functions">Revisión de código y funciones sink</h4>
+<p>Cuando se dispone del código fuente, no hay que detenerse en encontrar los sinks. Se rastrea la
+entrada no confiable hasta cada sink y se verifica qué controles existen.</p>
+<p>Los sinks comunes incluyen:</p>
+<ul>
+<li>Java: <code>java.io.ObjectInputStream.readObject()</code>, <code>readUnshared()</code></li>
+<li>PHP: <code>unserialize()</code></li>
+<li>Python: <code>pickle.loads()</code>, <code>marshal.loads()</code>, <code>shelve.open()</code></li>
+<li>Node.js: <code>node-serialize.unserialize()</code></li>
+<li>.NET: <code>BinaryFormatter.Deserialize()</code>, <code>NetDataContractSerializer.Deserialize()</code></li>
+</ul>
+<p>Para cada sink:</p>
+<ol>
+<li>Confirmar si los parámetros de la petición, las cookies, las cabeceras, los archivos o los
+mensajes de cola llegan hasta él.</li>
+<li>Comprobar si existen listas de permitidos de clases autorizadas, comprobaciones de
+integridad (por ejemplo, HMAC) o filtros de la plataforma como el <code>ObjectInputFilter</code> de Java.</li>
+<li>Anotar los controles ausentes, las listas de permitidos demasiado amplias o las firmas que el
+cliente puede eludir.</li>
+</ol>
+<p><code>ValidatingObjectInputStream</code> de Apache Commons IO es un enfoque de lista de permitidos para
+Java; es preferible documentar el filtro que realmente use la base de código, incluida la
+configuración de <code>ObjectInputFilter</code> del JDK.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Evite deserializar datos no confiables siempre que sea posible.</p>
+<p>Si la deserialización es necesaria:</p>
+<ul>
+<li>Restrinja los formatos de serialización y los tipos de objeto aceptados mediante una lista de
+permitidos estricta.</li>
+<li>Implemente controles de integridad para detectar manipulaciones.</li>
+<li>Aplique validación antes de que ocurra la deserialización.</li>
+<li>Prefiera formatos de solo datos, como JSON o XML, analizados sin metadatos de tipo
+controlados por el atacante ni tipado polimórfico.</li>
+<li>Para Java, aplique un <code>ObjectInputFilter</code> o un mecanismo de lista de permitidos como el
+<code>ValidatingObjectInputStream</code> de Commons IO antes de que se instancien las clases.</li>
+<li>Si los objetos serializados deben pasarse al cliente, fírmelos (por ejemplo, con HMAC) para
+que el servidor pueda rechazar los payloads modificados.</li>
+<li>No use el <code>BinaryFormatter</code> heredado de .NET con datos no confiables.</li>
+</ul>
+<p>Consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Deserialization Cheat Sheet</a>
+para obtener una guía de corrección más detallada.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/frohoff/ysoserial" target="_blank" rel="noopener">ysoserial</a> - genera payloads de deserialización de Java</li>
+<li><a href="https://github.com/pwntester/ysoserial.net" target="_blank" rel="noopener">ysoserial.net</a> - genera payloads de deserialización de .NET</li>
+<li><a href="https://github.com/ambionics/phpggc" target="_blank" rel="noopener">PHPGGC</a> - cadenas de gadgets y generador de payloads para PHP</li>
+<li><a href="https://portswigger.net/bappstore/ae1cce0c6d6c47528b4af35faebc3ab3" target="_blank" rel="noopener">Freddy, Deserialization Bug Finder</a> - extensión de Burp para la detección de deserialización en Java y .NET</li>
+<li><a href="https://portswigger.net/bappstore/228336544ebe4e68824b5146dbbd93ae" target="_blank" rel="noopener">Java Deserialization Scanner</a> - extensión de Burp para el escaneo y la explotación de deserialización en Java</li>
+<li><a href="https://github.com/BishopFox/GadgetProbe" target="_blank" rel="noopener">GadgetProbe</a> - identifica las bibliotecas disponibles en el classpath de Java remoto</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cwe.mitre.org/data/definitions/502.html" target="_blank" rel="noopener">CWE-502: Deserialization of Untrusted Data</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Deserialization Cheat Sheet</a></li>
+<li><a href="https://owasp.org/Top10/2021/A08_2021-Software_and_Data_Integrity_Failures" target="_blank" rel="noopener">OWASP Top 10 2021 A08: Software and Data Integrity Failures</a></li>
+<li><a href="https://book.hacktricks.wiki/en/pentesting-web/deserialization/index.html" target="_blank" rel="noopener">HackTricks: Deserialization</a></li>
+</ul>

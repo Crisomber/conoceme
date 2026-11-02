@@ -1,0 +1,150 @@
+<h1 id="api-testing-overview">Descripción general de las pruebas de API</h1>
+<h2 id="web-api-introduction">Introducción a las API web</h2>
+<p>Una interfaz de programación de aplicaciones web (Web API) facilita la comunicación y el intercambio de datos entre diferentes sistemas de software a través de una red o de internet. Las API web permiten que distintas aplicaciones interactúen entre sí de manera estandarizada y eficiente, lo que les permite aprovechar mutuamente sus funcionalidades y datos.</p>
+<p>La adopción de diferentes tecnologías, como la computación en la nube, las arquitecturas de microservicios y las aplicaciones de página única, ha contribuido a la adopción de las API como un movimiento arquitectónico.</p>
+<p>Como ocurre con la introducción de cualquier concepto nuevo, puede haber fallos y vulnerabilidades que hagan necesario realizar pruebas. De lo contrario, las API mal protegidas pueden ofrecer un camino directo y sin restricciones hacia datos sensibles.</p>
+<p>Este capítulo intenta guiar al investigador de seguridad en los conceptos necesarios para probar API. Esta sección en particular examina las diferentes tecnologías de API y su historia.</p>
+<h2 id="which-api-technology">¿Qué tecnología de API?</h2>
+<p>Antes de hacer suposiciones sobre el tipo de API que se está probando, puede ser útil conocer todo el alcance del espacio de problemas que el investigador de seguridad puede encontrar. Estos incluyen:</p>
+<ol>
+<li>API Representational State Transfer (REST)</li>
+<li>API Simple Object Access Protocol (SOAP)</li>
+<li>API GraphQL</li>
+<li>gRPC Remote Procedure Calls (gRPC)</li>
+<li>API WebSockets</li>
+</ol>
+<h2 id="rest-representational-state-transfer-apis">API REST (Representational State Transfer)</h2>
+<h3 id="what-is-rest">¿Qué es REST?</h3>
+<p>REST es un conjunto de reglas y convenciones para interactuar con recursos web. Los componentes clave de URI, métodos HTTP, cabeceras y códigos de estado respaldan los principios de REST.</p>
+<h3 id="history">Historia</h3>
+<p>Debido a su simplicidad, escalabilidad y compatibilidad con la infraestructura web existente, las API basadas en REST se han convertido en la arquitectura de API más común en internet al momento de escribir esto. Las API basadas en REST no surgieron de inmediato, sino que tuvieron un largo camino desde la investigación hasta su adopción.</p>
+<p>En 1994, Roy Fielding, uno de los autores principales de la especificación HTTP, comenzó su trabajo sobre REST como parte de su tesis doctoral en la Universidad de California, Irvine. En el año 2000 publicó su tesis, <a href="https://ics.uci.edu/~fielding/pubs/dissertation/top.htm" target="_blank" rel="noopener">Architectural Styles and the Design of Network-based Software Architectures</a>, donde introdujo y definió REST como un estilo arquitectónico. REST fue diseñado para aprovechar las características existentes de HTTP, haciendo énfasis en la escalabilidad, las interacciones sin estado y una interfaz uniforme.</p>
+<p>En la década de 2010, REST se convirtió en el estándar de facto para las API web debido a su simplicidad y a su compatibilidad con la arquitectura subyacente de la web. El uso generalizado de las API RESTful fue impulsado por el crecimiento de las aplicaciones móviles, la computación en la nube y la arquitectura de microservicios. El desarrollo de herramientas y frameworks como Swagger/OpenAPI, RAML y API Blueprint facilitó el diseño, la documentación y las pruebas de las API REST.</p>
+<p>Para la década de 2020, los desarrollos modernos hicieron evolucionar REST con tecnologías como GraphQL. Además, la especificación OpenAPI/Swagger se convirtió en un estándar ampliamente adoptado para describir API REST, lo que permitió una mejor integración y automatización.</p>
+<h3 id="uniform-resource-identifiers">Identificadores uniformes de recursos (URI)</h3>
+<p>Las API REST utilizan Uniform Resource Identifiers (URI) para acceder a los recursos. Las URI son un elemento crucial de una arquitectura REST. Una URI es una cadena de caracteres que identifica de forma única un recurso en particular. Las URI se utilizan ampliamente en internet para localizar e interactuar con recursos, como páginas web, archivos y servicios.</p>
+<p>Una URI consta de varios componentes, cada uno con un propósito específico. La sintaxis genérica de las URI definida en la <a href="https://tools.ietf.org/html/rfc3986" target="_blank" rel="noopener">RFC3986</a> es la siguiente:</p>
+<blockquote>
+<p><code>URI = scheme &quot;://&quot; authority &quot;/&quot; path [ &quot;?&quot; query ] [ &quot;#&quot; fragment ]</code></p>
+</blockquote>
+<p>Para REST, el <strong>scheme</strong> (esquema) suele ser <code>HTTP</code> o <code>HTTPS</code>, pero de forma genérica indica el protocolo o método utilizado para acceder al recurso. Otros esquemas comunes incluyen <code>ftp</code>, <code>mailto</code> y <code>file</code>.</p>
+<p>La <strong>authority</strong> (autoridad) especifica el nombre de dominio o la dirección IP del servidor donde reside el recurso, y puede incluir un número de puerto. También puede incluir información de usuario (userinfo) como subcomponente.</p>
+<p>El <strong>path</strong> (ruta) especifica la ubicación concreta del recurso en el servidor. Nos interesa la ruta de la URI como la relación entre el usuario y los recursos. Por ejemplo, <code>https://api.example.com/admin/testing/report</code> puede mostrar un informe de pruebas. Existe una relación entre el usuario admin y sus informes.</p>
+<p>La ruta de cualquier URI definirá un modelo de recursos de la API REST. Los recursos se separan con una barra diagonal y se basan en un diseño descendente (Top-Down).</p>
+<p>Por ejemplo:</p>
+<ul>
+<li><code>https://api.example.com/admin/testing/report</code></li>
+<li><code>https://api.example.com/admin/testing/</code></li>
+<li><code>https://api.example.com/admin/</code></li>
+</ul>
+<p>La <strong>query</strong> (consulta) proporciona parámetros adicionales para el recurso. Comienza con <code>?</code> y consiste en pares clave-valor separados por <code>&amp;</code>.</p>
+<p>El <strong>fragment</strong> (fragmento) indica una parte específica del recurso, como una sección dentro de una página web. Comienza con <code>#</code>. Vale la pena señalar que los identificadores de fragmento solo se procesan del lado del cliente y no se envían al servidor.</p>
+<h3 id="http-methods">Métodos HTTP</h3>
+<p>Las API REST utilizan métodos HTTP estándar para realizar operaciones sobre los recursos, siguiendo los <a href="https://tools.ietf.org/html/rfc7231#section-4" target="_blank" rel="noopener">HTTP Request Methods</a> definidos en la <a href="https://tools.ietf.org/html/rfc7231" target="_blank" rel="noopener">RFC7231</a>. Estos métodos se corresponden con CRUD, las cuatro funciones básicas del almacenamiento persistente en informática. CRUD significa Create, Read, Update y Delete (crear, leer, actualizar y eliminar), que son las cuatro operaciones que se pueden realizar sobre los datos.</p>
+<p>Los métodos de petición HTTP son:</p>
+<div class="tabla"><table><thead><tr>
+<th>Métodos</th>
+<th>Descripción</th>
+</tr>
+</thead><tbody><tr>
+<td>GET</td>
+<td>Obtener la representación del estado del recurso</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>Crear un nuevo recurso</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Actualizar un recurso</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Eliminar un recurso</td>
+</tr>
+<tr>
+<td>HEAD</td>
+<td>Obtener los metadatos asociados al estado del recurso</td>
+</tr>
+<tr>
+<td>OPTIONS</td>
+<td>Listar los métodos disponibles</td>
+</tr>
+</tbody></table></div>
+<h4 id="headers">Cabeceras</h4>
+<p>REST depende de las cabeceras para soportar la comunicación de información adicional dentro de la petición o la respuesta. Estas incluyen:</p>
+<ul>
+<li><code>Content-Type</code>: Indica el tipo de medio del recurso (p. ej., <code>application/json</code>).</li>
+<li><code>Authorization</code>: Contiene las credenciales para la autenticación (p. ej., tokens).</li>
+<li><code>Accept</code>: Especifica los tipos de medios aceptables para la respuesta.</li>
+</ul>
+<h4 id="status-codes">Códigos de estado</h4>
+<p>Las API de aplicaciones que se ajustan a los principios REST utilizan el código de estado de un mensaje de respuesta HTTP para notificar al cliente el resultado de su petición.</p>
+<div class="tabla"><table><thead><tr>
+<th>Código de respuesta</th>
+<th>Mensaje de respuesta</th>
+<th>Descripción</th>
+</tr>
+</thead><tbody><tr>
+<td>200</td>
+<td>OK</td>
+<td>Éxito al procesar la petición del cliente</td>
+</tr>
+<tr>
+<td>201</td>
+<td>Created</td>
+<td>Nuevo recurso creado</td>
+</tr>
+<tr>
+<td>301</td>
+<td>Moved Permanently</td>
+<td>Redirección permanente</td>
+</tr>
+<tr>
+<td>304</td>
+<td>Not Modified</td>
+<td>Respuesta relacionada con la caché que se devuelve cuando el cliente tiene la misma copia del recurso que el servidor</td>
+</tr>
+<tr>
+<td>307</td>
+<td>Temporary Redirect</td>
+<td>Redirección temporal del recurso</td>
+</tr>
+<tr>
+<td>400</td>
+<td>Bad Request</td>
+<td>Petición mal formada por el cliente</td>
+</tr>
+<tr>
+<td>401</td>
+<td>Unauthorized</td>
+<td>El cliente no tiene permitido hacer peticiones o acceder a un recurso en particular</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Forbidden</td>
+<td>Al cliente se le prohíbe acceder al recurso</td>
+</tr>
+<tr>
+<td>404</td>
+<td>Not Found</td>
+<td>El recurso no existe o es incorrecto según la petición</td>
+</tr>
+<tr>
+<td>405</td>
+<td>Method Not Allowed</td>
+<td>Se usó un método inválido o desconocido</td>
+</tr>
+<tr>
+<td>500</td>
+<td>Internal Server Error</td>
+<td>El servidor no pudo procesar la petición debido a un error interno</td>
+</tr>
+</tbody></table></div>
+<h2 id="references">Referencias</h2>
+<ol>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP REST Security Cheat Sheet</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/REST_Assessment_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP REST Assessment Cheat Sheet</a></li>
+<li><a href="https://owasp.org/www-project-api-security/" target="_blank" rel="noopener">OWASP API Security Project</a></li>
+<li><a href="https://owasp.org/www-community/api_security_tools" target="_blank" rel="noopener">OWASP API Security Tools</a></li>
+</ol>

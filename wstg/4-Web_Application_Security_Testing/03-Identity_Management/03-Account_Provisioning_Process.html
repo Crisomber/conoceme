@@ -1,0 +1,31 @@
+<h1 id="account-provisioning-process">Proceso de aprovisionamiento de cuentas</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-IDNT-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El aprovisionamiento de cuentas representa una oportunidad para que un atacante cree una cuenta válida sin que se aplique el proceso adecuado de identificación y autorización.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Verificar qué cuentas pueden aprovisionar otras cuentas y de qué tipo.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Determinar qué roles pueden aprovisionar usuarios y qué tipo de cuentas pueden aprovisionar.</p>
+<ul>
+<li>¿Existe alguna verificación, revisión y autorización de las solicitudes de aprovisionamiento?</li>
+<li>¿Existe alguna verificación, revisión y autorización de las solicitudes de desaprovisionamiento?</li>
+<li>¿Puede un administrador aprovisionar a otros administradores o solo usuarios?</li>
+<li>¿Puede un administrador u otro usuario aprovisionar cuentas con privilegios mayores que los suyos?</li>
+<li>¿Puede un administrador o usuario desaprovisionarse a sí mismo?</li>
+<li>¿Cómo se gestionan los archivos o recursos que pertenecían al usuario desaprovisionado? ¿Se eliminan? ¿Se transfiere el acceso?</li>
+</ul>
+<h3 id="example">Ejemplo</h3>
+<p>En WordPress, solo se requieren el nombre y la dirección de correo electrónico de un usuario para aprovisionarlo, como se muestra a continuación:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-wordpress_useradd.png" alt="Agregar usuario en WordPress" loading="lazy"><br><em>Figura 4.3.3-1: Agregar usuario en WordPress</em></p>
+<p>El desaprovisionamiento de usuarios requiere que el administrador seleccione los usuarios que se van a desaprovisionar, elija Eliminar en el menú desplegable (marcado con un círculo) y luego aplique esta acción. Después, al administrador se le presenta un cuadro de diálogo que pregunta qué hacer con las entradas del usuario (eliminarlas o transferirlas).</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-wordpress_authandusers.png" alt="Autenticación y usuarios en WordPress" loading="lazy"><br><em>Figura 4.3.3-2: Autenticación y usuarios en WordPress</em></p>
+<h2 id="tools">Herramientas</h2>
+<p>Si bien el enfoque más completo y preciso para realizar esta prueba es hacerla manualmente, las herramientas de proxy HTTP también podrían ser útiles.</p>

@@ -1,0 +1,70 @@
+<h1 id="clickjacking">Clickjacking</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-09</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El clickjacking, un subconjunto del UI redressing, es una técnica maliciosa mediante la cual se engaña a un usuario web para que interactúe (en la mayoría de los casos haciendo clic) con algo distinto de aquello con lo que cree estar interactuando. Este tipo de ataque, ya sea solo o en conjunto con otros ataques, podría enviar comandos no autorizados o revelar información confidencial mientras la víctima interactúa con páginas web aparentemente inofensivas. El término clickjacking fue acuñado por Jeremiah Grossman y Robert Hansen en 2008.</p>
+<p>Un ataque de clickjacking utiliza características aparentemente inofensivas de HTML y JavaScript para forzar a la víctima a realizar acciones no deseadas, como hacer clic en un botón invisible que ejecuta una operación no prevista. Es un problema de seguridad del lado del cliente que afecta a una variedad de navegadores y plataformas.</p>
+<p>Para llevar a cabo este ataque, un atacante crea una página web aparentemente inofensiva que carga la aplicación objetivo mediante un marco en línea (inline frame) oculto con código CSS. Una vez hecho esto, el atacante puede inducir a la víctima a interactuar con la página web por otros medios (por ejemplo, mediante ingeniería social). Como en otros ataques, un requisito previo común es que la víctima esté autenticada en la aplicación objetivo del atacante.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/11-Client-side/images/11-clickjacking_description.png" alt="Ilustración de clickjacking" loading="lazy"><br><em>Figura 4.11.9-1: Ilustración de un inline frame para clickjacking</em></p>
+<p>La víctima navega por la página web del atacante con la intención de interactuar con la interfaz de usuario visible, pero sin darse cuenta realiza acciones sobre la página web oculta. Utilizando la página oculta, un atacante puede engañar a los usuarios para que realicen acciones que nunca pretendieron realizar mediante el posicionamiento de los elementos ocultos en la página web.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/11-Client-side/images/11-masked_iframe.png" alt="Ilustración de un inline frame enmascarado" loading="lazy"><br><em>Figura 4.11.9-2: Ilustración de un inline frame enmascarado</em></p>
+<p>El poder de este método es que las acciones realizadas por la víctima se originan en la página web objetivo, oculta pero auténtica. En consecuencia, algunas de las protecciones anti-CSRF implementadas por los desarrolladores para proteger la página web de ataques CSRF podrían eludirse.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar la vulnerabilidad de la aplicación a ataques de clickjacking.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Como se mencionó anteriormente, este tipo de ataque suele diseñarse para permitir a un atacante inducir acciones de los usuarios en el sitio objetivo, incluso si se utilizan tokens anti-CSRF.</p>
+<h3 id="load-target-web-page-on-a-html-interpreter-using-html-iframe-tag">Cargar la página web objetivo en un intérprete de HTML mediante la etiqueta iframe</h3>
+<p>Los sitios que no están protegidos contra el frame busting son vulnerables al ataque de clickjacking. Si la página web <code>https://www.target.site</code> se carga con éxito en un frame, entonces el sitio es vulnerable a Clickjacking. A continuación se muestra un ejemplo de código HTML para crear esta página web de prueba:</p>
+<pre><code class="language-htmls">    &lt;html&gt;
+        &lt;head&gt;
+            &lt;title&gt;Clickjack test web page&lt;/title&gt;
+        &lt;/head&gt;
+        &lt;body&gt;
+            &lt;iframe src=&quot;https://www.target.site&quot; width=&quot;400&quot; height=&quot;400&quot;&gt;&lt;/iframe&gt;
+        &lt;/body&gt;
+    &lt;/html&gt;
+</code></pre>
+<h3 id="test-application-against-disabled-javascript">Probar la aplicación con JavaScript deshabilitado</h3>
+<p>Dado que este tipo de protecciones del lado del cliente depende de código de frame busting en JavaScript, si la víctima tiene JavaScript deshabilitado o si un atacante puede deshabilitar el código JavaScript, la página web no tendrá ningún mecanismo de protección contra el clickjacking.</p>
+<p>Hay algunas técnicas de desactivación que pueden utilizarse con los frames. Se pueden encontrar técnicas más detalladas en la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html" target="_blank" rel="noopener">Clickjacking Defense Cheat Sheet</a>.</p>
+<h3 id="sandbox-attribute">Atributo sandbox</h3>
+<p>Con HTML5 está disponible un nuevo atributo llamado &quot;sandbox&quot;. Este habilita un conjunto de restricciones sobre el contenido cargado en el iframe.</p>
+<p>Ejemplo:</p>
+<pre><code class="language-html">&lt;iframe src=&quot;https://example.org&quot; sandbox&gt;&lt;/iframe&gt;
+</code></pre>
+<h3 id="test-application-on-compatibility-and-accessibility-mode">Probar la aplicación en modo de compatibilidad y accesibilidad</h3>
+<p>Las versiones móviles de la página web suelen ser más pequeñas y rápidas que las de escritorio, y tienen que ser menos complejas que la aplicación principal. Las variantes móviles suelen tener menos protección. Sin embargo, un atacante puede falsificar el origen real proporcionado por un navegador web, y una víctima que no use un dispositivo móvil podría visitar una aplicación hecha para usuarios móviles. Este escenario podría permitir al atacante explotar una versión móvil de la página web.
+Las aplicaciones que se ejecutan en modo de accesibilidad también deben probarse contra el clickjacking, porque el enmarcado del sitio podría verse afectado.</p>
+<h3 id="server-side-protection-using-frame-ancestors-directive-of-content-security-policy">Protección del lado del servidor: uso de la directiva frame-ancestors de Content Security Policy</h3>
+<p>La cabecera de respuesta HTTP Content-Security-Policy (CSP) permite a los administradores de páginas web controlar los recursos que el user agent puede cargar para una página web determinada. La directiva <code>frame-ancestors</code> de la CSP HTTP especifica los padres aceptables que pueden incrustar una página web mediante las etiquetas <code>&lt;frame&gt;</code>, <code>&lt;iframe&gt;</code>, <code>&lt;object&gt;</code>, <code>&lt;embed&gt;</code> o <code>&lt;applet&gt;</code>.</p>
+<h4 id="content-security-policy-response-header">Cabecera de respuesta Content Security Policy</h4>
+<ul>
+<li>Con un navegador, abra las herramientas de desarrollo y acceda a la página web objetivo. Navegue a la pestaña Network.</li>
+<li>Busque la petición que carga la página web. Debe tener el mismo dominio que la página web; normalmente es el primer elemento de la pestaña Network.</li>
+<li>Al hacer clic en el archivo, aparecerá más información. Busque un código de respuesta 200 OK.</li>
+<li>Desplácese hasta la sección Response Header. La sección Content-Security-Policy indica el nivel de protección adoptado.</li>
+</ul>
+<p>Alternativamente, vea el código fuente de la página web para encontrar Content-Security-Policy en una etiqueta meta. La WSTG contiene información detallada sobre la <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/12-Content_Security_Policy">Content Security Policy</a>.</p>
+<h5 id="proxies">Proxies</h5>
+<p>Se sabe que los proxies web añaden y eliminan cabeceras. En el caso de que un proxy web elimine la cabecera <code>X-FRAME-OPTIONS</code>, el sitio pierde su protección contra el enmarcado.</p>
+<h5 id="mobile-version-of-the-application">Versión móvil de la aplicación</h5>
+<p>En este caso, como la cabecera HTTP <code>X-FRAME-OPTIONS</code> debe implementarse en cada página de la aplicación, es posible que los desarrolladores no hayan protegido todas y cada una de las páginas de la versión móvil.</p>
+<h3 id="remediation">Corrección</h3>
+<ul>
+<li>Para conocer las medidas que previenen el Clickjacking, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html" target="_blank" rel="noopener">Clickjacking Defense Cheat Sheet</a>.</li>
+<li>Para laboratorios interactivos sobre Clickjacking, visite la <a href="https://portswigger.net/web-security/clickjacking" target="_blank" rel="noopener">página web de Port Swigger</a></li>
+<li>Para recursos adicionales sobre ClickJacking, visite la <a href="https://owasp.org/www-community/attacks/Clickjacking" target="_blank" rel="noopener">comunidad de OWASP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/www-community/attacks/Clickjacking" target="_blank" rel="noopener">OWASP Clickjacking</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Clickjacking" target="_blank" rel="noopener">Wikipedia Clickjacking</a></li>
+<li><a href="https://seclab.stanford.edu/websec/framebusting/framebust.pdf" target="_blank" rel="noopener">Gustav Rydstedt, Elie Bursztein, Dan Boneh, and Collin Jackson: &quot;Busting Frame Busting: a Study of Clickjacking Vulnerabilities on Popular Sites&quot;</a></li>
+</ul>

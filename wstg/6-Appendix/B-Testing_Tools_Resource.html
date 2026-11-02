@@ -1,0 +1,212 @@
+<h1 id="b-testing-tools-resource">B. Recursos de herramientas de pruebas</h1>
+<h2 id="introduction">Introducción</h2>
+<p>Este apéndice tiene como finalidad proporcionar una lista de herramientas comunes que se utilizan para las pruebas de aplicaciones web. No pretende ser una referencia completa de herramientas, y la inclusión de una herramienta aquí no debe interpretarse como un respaldo específico de esa herramienta por parte de OWASP.</p>
+<p>La lista contiene únicamente herramientas que se pueden descargar y usar libremente (aunque pueden tener licencias que restrinjan su uso para actividades comerciales).</p>
+<h2 id="general-web-testing">Pruebas web generales</h2>
+<h3 id="web-proxies">Proxies web</h3>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a><ul>
+<li>El Zed Attack Proxy (ZAP) es una herramienta de pruebas de penetración integrada y fácil de usar para encontrar vulnerabilidades en aplicaciones web. Está diseñada para ser utilizada por personas con un amplio rango de experiencia en seguridad y, como tal, es ideal para desarrolladores y evaluadores funcionales que son nuevos en las pruebas de penetración.<ul>
+<li>ZAP proporciona escáneres automatizados, así como un conjunto de herramientas que permiten encontrar vulnerabilidades de seguridad manualmente.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="https://portswigger.net/burp/communitydownload" target="_blank" rel="noopener">Burp Suite Community Edition</a><ul>
+<li>Burp Suite es un proxy interceptor para pruebas de seguridad. Permite interceptar y modificar todo el tráfico HTTP(S) que pasa en ambas direcciones, y puede trabajar con certificados TLS personalizados y con clientes que no reconocen proxies.</li>
+</ul>
+</li>
+<li><a href="https://www.telerik.com/fiddler" target="_blank" rel="noopener">Telerik Fiddler</a><ul>
+<li>Fiddler es un proxy web interceptor orientado principalmente a desarrolladores más que a evaluadores de penetración, pero que aun así ofrece funcionalidad útil. También se engancha directamente a las API HTTP de Windows, lo que le permite interceptar el tráfico de algunos programas que no permiten configurar proxies personalizados.</li>
+</ul>
+</li>
+<li><a href="https://github.com/hahwul/gori" target="_blank" rel="noopener">Gori</a><ul>
+<li>Gori es un proxy interceptor manejado desde una interfaz de usuario de terminal (TUI), con pestañas para el historial, repeater y fuzzer, reproducción de control de acceso, JWT, análisis de tokens de sesión y pruebas fuera de banda. El mismo proyecto se puede automatizar mediante <code>gori run</code> y es accesible para herramientas de IA a través de un servidor de Model Context Protocol.</li>
+</ul>
+</li>
+</ul>
+<h3 id="firefox-extensions">Extensiones de Firefox</h3>
+<ul>
+<li><a href="https://addons.mozilla.org/en-US/firefox/addon/http-header-live" target="_blank" rel="noopener">Firefox HTTP Header Live</a><ul>
+<li>Permite ver las cabeceras HTTP de una página mientras se navega.</li>
+</ul>
+</li>
+<li><a href="https://addons.mozilla.org/en-GB/firefox/addon/multi-account-containers/" target="_blank" rel="noopener">Firefox Multi-Account Containers</a><ul>
+<li>Crea múltiples contenedores, cada uno con sus propias cookies y sesiones aisladas. Es útil para probar el control de acceso entre distintos usuarios.</li>
+</ul>
+</li>
+<li><a href="https://addons.mozilla.org/en-US/firefox/addon/web-developer/" target="_blank" rel="noopener">Firefox Web Developer</a><ul>
+<li>La extensión Web Developer añade diversas herramientas para desarrolladores web al navegador.</li>
+</ul>
+</li>
+</ul>
+<h3 id="chrome-extensions">Extensiones de Chrome</h3>
+<ul>
+<li><a href="https://chromewebstore.google.com/detail/bfbameneiokkgbdmiekhjnmfkcnldhhm" target="_blank" rel="noopener">Chrome Web Developer</a><ul>
+<li>La extensión Web Developer añade al navegador un botón en la barra de herramientas con diversas herramientas para desarrolladores web. Es el port oficial de la extensión Web Developer para Chrome.</li>
+</ul>
+</li>
+<li><a href="https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank" rel="noopener">Cookie Editor</a><ul>
+<li>Una extensión de navegador potente y fácil de usar que permite crear, editar y eliminar rápidamente las cookies de la pestaña actual. Es útil para desarrollar, probar o gestionar cookies manualmente.</li>
+</ul>
+</li>
+</ul>
+<h3 id="specific-vulnerabilities">Vulnerabilidades específicas</h3>
+<h4 id="sql-injection">Inyección SQL</h4>
+<ul>
+<li><a href="https://sqlmap.org" target="_blank" rel="noopener">sqlmap</a></li>
+</ul>
+<h4 id="tls">TLS</h4>
+<ul>
+<li><a href="https://owasp.org/www-project-o-saft/" target="_blank" rel="noopener">OWASP O-Saft</a></li>
+<li><a href="https://github.com/nabla-c0d3/sslyze" target="_blank" rel="noopener">sslyze</a></li>
+<li><a href="https://github.com/drwetter/testssl.sh" target="_blank" rel="noopener">testssl.sh</a></li>
+<li><a href="https://github.com/rbsec/sslscan" target="_blank" rel="noopener">SSLScan</a></li>
+<li><a href="https://www.ssllabs.com/ssltest/" target="_blank" rel="noopener">SSLLabs</a></li>
+</ul>
+<h4 id="brute-force-attacks">Ataques de fuerza bruta</h4>
+<h5 id="hash-crackers">Crackers de hashes</h5>
+<ul>
+<li><a href="https://github.com/openwall/john" target="_blank" rel="noopener">John the Ripper</a></li>
+<li><a href="https://hashcat.net/hashcat/" target="_blank" rel="noopener">hashcat</a></li>
+</ul>
+<h5 id="remote-brute-force">Fuerza bruta remota</h5>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://github.com/lanjelot/patator" target="_blank" rel="noopener">Patator</a></li>
+<li><a href="https://github.com/vanhauser-thc/thc-hydra" target="_blank" rel="noopener">THC Hydra</a></li>
+<li><a href="https://portswigger.net/burp/communitydownload" target="_blank" rel="noopener">Burp Suite Community Edition (Intruder)</a></li>
+</ul>
+<h4 id="fuzzers">Fuzzers</h4>
+<ul>
+<li><a href="https://github.com/ffuf/ffuf" target="_blank" rel="noopener">Ffuf</a></li>
+<li><a href="https://github.com/xmendez/wfuzz" target="_blank" rel="noopener">Wfuzz</a></li>
+<li><a href="https://gitlab.com/michenriksen/jdam" target="_blank" rel="noopener">Jdam</a></li>
+</ul>
+<h4 id="google-hacking">Google Hacking</h4>
+<ul>
+<li><a href="https://www.exploit-db.com/google-hacking-database/" target="_blank" rel="noopener">Google Hacking database</a></li>
+</ul>
+<h4 id="slow-http">Slow HTTP</h4>
+<ul>
+<li><a href="https://github.com/gkbrk/slowloris" target="_blank" rel="noopener">Slowloris</a></li>
+<li><a href="https://github.com/shekyan/slowhttptest" target="_blank" rel="noopener">slowhttptest</a></li>
+</ul>
+<h3 id="site-mirroring">Duplicación de sitios</h3>
+<ul>
+<li><a href="https://www.gnu.org/software/wget" target="_blank" rel="noopener">wget</a></li>
+<li><a href="https://curl.se" target="_blank" rel="noopener">curl</a></li>
+</ul>
+<h3 id="content-discovery">Descubrimiento de contenido</h3>
+<ul>
+<li><a href="https://github.com/OJ/gobuster" target="_blank" rel="noopener">Gobuster</a></li>
+<li><a href="https://github.com/tomnomnom/waybackurls" target="_blank" rel="noopener">Waybackurls</a><ul>
+<li>Waybackurls obtiene todas las URL conocidas por la Wayback Machine para un dominio determinado, lo que es útil para el reconocimiento.</li>
+<li><strong>Uso:</strong></li>
+</ul>
+</li>
+</ul>
+<pre><code class="language-bash">waybackurls example.com
+</code></pre>
+<ul>
+<li><a href="https://github.com/lc/gau" target="_blank" rel="noopener">GAU (Get All URLs)</a><ul>
+<li>GAU recopila URL de múltiples archivos públicos, incluidos la Wayback Machine y Common Crawl.</li>
+<li><strong>Uso:</strong></li>
+</ul>
+</li>
+</ul>
+<pre><code class="language-bash">gau example.com
+</code></pre>
+<ul>
+<li><a href="https://github.com/tomnomnom/unfurl" target="_blank" rel="noopener">Unfurl</a><ul>
+<li>Unfurl extrae subdominios, rutas y parámetros de las URL para un análisis más profundo.</li>
+<li><strong>Uso:</strong></li>
+</ul>
+</li>
+</ul>
+<pre><code class="language-bash">unfurl &quot;https://example.com/page?query=123&quot;
+</code></pre>
+<h3 id="attack-surface-detection">Detección de la superficie de ataque</h3>
+<ul>
+<li><a href="https://github.com/owasp-noir/noir" target="_blank" rel="noopener">OWASP Noir</a><ul>
+<li>Noir analiza el código fuente para listar endpoints, métodos y parámetros de muchos lenguajes y frameworks. Genera texto plano, JSON, OpenAPI o comandos curl, y puede reproducir los endpoints descubiertos a través de ZAP o Burp Suite.</li>
+</ul>
+</li>
+<li><a href="https://owasp.org/projects/attack-surface-detector" target="_blank" rel="noopener">OWASP Attack Surface Detector</a><ul>
+<li>El Attack Surface Detector utiliza análisis estático de código para identificar endpoints y parámetros, y está disponible como herramienta de línea de comandos y como plugins para ZAP y Burp Suite.</li>
+</ul>
+</li>
+</ul>
+<h3 id="port-and-service-discovery">Descubrimiento de puertos y servicios</h3>
+<ul>
+<li><a href="https://nmap.org/" target="_blank" rel="noopener">Nmap</a></li>
+</ul>
+<h2 id="vulnerability-scanners">Escáneres de vulnerabilidades</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a></li>
+<li><a href="https://cirt.net/Nikto2" target="_blank" rel="noopener">Nikto</a></li>
+<li><a href="https://nuclei.projectdiscovery.io/" target="_blank" rel="noopener">Nuclei</a></li>
+<li><a href="https://secopsolution.com" target="_blank" rel="noopener">SecOps Solution</a></li>
+</ul>
+<h2 id="exploitation-frameworks">Frameworks de explotación</h2>
+<ul>
+<li><a href="https://github.com/rapid7/metasploit-framework" target="_blank" rel="noopener">Metasploit</a></li>
+<li><a href="https://github.com/beefproject/beef/" target="_blank" rel="noopener">BeEF</a></li>
+</ul>
+<h2 id="linux-distributions">Distribuciones de Linux</h2>
+<ul>
+<li><a href="https://www.kali.org" target="_blank" rel="noopener">Kali</a></li>
+<li><a href="https://www.parrotsec.org" target="_blank" rel="noopener">Parrot</a></li>
+<li><a href="https://github.com/SamuraiWTF/samuraiwtf" target="_blank" rel="noopener">Samurai</a></li>
+<li><a href="https://sourceforge.net/projects/santoku/" target="_blank" rel="noopener">Santoku</a></li>
+<li><a href="https://blackarch.org/downloads.html" target="_blank" rel="noopener">BlackArch</a></li>
+</ul>
+<h2 id="source-code-analyzers">Analizadores de código fuente</h2>
+<ul>
+<li><a href="https://spotbugs.github.io" target="_blank" rel="noopener">Spotbugs</a></li>
+<li><a href="https://find-sec-bugs.github.io" target="_blank" rel="noopener">Find Security Bugs</a></li>
+<li><a href="https://github.com/squizlabs/PHP_CodeSniffer" target="_blank" rel="noopener">phpcs-security-audit</a></li>
+<li><a href="https://pmd.github.io" target="_blank" rel="noopener">PMD</a></li>
+<li><a href="https://learn.microsoft.com/en-us/visualstudio/code-quality/install-net-analyzers" target="_blank" rel="noopener">Microsoft&#39;s .NET Analyzers</a></li>
+<li><a href="https://www.sonarsource.com/products/sonarqube/" target="_blank" rel="noopener">SonarQube Community Edition</a></li>
+</ul>
+<h2 id="browser-automation-tools">Herramientas de automatización de navegadores</h2>
+<p>Las herramientas de automatización de navegadores se utilizan para validar la funcionalidad de las aplicaciones web. Algunas siguen un enfoque basado en scripts y suelen hacer uso de un framework de pruebas unitarias para construir suites y casos de prueba. La mayoría, si no todas, pueden adaptarse para realizar pruebas específicas de seguridad además de pruebas funcionales.</p>
+<h3 id="open-source-tools">Herramientas de código abierto</h3>
+<ul>
+<li><a href="https://htmlunit.sourceforge.io" target="_blank" rel="noopener">HtmlUnit</a> - HtmlUnit es un navegador sin interfaz gráfica para programas Java. Modela documentos HTML y proporciona una API para invocar páginas, rellenar formularios, hacer clic en enlaces e interactuar con JavaScript y con bibliotecas AJAX complejas. Puede simular Chrome, Firefox o Edge según la configuración, y se utiliza normalmente para pruebas automatizadas o web scraping. HtmlUnit también puede usarse como un navegador compatible con Selenium mediante el <a href="https://github.com/SeleniumHQ/htmlunit-driver" target="_blank" rel="noopener">htmlunit-driver</a>. La última versión estable es la 4.21.0 (<code>org.htmlunit:htmlunit:4.21.0</code>).<ul>
+<li>Repositorio de GitHub: <a href="https://github.com/HtmlUnit/htmlunit" target="_blank" rel="noopener">HtmlUnit/htmlunit</a></li>
+</ul>
+</li>
+<li><a href="https://www.selenium.dev" target="_blank" rel="noopener">Selenium</a><ul>
+<li>Framework de pruebas basado en JavaScript, multiplataforma, que proporciona una interfaz gráfica para crear pruebas.</li>
+</ul>
+</li>
+</ul>
+<h2 id="online-resources-for-security-testing-tool-comparison">Recursos en línea para comparar herramientas de pruebas de seguridad</h2>
+<p>Además de las herramientas individuales enumeradas en este apéndice, los profesionales a menudo necesitan recursos que les ayuden a comparar y evaluar herramientas de pruebas de seguridad en categorías como SAST, DAST, SCA y seguridad de API.</p>
+<p>Los siguientes recursos de acceso gratuito ofrecen comparaciones seleccionadas y orientación para la evaluación.</p>
+<h3 id="appsec-santa-tool-comparison">Comparación de herramientas de AppSec Santa</h3>
+<ul>
+<li><a href="https://appsecsanta.com" target="_blank" rel="noopener">AppSec Santa</a><ul>
+<li>Una comparación seleccionada de más de 160 herramientas de seguridad de aplicaciones en categorías como SAST, DAST, SCA, seguridad de API, seguridad de contenedores y más.</li>
+</ul>
+</li>
+</ul>
+<h3 id="security-headers-analyzer">Analizador de cabeceras de seguridad</h3>
+<ul>
+<li><a href="https://securityheaders.com" target="_blank" rel="noopener">SecurityHeaders</a><ul>
+<li>Una herramienta gratuita en línea que analiza las cabeceras de respuesta HTTP y destaca las protecciones de seguridad ausentes o mal configuradas, como Content Security Policy, HSTS y X-Frame-Options.</li>
+</ul>
+</li>
+</ul>
+<h3 id="zap-zed-attack-proxy-documentation">Documentación de ZAP (Zed Attack Proxy)</h3>
+<p>Documentación oficial y recursos de aprendizaje de la herramienta de pruebas dinámicas de seguridad de aplicaciones ZAP (Zed Attack Proxy).</p>
+<ul>
+<li><a href="https://www.zaproxy.org/docs/" target="_blank" rel="noopener">ZAP Documentation</a></li>
+</ul>
+<h3 id="nuclei-templates-project">Proyecto Nuclei Templates</h3>
+<p>Un gran repositorio de código abierto de plantillas de detección de vulnerabilidades utilizadas para el escaneo de seguridad automatizado.</p>
+<ul>
+<li><a href="https://github.com/projectdiscovery/nuclei-templates" target="_blank" rel="noopener">Nuclei Templates</a></li>
+</ul>

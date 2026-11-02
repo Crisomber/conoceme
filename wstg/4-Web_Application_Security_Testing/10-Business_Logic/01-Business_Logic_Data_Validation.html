@@ -1,0 +1,86 @@
+<h1 id="business-logic-data-validation">Validación de datos de la lógica de negocio</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La aplicación debe garantizar que solo se puedan introducir datos lógicamente válidos tanto en el frontend como directamente en el lado del servidor de una aplicación o sistema. Verificar los datos únicamente en el cliente o frontend puede dejar a las aplicaciones vulnerables a inyecciones en el servidor mediante proxies o en los traspasos con otros sistemas. Esto es distinto de realizar simplemente un Análisis de Valores Límite (BVA, Boundary Value Analysis), ya que es más difícil y, en la mayoría de los casos, no se puede verificar simplemente en el punto de entrada, sino que suele requerir consultar algún otro sistema.</p>
+<p>Por ejemplo: una aplicación puede solicitar el número de Seguro Social (SSN). En un BVA, la aplicación debería comprobar los formatos y la semántica de los datos introducidos (si el valor tiene 9 dígitos, no es negativo y no son todos ceros), pero también hay consideraciones lógicas. Los SSN están agrupados y categorizados. ¿Esta persona figura en un registro de fallecidos? ¿Es de cierta parte del país?</p>
+<p>Las vulnerabilidades relacionadas con la validación de datos de negocio son particulares en cuanto a que son específicas de cada aplicación y se diferencian de las vulnerabilidades relacionadas con la falsificación de peticiones en que se ocupan de los datos lógicos y no simplemente de romper el flujo de trabajo de la lógica de negocio.</p>
+<p>El frontend y el backend de la aplicación deben verificar y validar que los datos que tienen, usan y transmiten son lógicamente válidos. Incluso si el usuario proporciona datos válidos a una aplicación, la lógica de negocio puede hacer que la aplicación se comporte de forma distinta según los datos o las circunstancias.</p>
+<h3 id="example-1">Ejemplo 1</h3>
+<p>Supóngase que se administra un sitio de comercio electrónico de varios niveles que permite a los usuarios pedir alfombras. El usuario selecciona su alfombra, introduce el tamaño, realiza el pago y la aplicación frontend ha verificado que toda la información introducida es correcta y válida en cuanto a datos de contacto, tamaño, marca y color de la alfombra. Pero la lógica de negocio en segundo plano tiene dos caminos: si la alfombra está en existencias, se envía directamente desde el almacén propio; pero si no hay existencias en el almacén, se hace una llamada al sistema de un socio y, si este la tiene en existencias, enviará el pedido desde su almacén y le será reembolsado.</p>
+<p>¿Qué pasa si un atacante puede continuar una transacción válida con existencias y enviarla a su socio como si no hubiera existencias? ¿Qué pasa si un atacante logra situarse en medio y enviar mensajes al almacén del socio solicitando alfombras sin pago?</p>
+<h3 id="example-2">Ejemplo 2</h3>
+<p>Muchos sistemas de tarjetas de crédito descargan ahora los saldos de las cuentas cada noche para que los clientes puedan pagar más rápido importes inferiores a cierto valor. Lo inverso también es cierto. Si pago mi tarjeta de crédito por la mañana, puede que no pueda usar el crédito disponible por la noche. Otro ejemplo: si uso mi tarjeta de crédito en varios lugares muy rápidamente, puede ser posible superar mi límite si los sistemas basan sus decisiones en los datos de la noche anterior.</p>
+<h3 id="example-3">Ejemplo 3</h3>
+<p><strong><a href="https://www.zdnet.com/article/pirate-bay-defendant-urges-ddo-attack-on-lawyer/" target="_blank" rel="noopener">Distributed Denial of Dollar (DDo$)</a>:</strong>
+Esta fue una campaña propuesta por el fundador del sitio &quot;The Pirate Bay&quot; contra el bufete de abogados que promovió acciones judiciales contra &quot;The Pirate Bay&quot;. El objetivo era aprovechar errores en el diseño de funciones de negocio y en el proceso de validación de transferencias de crédito.</p>
+<p>Este ataque se realizó enviando al bufete cantidades de dinero muy pequeñas de 1 SEK (0,13 USD). La cuenta bancaria a la que se dirigían los pagos solo tenía 1000 transferencias gratuitas, después de las cuales cualquier transferencia tenía un recargo para el titular de la cuenta (2 SEK). Tras las primeras mil transacciones por internet, cada donación de 1 SEK al bufete terminaba costándole en realidad 1 SEK.</p>
+<h3 id="example-4">Ejemplo 4</h3>
+<p>Una página de perfil permite a los usuarios elegir un avatar. El frontend siempre envía la imagen como un URI <code>data:</code> en base64, por lo que los desarrolladores nunca validan lo que contiene el parámetro <code>avatar</code>. Un atacante intercepta la petición y reemplaza el valor por <code>http://attacker.example/pixel.png</code>. La aplicación lo acepta y, más tarde, un trabajo del lado del servidor o el navegador de un administrador obtiene esa URL. La petición llega al atacante, quien descubre que la entrada nunca se validó y puede usarla para alcanzar hosts internos o para rastrear a otros usuarios.</p>
+<h3 id="example-5">Ejemplo 5</h3>
+<p>Un formulario de reseña de producto ofrece una calificación de 1 a 5 estrellas mediante un conjunto de botones de opción (radio buttons). Si el backend solo comprueba que el valor sea un número, se almacena <code>rating=-100</code> o <code>rating=99999</code> y se distorsiona la puntuación promedio, y un valor como <code>rating=NaN</code> puede romper las páginas que lo muestran.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inyección de datos.</li>
+<li>Validar que todas las comprobaciones se realicen en el backend y no puedan eludirse.</li>
+<li>Intentar romper el formato de los datos esperados y analizar cómo los gestiona la aplicación.</li>
+<li>Determinar si los parámetros que el frontend restringe (tipo, rango, conjunto de valores permitidos o relación con otros campos) se vuelven a restringir en el servidor.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="generic-test-method">Método de prueba genérico</h3>
+<ul>
+<li>Revisar la documentación del proyecto y usar pruebas exploratorias buscando puntos de entrada de datos o puntos de traspaso entre sistemas o software.</li>
+<li>Una vez encontrados, intentar insertar en la aplicación o sistema datos lógicamente inválidos.</li>
+</ul>
+<p>Método de prueba específico:</p>
+<ul>
+<li>Realizar pruebas funcionales válidas de la GUI del frontend en la aplicación para asegurar que solo se aceptan valores &quot;válidos&quot;.</li>
+<li>Usando un proxy de interceptación, observar los HTTP POST/GET buscando lugares donde se pasan variables como el costo y la cantidad. En particular, buscar &quot;traspasos&quot; entre aplicaciones o sistemas que puedan ser puntos posibles de inyección o manipulación.</li>
+<li>Una vez encontradas las variables, comenzar a interrogar el campo con datos lógicamente &quot;inválidos&quot;, como números de seguro social o identificadores únicos que no existen o que no encajan con la lógica de negocio. Esta prueba verifica que el servidor funciona correctamente y no acepta datos lógicamente inválidos.</li>
+</ul>
+<h3 id="parameter-based-test-cases">Casos de prueba basados en parámetros</h3>
+<p>Para cada parámetro observado en los pasos anteriores, hay que repetir la petición con un valor modificado y comparar la respuesta, los datos almacenados y cualquier comportamiento posterior (correos electrónicos, trabajos en segundo plano, vistas de otros usuarios) con los de la petición válida. El objetivo es encontrar valores que el frontend nunca enviaría pero que el servidor acepta. Variaciones útiles:</p>
+<ul>
+<li><strong>Rango y signo:</strong> valores por debajo del mínimo o por encima del máximo que ofrece la interfaz, cero, números negativos y números muy grandes (por ejemplo, una calificación de <code>-1</code> o <code>1000</code>, una cantidad de <code>0</code> o una transferencia de <code>-50</code>).</li>
+<li><strong>Conjunto permitido:</strong> valores que no están en la lista que ofrece la interfaz, como un rol, país, plan, estado o moneda que no está en la lista desplegable, o un valor válido distinto que pertenece a otro usuario o inquilino (tenant).</li>
+<li><strong>Tipo y formato:</strong> un tipo de dato distinto al esperado (cadena en lugar de número, arreglo u objeto en lugar de cadena, <code>null</code>, un valor vacío, <code>true</code> en lugar de <code>1</code>), o el mismo campo con un formato distinto (una URL donde la aplicación espera un URI <code>data:</code> o un nombre de archivo, una fecha en otro formato o dígitos Unicode).</li>
+<li><strong>Longitud y codificación:</strong> valores vacíos, valores más largos que la longitud impuesta por el frontend y valores que contienen caracteres que la interfaz filtra.</li>
+<li><strong>Relaciones entre campos:</strong> valores que son válidos individualmente pero incoherentes en conjunto, por ejemplo una fecha de fin anterior a la fecha de inicio, un descuento mayor que el precio o un país de envío que no coincide con el país del pago.</li>
+<li><strong>Parámetros ausentes y adicionales:</strong> eliminar parámetros que parecen obligatorios y añadir parámetros que la interfaz nunca envía (véase <a href="#/4-Web_Application_Security_Testing/07-Injection/20-Mass_Assignment">Mass Assignment</a>), y repetir un parámetro con valores distintos (véase <a href="#/4-Web_Application_Security_Testing/07-Injection/04-HTTP_Parameter_Pollution">HTTP Parameter Pollution</a>).</li>
+<li><strong>Valores de traspaso:</strong> valores que luego se pasan a otro sistema, como una dirección de correo electrónico, una URL o una ruta de archivo (véase <a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery">Server-Side Request Forgery</a>). Hay que usar un valor único que se controle, para poder detectar cuándo y dónde se utiliza, incluso mediante una petición diferida o fuera de banda.</li>
+</ul>
+<p>Conviene registrar cuáles de las variaciones fueron aceptadas, porque el impacto depende de cómo use la aplicación el valor después y no solo de si fue rechazado.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li>Todos los casos de prueba de <a href="#/4-Web_Application_Security_Testing/07-Injection/README">Injection Testing</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/04-HTTP_Parameter_Pollution">HTTP Parameter Pollution</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/20-Mass_Assignment">Mass Assignment</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery">Server-Side Request Forgery</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/10-Business_Logic/10-Payment_Functionality">Payment Functionality</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Account Enumeration and Guessable User Account</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/01-Session_Management_Schema">Bypassing Session Management Schema</a>.</li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/04-Exposed_Session_Variables">Exposed Session Variables</a>.</li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La aplicación o el sistema debe garantizar que solo se acepten datos &quot;lógicamente válidos&quot; en todos los puntos de entrada y de traspaso de la aplicación o sistema, y que los datos no se den simplemente por confiables una vez que han entrado en el sistema.</p>
+<ul>
+<li>Validar cada parámetro en el servidor, incluso cuando el frontend lo restrinja. Comprobar el tipo, el rango, la longitud, el formato y la pertenencia al conjunto de valores permitidos (preferiblemente con una lista de permitidos).</li>
+<li>Validar las relaciones entre campos y entre el valor y el estado del usuario, la cuenta o el pedido, y no solo cada valor por separado.</li>
+<li>Rechazar los parámetros inesperados o desconocidos en lugar de usarlos o ignorarlos silenciosamente.</li>
+<li>Tratar los datos recibidos de otros sistemas con la misma desconfianza que los datos recibidos de los usuarios.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://top10proactive.owasp.org/archive/2024/the-top-10/c3-validate-input-and-handle-exceptions/" target="_blank" rel="noopener">OWASP Top 10 Proactive Controls (2024) C3: Validate Input and Handle Exceptions</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Cheat Sheet Series - Input Validation Cheat Sheet</a></li>
+</ul>

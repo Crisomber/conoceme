@@ -1,0 +1,35 @@
+<h1 id="number-of-times-a-function-can-be-used-limits">Límites en el número de veces que se puede usar una función</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-05</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Muchos de los problemas que resuelven las aplicaciones requieren límites en el número de veces que se puede usar una función o ejecutar una acción. Las aplicaciones deben ser &quot;lo bastante inteligentes&quot; para no permitir que el usuario exceda su límite de uso de estas funciones, ya que en muchos casos cada vez que se usa la función el usuario puede obtener algún tipo de beneficio que debe contabilizarse para compensar adecuadamente al propietario. Por ejemplo: un sitio de comercio electrónico puede permitir a los usuarios aplicar un descuento solo una vez por transacción, o algunas aplicaciones pueden estar en un plan de suscripción y permitir a los usuarios descargar solo tres documentos completos al mes.</p>
+<p>Las vulnerabilidades relacionadas con la prueba de los límites de las funciones son específicas de cada aplicación y se deben crear casos de uso indebido que busquen ejercitar partes de la aplicación, funciones o acciones más veces de las permitidas.</p>
+<p>Los atacantes pueden ser capaces de eludir la lógica de negocio y ejecutar una función más veces de lo &quot;permitido&quot;, explotando la aplicación para su beneficio personal.</p>
+<h3 id="example">Ejemplo</h3>
+<p>Supóngase que un sitio de comercio electrónico permite a los usuarios aprovechar uno de entre muchos descuentos sobre su compra total y luego proceder a la caja y al pago. ¿Qué pasa si el atacante vuelve a la página de descuentos después de haber tomado y aplicado el único descuento &quot;permitido&quot;? ¿Puede aprovechar otro descuento? ¿Puede aprovechar el mismo descuento varias veces?</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar las funciones que deben establecer límites al número de veces que pueden ser llamadas.</li>
+<li>Evaluar si hay un límite lógico establecido en las funciones y si se valida correctamente.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<ul>
+<li>Revisar la documentación del proyecto y usar pruebas exploratorias buscando funciones o características de la aplicación o del sistema que no deberían ejecutarse más de una sola vez o un número especificado de veces durante el flujo de trabajo de la lógica de negocio.</li>
+<li>Para cada una de las funciones y características encontradas que solo deberían ejecutarse una vez o un número especificado de veces durante el flujo de trabajo de la lógica de negocio, desarrollar casos de abuso o uso indebido que puedan permitir a un usuario ejecutarlas más veces de las permitidas. Por ejemplo, ¿puede un usuario navegar hacia adelante y hacia atrás por las páginas varias veces ejecutando una función que solo debería ejecutarse una vez?, o ¿puede un usuario cargar y descargar carritos de compra permitiendo descuentos adicionales?</li>
+</ul>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Account Enumeration and Guessable User Account</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/04-Authentication/03-Weak_Lock_Out_Mechanism">Weak lock out mechanism</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>La aplicación debe establecer controles estrictos para evitar el abuso de los límites. Esto puede lograrse haciendo que un cupón deje de ser válido a nivel de base de datos, o estableciendo un contador límite por usuario a nivel de backend o de base de datos, ya que todos los usuarios deben estar identificados mediante una sesión; se elegirá lo que sea mejor para el requisito de negocio.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.businessinsider.com/gold-halted-on-cme-for-stop-logic-event-2013-10" target="_blank" rel="noopener">Gold Trading Was Temporarily Halted On The CME This Morning</a></li>
+</ul>

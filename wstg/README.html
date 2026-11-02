@@ -1,0 +1,182 @@
+<h1 id="contents">Contenido</h1>
+<h2 id="0-foreword">0. <a href="#/0-Foreword/README">Prólogo</a></h2>
+<h2 id="1-about">1. <a href="#/1-About/README">Acerca de</a></h2>
+<h2 id="2-introduction">2. <a href="#/2-Introduction/README">Introducción</a></h2>
+<h3 id="21-purpose-and-scope">2.1 <a href="#/2-Introduction/README@purpose-and-scope">Propósito y alcance</a></h3>
+<h3 id="22-why-web-application-security-testing-matters">2.2 <a href="#/2-Introduction/README@why-web-application-security-testing-matters">Por qué importan las pruebas de seguridad de aplicaciones web</a></h3>
+<h3 id="23-who-should-use-this-guide">2.3 <a href="#/2-Introduction/README@who-should-use-this-guide">Quién debe usar esta guía</a></h3>
+<h3 id="24-core-principles-of-effective-security-testing">2.4 <a href="#/2-Introduction/README@core-principles-of-effective-security-testing">Principios fundamentales de las pruebas de seguridad efectivas</a></h3>
+<h3 id="25-how-the-guide-is-organized">2.5 <a href="#/2-Introduction/README@how-the-guide-is-organized">Cómo está organizada la guía</a></h3>
+<h3 id="26-how-to-reference-wstg-scenarios">2.6 <a href="#/2-Introduction/README@how-to-reference-wstg-scenarios">Cómo referenciar los escenarios del WSTG</a></h3>
+<h3 id="27-feedback-and-comments">2.7 <a href="#/2-Introduction/README@feedback-and-comments">Comentarios y sugerencias</a></h3>
+<h3 id="28-related-owasp-projects">2.8 <a href="#/2-Introduction/README@related-owasp-projects">Proyectos de OWASP relacionados</a></h3>
+<h2 id="3-the-owasp-testing-framework">3. <a href="#/3-The_OWASP_Testing_Framework/README">El marco de pruebas de OWASP</a></h2>
+<h3 id="31-the-web-security-testing-framework">3.1 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework">El marco de pruebas de seguridad web</a></h3>
+<h3 id="32-testing-activities">3.2 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@testing-activities">Actividades de prueba</a></h3>
+<h3 id="33-requirements-and-policy-review">3.3 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@requirements-and-policy-review">Revisión de requisitos y políticas</a></h3>
+<h3 id="34-design-architecture-and-threat-modeling">3.4 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@design-architecture-and-threat-modeling">Diseño, arquitectura y modelado de amenazas</a></h3>
+<h3 id="35-code-level-review-and-analysis">3.5 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@code-level-review-and-analysis">Revisión y análisis a nivel de código</a></h3>
+<h3 id="36-dynamic-and-penetration-testing">3.6 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@dynamic-and-penetration-testing">Pruebas dinámicas y de penetración</a></h3>
+<h3 id="37-continuous-integration-pipeline-testing">3.7 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@continuous-integration-pipeline-testing">Pruebas en el pipeline de integración continua</a></h3>
+<h3 id="38-continuous-and-crowd-sourced-testing">3.8 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@continuous-and-crowd-sourced-testing">Pruebas continuas y colaborativas (crowdsourcing)</a></h3>
+<h3 id="39-matching-activity-to-cadence">3.9 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@matching-activity-to-cadence">Asociar la actividad con la cadencia</a></h3>
+<h3 id="310-where-to-start">3.10 <a href="#/3-The_OWASP_Testing_Framework/0-The_Web_Security_Testing_Framework@where-to-start">Por dónde empezar</a></h3>
+<h3 id="311-bug-bounty-programs-as-a-testing-technique">3.11 <a href="#/3-The_OWASP_Testing_Framework/1-Bug_Bounty_Programs">Programas de bug bounty como técnica de prueba</a></h3>
+<h3 id="312-human-ai-collaborative-testing">3.12 <a href="#/3-The_OWASP_Testing_Framework/2-Human-AI_Collaborative_Testing">Pruebas colaborativas humano-IA</a></h3>
+<h2 id="4-web-application-security-testing">4. <a href="#/4-Web_Application_Security_Testing/README">Pruebas de seguridad de aplicaciones web</a></h2>
+<h3 id="40-introduction-and-objectives">4.0 <a href="#/4-Web_Application_Security_Testing/00-Introduction_and_Objectives/README">Introducción y objetivos</a></h3>
+<h3 id="41-information-gathering">4.1 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">Recopilación de información</a></h3>
+<h4 id="411-conduct-search-engine-reconnaissance-for-information-leakage">4.1.1 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/01-Conduct_Search_Engine_Reconnaissance_for_Information_Leakage">Realizar reconocimiento en motores de búsqueda para detectar fugas de información</a></h4>
+<h4 id="412-fingerprint-web-server">4.1.2 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server">Identificar el servidor web (fingerprinting)</a></h4>
+<h4 id="413-review-webserver-metafiles-for-information-leakage">4.1.3 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage">Revisar los metaarchivos del servidor web en busca de fugas de información</a></h4>
+<h4 id="414-attack-surface-identification">4.1.4 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/04-Attack_Surface_Identification">Identificación de la superficie de ataque</a></h4>
+<h4 id="415-review-web-page-content-for-information-leakage">4.1.5 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Web_Page_Content_for_Information_Leakage">Revisar el contenido de las páginas web en busca de fugas de información</a></h4>
+<h4 id="416-identify-application-entry-points">4.1.6 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/06-Identify_Application_Entry_Points">Identificar los puntos de entrada de la aplicación</a></h4>
+<h4 id="417-map-execution-paths-through-application">4.1.7 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/07-Map_Execution_Paths_Through_Application">Mapear las rutas de ejecución de la aplicación</a></h4>
+<h4 id="418-fingerprint-web-application-framework">4.1.8 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework">Identificar el framework de la aplicación web (fingerprinting)</a></h4>
+<h4 id="419-fingerprint-web-application">4.1.9 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/09-Fingerprint_Web_Application">Identificar la aplicación web (fingerprinting)</a></h4>
+<h4 id="4110-map-application-architecture">4.1.10 <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/10-Map_Application_Architecture">Mapear la arquitectura de la aplicación</a></h4>
+<h3 id="42-configuration-and-deployment-management">4.2 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/README">Gestión de la configuración y del despliegue</a></h3>
+<h4 id="421-network-infrastructure-configuration">4.2.1 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/01-Network_Infrastructure_Configuration">Configuración de la infraestructura de red</a></h4>
+<h4 id="422-application-platform-configuration">4.2.2 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/02-Application_Platform_Configuration">Configuración de la plataforma de aplicaciones</a></h4>
+<h4 id="423-file-extensions-handling-for-sensitive-information">4.2.3 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/03-File_Extensions_Handling_for_Sensitive_Information">Manejo de extensiones de archivo con información sensible</a></h4>
+<h4 id="424-review-old-backup-and-unreferenced-files-for-sensitive-information">4.2.4 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information">Revisar copias de seguridad antiguas y archivos sin referencia en busca de información sensible</a></h4>
+<h4 id="425-enumerate-infrastructure-and-application-admin-interfaces">4.2.5 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces">Enumerar las interfaces de administración de la infraestructura y de la aplicación</a></h4>
+<h4 id="426-http-methods">4.2.6 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/06-HTTP_Methods">Métodos HTTP</a></h4>
+<h4 id="427-http-strict-transport-security">4.2.7 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/07-HTTP_Strict_Transport_Security">HTTP Strict Transport Security</a></h4>
+<h4 id="428-ria-cross-domain-policy">4.2.8 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/08-RIA_Cross_Domain_Policy">Política de dominios cruzados de RIA</a></h4>
+<h4 id="429-file-permissions">4.2.9 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions">Permisos de archivos</a></h4>
+<h4 id="4210-subdomain-takeover">4.2.10 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/10-Subdomain_Takeover">Toma de control de subdominios</a></h4>
+<h4 id="4211-cloud-storage">4.2.11 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/11-Cloud_Storage">Almacenamiento en la nube</a></h4>
+<h4 id="4212-content-security-policy">4.2.12 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/12-Content_Security_Policy">Content Security Policy</a></h4>
+<h4 id="4213-path-confusion">4.2.13 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/13-Path_Confusion">Confusión de rutas</a></h4>
+<h4 id="4214-other-http-security-header-misconfigurations">4.2.14 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/14-Other_HTTP_Security_Header_Misconfigurations">Otras configuraciones incorrectas de cabeceras HTTP de seguridad</a></h4>
+<h4 id="4215-feature-flag-security-bypass">4.2.15 <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/15-Feature_Flag_Security_Bypass">Elusión de seguridad mediante feature flags</a></h4>
+<h3 id="43-identity-management">4.3 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/README">Gestión de identidades</a></h3>
+<h4 id="431-role-definitions">4.3.1 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/01-Role_Definitions">Definiciones de roles</a></h4>
+<h4 id="432-user-registration-process">4.3.2 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/02-User_Registration_Process">Proceso de registro de usuarios</a></h4>
+<h4 id="433-account-provisioning-process">4.3.3 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/03-Account_Provisioning_Process">Proceso de aprovisionamiento de cuentas</a></h4>
+<h4 id="434-account-enumeration-and-guessable-user-account">4.3.4 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/04-Account_Enumeration_and_Guessable_User_Account">Enumeración de cuentas y cuentas de usuario adivinables</a></h4>
+<h4 id="435-weak-or-unenforced-username-policy">4.3.5 <a href="#/4-Web_Application_Security_Testing/03-Identity_Management/05-Weak_or_Unenforced_Username_Policy">Política de nombres de usuario débil o no aplicada</a></h4>
+<h3 id="44-authentication">4.4 <a href="#/4-Web_Application_Security_Testing/04-Authentication/README">Autenticación</a></h3>
+<h4 id="441-credentials-transported-over-an-encrypted-channel">4.4.1 <a href="#/4-Web_Application_Security_Testing/04-Authentication/01-Credentials_Transported_over_an_Encrypted_Channel">Credenciales transportadas por un canal cifrado</a></h4>
+<h4 id="442-default-credentials">4.4.2 <a href="#/4-Web_Application_Security_Testing/04-Authentication/02-Default_Credentials">Credenciales por defecto</a></h4>
+<h4 id="443-weak-lock-out-mechanism">4.4.3 <a href="#/4-Web_Application_Security_Testing/04-Authentication/03-Weak_Lock_Out_Mechanism">Mecanismo de bloqueo débil</a></h4>
+<h4 id="444-bypassing-authentication-schema">4.4.4 <a href="#/4-Web_Application_Security_Testing/04-Authentication/04-Bypassing_Authentication_Schema">Elusión del esquema de autenticación</a></h4>
+<h4 id="445-vulnerable-remember-password">4.4.5 <a href="#/4-Web_Application_Security_Testing/04-Authentication/05-Vulnerable_Remember_Password">Función de recordar contraseña vulnerable</a></h4>
+<h4 id="446-browser-cache-weaknesses">4.4.6 <a href="#/4-Web_Application_Security_Testing/04-Authentication/06-Browser_Cache_Weaknesses">Debilidades de la caché del navegador</a></h4>
+<h4 id="447-weak-authentication-methods">4.4.7 <a href="#/4-Web_Application_Security_Testing/04-Authentication/07-Weak_Authentication_Methods">Métodos de autenticación débiles</a></h4>
+<h4 id="448-weak-security-question-answer">4.4.8 <a href="#/4-Web_Application_Security_Testing/04-Authentication/08-Weak_Security_Question_Answer">Preguntas y respuestas de seguridad débiles</a></h4>
+<h4 id="449-weak-password-change-or-reset-functionalities">4.4.9 <a href="#/4-Web_Application_Security_Testing/04-Authentication/09-Weak_Password_Change_or_Reset_Functionalities">Funcionalidades débiles de cambio o restablecimiento de contraseña</a></h4>
+<h4 id="4410-weaker-authentication-in-alternative-channel">4.4.10 <a href="#/4-Web_Application_Security_Testing/04-Authentication/10-Weaker_Authentication_in_Alternative_Channel">Autenticación más débil en canales alternativos</a></h4>
+<h4 id="4411-multi-factor-authentication">4.4.11 <a href="#/4-Web_Application_Security_Testing/04-Authentication/11-Multi-Factor_Authentication">Autenticación multifactor</a></h4>
+<h3 id="45-authorization">4.5 <a href="#/4-Web_Application_Security_Testing/05-Authorization/README">Autorización</a></h3>
+<h4 id="451-directory-traversal-file-include">4.5.1 <a href="#/4-Web_Application_Security_Testing/05-Authorization/01-Directory_Traversal_File_Include">Recorrido de directorios e inclusión de archivos</a></h4>
+<h4 id="452-bypassing-authorization-schema">4.5.2 <a href="#/4-Web_Application_Security_Testing/05-Authorization/02-Bypassing_Authorization_Schema">Elusión del esquema de autorización</a></h4>
+<h4 id="453-privilege-escalation">4.5.3 <a href="#/4-Web_Application_Security_Testing/05-Authorization/03-Privilege_Escalation">Escalada de privilegios</a></h4>
+<h4 id="454-insecure-direct-object-references">4.5.4 <a href="#/4-Web_Application_Security_Testing/05-Authorization/04-Insecure_Direct_Object_References">Referencias directas inseguras a objetos</a></h4>
+<h4 id="455-oauth-weaknesses">4.5.5 <a href="#/4-Web_Application_Security_Testing/05-Authorization/05-OAuth_Weaknesses">Debilidades de OAuth</a></h4>
+<h5 id="4551-oauth-authorization-server-weaknesses">4.5.5.1 <a href="#/4-Web_Application_Security_Testing/05-Authorization/05.1-OAuth_Authorization_Server_Weaknesses">Debilidades del servidor de autorización OAuth</a></h5>
+<h5 id="4552-oauth-client-weaknesses">4.5.5.2 <a href="#/4-Web_Application_Security_Testing/05-Authorization/05.2-OAuth_Client_Weaknesses">Debilidades del cliente OAuth</a></h5>
+<h3 id="46-session-management">4.6 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/README">Gestión de sesiones</a></h3>
+<h4 id="461-session-management-schema">4.6.1 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/01-Session_Management_Schema">Esquema de gestión de sesiones</a></h4>
+<h4 id="462-cookies-attributes">4.6.2 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes">Atributos de las cookies</a></h4>
+<h4 id="463-session-fixation">4.6.3 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/03-Session_Fixation">Fijación de sesión</a></h4>
+<h4 id="464-exposed-session-variables">4.6.4 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/04-Exposed_Session_Variables">Variables de sesión expuestas</a></h4>
+<h4 id="465-cross-site-request-forgery">4.6.5 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">Cross-Site Request Forgery (CSRF)</a></h4>
+<h4 id="466-logout-functionality">4.6.6 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/06-Logout_Functionality">Funcionalidad de cierre de sesión</a></h4>
+<h4 id="467-session-timeout">4.6.7 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/07-Session_Timeout">Tiempo de expiración de la sesión</a></h4>
+<h4 id="468-session-puzzling">4.6.8 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/08-Session_Puzzling">Session Puzzling</a></h4>
+<h4 id="469-session-hijacking">4.6.9 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/09-Session_Hijacking">Secuestro de sesión</a></h4>
+<h4 id="4610-json-web-tokens">4.6.10 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">JSON Web Tokens</a></h4>
+<h4 id="4611-concurrent-sessions">4.6.11 <a href="#/4-Web_Application_Security_Testing/06-Session_Management/11-Concurrent_Sessions">Sesiones concurrentes</a></h4>
+<h3 id="47-injection">4.7 <a href="#/4-Web_Application_Security_Testing/07-Injection/README">Inyección</a></h3>
+<h4 id="471-reflected-cross-site-scripting">4.7.1 <a href="#/4-Web_Application_Security_Testing/07-Injection/01-Reflected_Cross_Site_Scripting">Cross-Site Scripting (XSS) reflejado</a></h4>
+<h4 id="472-stored-cross-site-scripting">4.7.2 <a href="#/4-Web_Application_Security_Testing/07-Injection/02-Stored_Cross_Site_Scripting">Cross-Site Scripting (XSS) almacenado</a></h4>
+<h4 id="473-http-verb-tampering">4.7.3 <a href="#/4-Web_Application_Security_Testing/07-Injection/03-HTTP_Verb_Tampering">Manipulación de verbos HTTP</a></h4>
+<h4 id="474-http-parameter-pollution">4.7.4 <a href="#/4-Web_Application_Security_Testing/07-Injection/04-HTTP_Parameter_Pollution">Contaminación de parámetros HTTP</a></h4>
+<h4 id="475-sql-injection">4.7.5 <a href="#/4-Web_Application_Security_Testing/07-Injection/05-SQL_Injection">Inyección SQL</a></h4>
+<h5 id="4751-oracle">4.7.5.1 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.1-Oracle">Oracle</a></h5>
+<h5 id="4752-mysql">4.7.5.2 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.2-MySQL">MySQL</a></h5>
+<h5 id="4753-sql-server">4.7.5.3 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.3-SQL_Server">SQL Server</a></h5>
+<h5 id="4754-postgresql">4.7.5.4 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.4-PostgreSQL">PostgreSQL</a></h5>
+<h5 id="4755-ms-access">4.7.5.5 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.5-MS_Access">MS Access</a></h5>
+<h5 id="4756-nosql-injection">4.7.5.6 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.6-NoSQL_Injection">Inyección NoSQL</a></h5>
+<h5 id="4757-orm-injection">4.7.5.7 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.7-ORM_Injection">Inyección ORM</a></h5>
+<h5 id="4758-client-side">4.7.5.8 <a href="#/4-Web_Application_Security_Testing/07-Injection/05.8-Client-side">Del lado del cliente</a></h5>
+<h4 id="476-ldap-injection">4.7.6 <a href="#/4-Web_Application_Security_Testing/07-Injection/06-LDAP_Injection">Inyección LDAP</a></h4>
+<h4 id="477-xml-injection">4.7.7 <a href="#/4-Web_Application_Security_Testing/07-Injection/07-XML_Injection">Inyección XML</a></h4>
+<h4 id="478-ssi-injection">4.7.8 <a href="#/4-Web_Application_Security_Testing/07-Injection/08-SSI_Injection">Inyección SSI</a></h4>
+<h4 id="479-xpath-injection">4.7.9 <a href="#/4-Web_Application_Security_Testing/07-Injection/09-XPath_Injection">Inyección XPath</a></h4>
+<h4 id="4710-imap-smtp-injection">4.7.10 <a href="#/4-Web_Application_Security_Testing/07-Injection/10-IMAP_SMTP_Injection">Inyección IMAP/SMTP</a></h4>
+<h4 id="4711-code-injection">4.7.11 <a href="#/4-Web_Application_Security_Testing/07-Injection/11-Code_Injection">Inyección de código</a></h4>
+<h5 id="47111-file-inclusion">4.7.11.1 <a href="#/4-Web_Application_Security_Testing/07-Injection/11.1-File_Inclusion">Inclusión de archivos</a></h5>
+<h4 id="4712-command-injection">4.7.12 <a href="#/4-Web_Application_Security_Testing/07-Injection/12-Command_Injection">Inyección de comandos</a></h4>
+<h4 id="4713-format-string-injection">4.7.13 <a href="#/4-Web_Application_Security_Testing/07-Injection/13-Format_String_Injection">Inyección de cadenas de formato</a></h4>
+<h4 id="4714-incubated-vulnerability">4.7.14 <a href="#/4-Web_Application_Security_Testing/07-Injection/14-Incubated_Vulnerability">Vulnerabilidad incubada</a></h4>
+<h4 id="4715-http-response-splitting">4.7.15 <a href="#/4-Web_Application_Security_Testing/07-Injection/15-HTTP_Response_Splitting">División de respuestas HTTP</a></h4>
+<h4 id="4716-http-request-smuggling">4.7.16 <a href="#/4-Web_Application_Security_Testing/07-Injection/16-HTTP_Request_Smuggling">HTTP Request Smuggling</a></h4>
+<h4 id="4717-host-header-injection">4.7.17 <a href="#/4-Web_Application_Security_Testing/07-Injection/17-Host_Header_Injection">Inyección en la cabecera Host</a></h4>
+<h4 id="4718-server-side-template-injection">4.7.18 <a href="#/4-Web_Application_Security_Testing/07-Injection/18-Server-side_Template_Injection">Inyección de plantillas del lado del servidor</a></h4>
+<h4 id="4719-server-side-request-forgery">4.7.19 <a href="#/4-Web_Application_Security_Testing/07-Injection/19-Server-Side_Request_Forgery">Server-Side Request Forgery (SSRF)</a></h4>
+<h4 id="4720-mass-assignment">4.7.20 <a href="#/4-Web_Application_Security_Testing/07-Injection/20-Mass_Assignment">Asignación masiva</a></h4>
+<h4 id="4721-csv-injection">4.7.21 <a href="#/4-Web_Application_Security_Testing/07-Injection/21-CSV_Injection">Inyección CSV</a></h4>
+<h4 id="4722-prototype-pollution">4.7.22 <a href="#/4-Web_Application_Security_Testing/07-Injection/22-Prototype_Pollution">Contaminación de prototipos</a></h4>
+<h4 id="4723-insecure-deserialization">4.7.23 <a href="#/4-Web_Application_Security_Testing/07-Injection/23-Insecure_Deserialization">Deserialización insegura</a></h4>
+<h3 id="48-error-handling">4.8 <a href="#/4-Web_Application_Security_Testing/08-Error_Handling/README">Manejo de errores</a></h3>
+<h4 id="481-improper-error-handling">4.8.1 <a href="#/4-Web_Application_Security_Testing/08-Error_Handling/01-Improper_Error_Handling">Manejo incorrecto de errores</a></h4>
+<h4 id="482-stack-traces">4.8.2 <a href="#/4-Web_Application_Security_Testing/08-Error_Handling/02-Stack_Traces">Trazas de pila</a></h4>
+<h3 id="49-weak-cryptography">4.9 <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/README">Criptografía débil</a></h3>
+<h4 id="491-weak-transport-layer-security">4.9.1 <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/01-Weak_Transport_Layer_Security">Seguridad débil en la capa de transporte</a></h4>
+<h4 id="492-padding-oracle">4.9.2 <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/02-Padding_Oracle">Padding Oracle</a></h4>
+<h4 id="493-sensitive-information-sent-via-unencrypted-channels">4.9.3 <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/03-Sensitive_Information_Sent_via_Unencrypted_Channels">Información sensible enviada por canales sin cifrar</a></h4>
+<h4 id="494-weak-cryptographic-primitives">4.9.4 <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/04-Weak_Cryptographic_Primitives">Primitivas criptográficas débiles</a></h4>
+<h3 id="410-business-logic">4.10 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/README">Lógica de negocio</a></h3>
+<h4 id="4100-introduction-to-business-logic">4.10.0 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/00-Introduction_to_Business_Logic">Introducción a la lógica de negocio</a></h4>
+<h4 id="4101-business-logic-data-validation">4.10.1 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/01-Business_Logic_Data_Validation">Validación de datos en la lógica de negocio</a></h4>
+<h4 id="4102-ability-to-forge-requests">4.10.2 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/02-Ability_to_Forge_Requests">Capacidad de falsificar peticiones</a></h4>
+<h4 id="4103-integrity-checks">4.10.3 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/03-Integrity_Checks">Comprobaciones de integridad</a></h4>
+<h4 id="4104-process-timing">4.10.4 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/04-Process_Timing">Temporización de procesos</a></h4>
+<h4 id="4105-number-of-times-a-function-can-be-used-limits">4.10.5 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/05-Number_of_Times_a_Function_Can_Be_Used_Limits">Límites en el número de veces que se puede usar una función</a></h4>
+<h4 id="4106-circumvention-of-work-flows">4.10.6 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/06-Circumvention_of_Work_Flows">Elusión de flujos de trabajo</a></h4>
+<h4 id="4107-defenses-against-application-misuse">4.10.7 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/07-Defenses_Against_Application_Misuse">Defensas contra el uso indebido de la aplicación</a></h4>
+<h4 id="4108-upload-of-unexpected-file-types">4.10.8 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/08-Upload_of_Unexpected_File_Types">Carga de tipos de archivo inesperados</a></h4>
+<h4 id="4109-upload-of-malicious-files">4.10.9 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files">Carga de archivos maliciosos</a></h4>
+<h4 id="41010-payment-functionality">4.10.10 <a href="#/4-Web_Application_Security_Testing/10-Business_Logic/10-Payment_Functionality">Funcionalidad de pagos</a></h4>
+<h3 id="411-client-side">4.11 <a href="#/4-Web_Application_Security_Testing/11-Client-side/README">Del lado del cliente</a></h3>
+<h4 id="4111-dom-based-cross-site-scripting">4.11.1 <a href="#/4-Web_Application_Security_Testing/11-Client-side/01-DOM-based_Cross_Site_Scripting">Cross-Site Scripting (XSS) basado en DOM</a></h4>
+<h5 id="41111-self-dom-based-cross-site-scripting">4.11.1.1 <a href="#/4-Web_Application_Security_Testing/11-Client-side/01.1-Self_DOM_Based_Cross_Site_Scripting">Cross-Site Scripting (XSS) autoinfligido basado en DOM</a></h5>
+<h4 id="4112-javascript-execution">4.11.2 <a href="#/4-Web_Application_Security_Testing/11-Client-side/02-JavaScript_Execution">Ejecución de JavaScript</a></h4>
+<h4 id="4113-html-injection">4.11.3 <a href="#/4-Web_Application_Security_Testing/11-Client-side/03-HTML_Injection">Inyección HTML</a></h4>
+<h4 id="4114-client-side-url-redirect">4.11.4 <a href="#/4-Web_Application_Security_Testing/11-Client-side/04-Client-side_URL_Redirect">Redirección de URL del lado del cliente</a></h4>
+<h4 id="4115-css-injection">4.11.5 <a href="#/4-Web_Application_Security_Testing/11-Client-side/05-CSS_Injection">Inyección CSS</a></h4>
+<h4 id="4116-client-side-resource-manipulation">4.11.6 <a href="#/4-Web_Application_Security_Testing/11-Client-side/06-Client-side_Resource_Manipulation">Manipulación de recursos del lado del cliente</a></h4>
+<h4 id="4117-cross-origin-resource-sharing">4.11.7 <a href="#/4-Web_Application_Security_Testing/11-Client-side/07-Cross_Origin_Resource_Sharing">Cross Origin Resource Sharing (CORS)</a></h4>
+<h4 id="4118-cross-site-flashing">4.11.8 <a href="#/4-Web_Application_Security_Testing/11-Client-side/08-Cross_Site_Flashing">Cross Site Flashing</a></h4>
+<h4 id="4119-clickjacking">4.11.9 <a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a></h4>
+<h4 id="41110-websockets">4.11.10 <a href="#/4-Web_Application_Security_Testing/11-Client-side/10-WebSockets">WebSockets</a></h4>
+<h4 id="41111-web-messaging">4.11.11 <a href="#/4-Web_Application_Security_Testing/11-Client-side/11-Web_Messaging">Web Messaging</a></h4>
+<h4 id="41112-browser-storage">4.11.12 <a href="#/4-Web_Application_Security_Testing/11-Client-side/12-Browser_Storage">Almacenamiento del navegador</a></h4>
+<h4 id="41113-cross-site-script-inclusion">4.11.13 <a href="#/4-Web_Application_Security_Testing/11-Client-side/13-Cross_Site_Script_Inclusion">Cross Site Script Inclusion</a></h4>
+<h4 id="41114-reverse-tabnabbing">4.11.14 <a href="#/4-Web_Application_Security_Testing/11-Client-side/14-Reverse_Tabnabbing">Reverse Tabnabbing</a></h4>
+<h4 id="41115-client-side-template-injection">4.11.15 <a href="#/4-Web_Application_Security_Testing/11-Client-side/15-Client-Side_Template_Injection">Inyección de plantillas del lado del cliente</a></h4>
+<h3 id="412-api-testing">4.12 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/README">Pruebas de API</a></h3>
+<h4 id="4120-api-testing-overview">4.12.0 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/00-API_Testing_Overview">Descripción general de las pruebas de API</a></h4>
+<h4 id="4121-api-reconnaissance">4.12.1 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance">Reconocimiento de API</a></h4>
+<h4 id="4122-api-broken-object-level-authorization">4.12.2 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/02-API_Broken_Object_Level_Authorization">Autorización rota a nivel de objeto en API</a></h4>
+<h4 id="4123-excessive-data-exposure">4.12.3 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/03-Excessive_Data_Exposure">Exposición excesiva de datos</a></h4>
+<h4 id="4124-api-broken-function-level-authorization">4.12.4 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/04-API_Broken_Function_Level_Authorization">Autorización rota a nivel de función en API</a></h4>
+<h4 id="41299-graphql">4.12.99 <a href="#/4-Web_Application_Security_Testing/12-API_Testing/99-GraphQL">GraphQL</a></h4>
+<h3 id="413-webassembly-testing">4.13 <a href="#/4-Web_Application_Security_Testing/13-WebAssembly_Testing/README">Pruebas de WebAssembly</a></h3>
+<h4 id="4130-webassembly-testing-overview">4.13.0 <a href="#/4-Web_Application_Security_Testing/13-WebAssembly_Testing/00-WebAssembly_Testing_Overview">Descripción general de las pruebas de WebAssembly</a></h4>
+<h4 id="4131-webassembly-reconnaissance">4.13.1 <a href="#/4-Web_Application_Security_Testing/13-WebAssembly_Testing/01-WebAssembly_Reconnaissance">Reconocimiento de WebAssembly</a></h4>
+<h2 id="5-reporting">5. <a href="#/5-Reporting/README">Informes</a></h2>
+<h3 id="51-reporting-structure">5.1 <a href="#/5-Reporting/01-Reporting_Structure">Estructura del informe</a></h3>
+<h3 id="52-naming-schemes">5.2 <a href="#/5-Reporting/02-Naming_Schemes">Esquemas de nomenclatura</a></h3>
+<h2 id="appendix-a-history">Apéndice A. <a href="#/6-Appendix/A-History">Historia</a></h2>
+<h2 id="appendix-b-testing-tools-resource">Apéndice B. <a href="#/6-Appendix/B-Testing_Tools_Resource">Recursos de herramientas de pruebas</a></h2>
+<h2 id="appendix-c-suggested-reading">Apéndice C. <a href="#/6-Appendix/C-Suggested_Reading">Lecturas sugeridas</a></h2>
+<h2 id="appendix-d-fuzzing">Apéndice D. <a href="#/6-Appendix/D-Fuzzing">Fuzzing</a></h2>
+<h2 id="appendix-e-encoded-injection">Apéndice E. <a href="#/6-Appendix/E-Encoded_Injection">Inyección codificada</a></h2>
+<h2 id="appendix-f-leveraging-dev-tools">Apéndice F. <a href="#/6-Appendix/F-Leveraging_Dev_Tools">Aprovechamiento de las herramientas de desarrollo</a></h2>
+<h2 id="appendix-g-penetration-testing-methodologies">Apéndice G. <a href="#/6-Appendix/G-Penetration_Testing_Methodologies">Metodologías de pruebas de penetración</a></h2>

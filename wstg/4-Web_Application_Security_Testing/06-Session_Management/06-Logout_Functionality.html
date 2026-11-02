@@ -1,0 +1,147 @@
+<h1 id="logout-functionality">Funcionalidad de cierre de sesión</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-06</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La terminación de la sesión es una parte importante del ciclo de vida de la sesión. Reducir al mínimo la vida útil de los tokens de sesión disminuye la probabilidad de un ataque exitoso de secuestro de sesión. Esto puede verse como un control para prevenir otros ataques como Cross Site Scripting y Cross Site Request Forgery. Se sabe que tales ataques dependen de que el usuario tenga una sesión autenticada presente. No contar con una terminación de sesión segura solo aumenta la superficie de ataque para cualquiera de estos ataques.</p>
+<p>Una terminación de sesión segura requiere al menos los siguientes componentes:</p>
+<ul>
+<li>Disponibilidad de controles en la interfaz de usuario que permitan al usuario cerrar sesión manualmente.</li>
+<li>Terminación de la sesión tras un tiempo determinado sin actividad (tiempo de espera de la sesión).</li>
+<li>Invalidación adecuada del estado de la sesión en el lado del servidor.</li>
+</ul>
+<p>Existen múltiples problemas que pueden impedir la terminación efectiva de una sesión. En la aplicación web segura ideal, un usuario debería poder terminar la sesión en cualquier momento a través de la interfaz de usuario. Las funciones de cierre de sesión poco claras o ambiguas pueden hacer que los usuarios desconfíen de dicha funcionalidad.</p>
+<p>Otro error común en la terminación de sesiones es que el token de sesión del lado del cliente se establece en un nuevo valor mientras el estado del lado del servidor permanece activo y puede reutilizarse restableciendo la cookie de sesión al valor anterior. A veces solo se muestra al usuario un mensaje de confirmación sin realizar ninguna otra acción. Esto debe evitarse.</p>
+<p>Algunos frameworks de aplicaciones web dependen únicamente de la cookie de sesión para identificar al usuario conectado. El ID del usuario está incrustado en el valor (cifrado) de la cookie. El servidor de aplicaciones no realiza ningún seguimiento de la sesión en el lado del servidor. Al cerrar sesión, la cookie de sesión se elimina del navegador. Sin embargo, como la aplicación no realiza ningún seguimiento, no sabe si una sesión ha sido cerrada o no. Por lo tanto, reutilizando una cookie de sesión es posible obtener acceso a la sesión autenticada. Un ejemplo muy conocido de esto es la funcionalidad Forms Authentication de ASP.NET.</p>
+<p>A los usuarios de navegadores web a menudo no les importa que una aplicación siga abierta y simplemente cierran el navegador o una pestaña. Una aplicación web debe ser consciente de este comportamiento y terminar la sesión automáticamente en el lado del servidor después de un tiempo definido.</p>
+<p>El uso de un sistema de inicio de sesión único (single sign-on, SSO) en lugar de un esquema de autenticación específico de la aplicación suele provocar la coexistencia de múltiples sesiones que deben terminarse por separado. Por ejemplo, la terminación de la sesión específica de la aplicación no termina la sesión en el sistema SSO. Volver al portal SSO ofrece al usuario la posibilidad de volver a iniciar sesión en la aplicación en la que acaba de cerrar sesión. Por otro lado, una función de cierre de sesión en un sistema SSO no provoca necesariamente la terminación de la sesión en las aplicaciones conectadas.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar la interfaz de usuario del cierre de sesión.</li>
+<li>Analizar el tiempo de espera de la sesión y si la sesión se elimina correctamente tras el cierre de sesión.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="log-out-user-interface">Interfaz de usuario del cierre de sesión</h3>
+<p>Verifique la apariencia y visibilidad de la funcionalidad de cierre de sesión en la interfaz de usuario. Para ello, vea cada página desde la perspectiva de un usuario que tiene la intención de cerrar sesión en la aplicación web.</p>
+<blockquote>
+<p>Hay algunas propiedades que indican una buena interfaz de usuario de cierre de sesión:</p>
+<ul>
+<li>Hay un botón de cierre de sesión presente en todas las páginas de la aplicación web.</li>
+<li>El botón de cierre de sesión debe ser identificado rápidamente por un usuario que quiera cerrar sesión en la aplicación web.</li>
+<li>Tras cargar una página, el botón de cierre de sesión debe ser visible sin necesidad de desplazarse.</li>
+<li>Idealmente, el botón de cierre de sesión se coloca en un área de la página que esté fija en el viewport del navegador y no se vea afectada por el desplazamiento del contenido.</li>
+</ul>
+</blockquote>
+<h3 id="server-side-session-termination">Terminación de la sesión en el lado del servidor</h3>
+<p>Primero, almacene los valores de las cookies que se utilizan para identificar una sesión. Invoque la función de cierre de sesión y observe el comportamiento de la aplicación, especialmente en lo que respecta a las cookies de sesión. Intente navegar a una página que solo sea visible en una sesión autenticada, p. ej., usando el botón de retroceso del navegador. Si se muestra una versión en caché de la página, use el botón de recargar para actualizar la página desde el servidor. Si la función de cierre de sesión hace que las cookies de sesión se establezcan en un nuevo valor, restaure el valor antiguo de las cookies de sesión y recargue una página del área autenticada de la aplicación. Si estas pruebas no muestran vulnerabilidades en una página concreta, pruebe al menos algunas otras páginas de la aplicación que se consideren críticas para la seguridad, para asegurar que estas áreas de la aplicación reconocen correctamente la terminación de la sesión.</p>
+<blockquote>
+<p>Durante las pruebas no debe ser visible en las páginas examinadas ningún dato que solo deba ser visible para usuarios autenticados. Idealmente, la aplicación redirige a un área pública o a un formulario de inicio de sesión al acceder a áreas autenticadas después de la terminación de la sesión. No debería ser necesario para la seguridad de la aplicación, pero establecer las cookies de sesión en nuevos valores tras el cierre de sesión se considera en general una buena práctica.</p>
+</blockquote>
+<h3 id="session-timeout">Tiempo de espera de la sesión</h3>
+<p>Intente determinar un tiempo de espera de la sesión realizando peticiones a una página del área autenticada de la aplicación web con retrasos crecientes. Si aparece el comportamiento de cierre de sesión, el retraso utilizado coincide aproximadamente con el valor del tiempo de espera de la sesión.</p>
+<blockquote>
+<p>Se esperan los mismos resultados que en las pruebas de terminación de sesión en el lado del servidor descritas antes para un cierre de sesión provocado por un tiempo de espera por inactividad.</p>
+<p>El valor adecuado para el tiempo de espera de la sesión depende del propósito de la aplicación y debe ser un equilibrio entre seguridad y usabilidad. En aplicaciones bancarias no tiene sentido mantener una sesión inactiva más de 15 minutos. Por otro lado, un tiempo de espera corto en un wiki o foro podría molestar a los usuarios que están escribiendo artículos largos con solicitudes de inicio de sesión innecesarias. Allí pueden ser aceptables tiempos de espera de una hora o más.</p>
+</blockquote>
+<h3 id="session-termination-in-single-sign-on-environments-single-sign-off">Terminación de sesión en entornos de inicio de sesión único (Single Sign-Off)</h3>
+<p>Realice un cierre de sesión en la aplicación evaluada. Verifique si existe un portal central o directorio de aplicaciones que permita al usuario volver a iniciar sesión en la aplicación sin autenticación. Compruebe si la aplicación solicita al usuario que se autentique cuando se solicita la URL de un punto de entrada a la aplicación. Estando con la sesión iniciada en la aplicación evaluada, realice un cierre de sesión en el sistema SSO. Luego intente acceder a un área autenticada de la aplicación evaluada.</p>
+<blockquote>
+<p>Se espera que la invocación de una función de cierre de sesión en una aplicación web conectada a un sistema SSO, o en el propio sistema SSO, provoque la terminación global de todas las sesiones. Debería requerirse una autenticación del usuario para obtener acceso a la aplicación después del cierre de sesión en el sistema SSO y en la aplicación conectada.</p>
+</blockquote>
+<h3 id="cross-device-session-reuse-and-single-value-dependency-in-sso">Reutilización de sesión entre dispositivos y dependencia de un único valor en SSO</h3>
+<blockquote>
+<p>Si bien las pruebas tradicionales de cierre de sesión en SSO se centran en los flujos de reautenticación dentro del mismo contexto de navegador, los evaluadores también deben valorar si el artefacto de autenticación (p. ej., cookie, cabecera o bearer token) puede reproducirse (replay) entre dispositivos.</p>
+</blockquote>
+<p>En algunas implementaciones de inicio de sesión único (SSO), la autenticación entre múltiples aplicaciones depende de un único artefacto de autenticación emitido tras un inicio de sesión exitoso (p. ej., tras la verificación de la contraseña y de MFA).</p>
+<blockquote>
+<p>Por ejemplo, aunque una cookie pueda establecerse con Secure y HttpOnly, su seguridad depende por completo de los controles de validación y revocación del lado del servidor. Si el ecosistema SSO depende de una única cookie como única prueba de autenticación, el compromiso de esa cookie puede otorgar acceso inmediato entre aplicaciones.</p>
+</blockquote>
+<p>Los evaluadores deben valorar si:</p>
+<ul>
+<li>Solo se requiere un único artefacto de autenticación para mantener el estado autenticado.</li>
+<li>El artefacto de autenticación puede reutilizarse entre navegadores o dispositivos.</li>
+<li>El cierre de sesión invalida correctamente el artefacto de autenticación en el lado del servidor.</li>
+<li>Todas las aplicaciones que confían en el artefacto de autenticación del SSO lo rechazan tras el cierre de sesión.</li>
+</ul>
+<p>Procedimiento de prueba:</p>
+<ul>
+<li>Paso 1 - Autenticarse y capturar todos los artefactos de autenticación emitidos</li>
+</ul>
+<ol>
+<li>Inicie sesión en el Dispositivo 1 con credenciales válidas y complete MFA.</li>
+<li>Intercepte la respuesta de autenticación.</li>
+<li>Registre todos los artefactos de autenticación (p. ej., cookie, cabecera o bearer token) emitidos por la aplicación o el dominio SSO.</li>
+</ol>
+<p>Por ejemplo: <code>auth-cookie=XYZ123</code>, <code>session_meta=ABC456</code>, <code>tracking_id=DEF789</code>...</p>
+<ul>
+<li>Paso 2 - Identificar los artefactos críticos para la autenticación</li>
+</ul>
+<p>El propósito de este paso es determinar si la implementación de SSO depende de un único artefacto de autenticación (p. ej., cookie, cabecera o bearer token).</p>
+<ol>
+<li>Envíe peticiones a endpoints protegidos.</li>
+<li>Elimine los artefactos de autenticación individualmente y reenvíe la petición.</li>
+<li>Observe cuáles son necesarios para mantener una respuesta 200 OK.</li>
+</ol>
+<p>Si solo se requiere un artefacto de autenticación (p. ej., auth-cookie) para mantener la autenticación, esto indica que el límite de confianza del SSO puede depender únicamente de ese valor único.</p>
+<blockquote>
+<p>Nota de seguridad:
+Cuando un único artefacto de autenticación representa todo el estado autenticado, se convierte en un objetivo de alto valor. Un atacante que obtenga ese valor único puede no necesitar ningún metadato de sesión adicional ni contexto del dispositivo para obtener acceso.</p>
+</blockquote>
+<ul>
+<li>Paso 3 - Inyección de sesión entre dispositivos</li>
+</ul>
+<ol>
+<li>Copie el valor del artefacto crítico para la autenticación (p. ej., auth-cookie=XYZ123).</li>
+<li>Abra un navegador o dispositivo diferente (Dispositivo 2).</li>
+<li>Inserte manualmente el artefacto único copiado.</li>
+<li>Intente acceder a endpoints protegidos en:<ul>
+<li>La aplicación original</li>
+<li>Otras aplicaciones que participen en el mismo ecosistema SSO</li>
+</ul>
+</li>
+</ol>
+<p>Si el Dispositivo 2 obtiene acceso autenticado sin introducir credenciales ni MFA, el artefacto es reutilizable entre contextos.</p>
+<ul>
+<li>Paso 4 - Validación del cierre de sesión entre dispositivos</li>
+</ul>
+<ol>
+<li>En el Dispositivo 1, realice el cierre de sesión.</li>
+<li>En el Dispositivo 2, actualice o acceda a recursos protegidos usando el mismo valor del artefacto de autenticación inyectado.</li>
+</ol>
+<p>Resultado esperado:</p>
+<ul>
+<li>El cierre de sesión debe invalidar el artefacto de autenticación (p. ej., cookie o bearer token) en el lado del servidor.</li>
+<li>Todas las sesiones que utilicen ese artefacto deben terminarse.</li>
+<li>El acceso no debe seguir siendo válido hasta la expiración del artefacto de autenticación.</li>
+<li>Todas las aplicaciones que confían en el artefacto de autenticación del SSO deben rechazarlo.</li>
+</ul>
+<p>Si una implementación de SSO:</p>
+<ul>
+<li>Depende principalmente de un único artefacto de autenticación</li>
+<li>Permite que ese artefacto se reutilice entre dispositivos</li>
+<li>No lo revoca en el lado del servidor al cerrar sesión</li>
+</ul>
+<p>entonces:</p>
+<ul>
+<li>El robo de ese artefacto de autenticación de valor único puede comprometer de inmediato las sesiones activas.</li>
+<li>Las protecciones de MFA quedan efectivamente eludidas después del inicio de sesión inicial.</li>
+<li>El cierre de sesión puede no proporcionar una terminación global de la sesión.</li>
+<li>El acceso puede persistir durante toda la vida útil del artefacto (p. ej., auth-cookie=XYZ123; max-age=28800, 8 horas).</li>
+</ul>
+<p>Las implementaciones deben evitar arquitecturas en las que un artefacto de autenticación de valor único represente todo el estado autenticado sin controles de validación adicionales.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/documentation/desktop/tools/repeater" target="_blank" rel="noopener">Burp Suite - Repeater</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://allaboutinfosec.blogspot.com/2026/03/the-golden-cookie-when-sso-session.html" target="_blank" rel="noopener">The Golden Cookie: When SSO Session Boundaries Fail</a></li>
+</ul>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://www.vanstechelman.eu/content/cookie-replay-attacks-in-aspnet-when-using-forms-authentication" target="_blank" rel="noopener">Cookie replay attacks in ASP.NET when using forms authentication</a></li>
+</ul>

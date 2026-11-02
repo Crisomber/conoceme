@@ -1,0 +1,76 @@
+<h1 id="websockets">WebSockets</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-10</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Tradicionalmente, el protocolo HTTP solo permite una petición/respuesta por conexión TCP. Asynchronous JavaScript and XML (AJAX) permite a los clientes enviar y recibir datos de forma asíncrona (en segundo plano, sin recargar la página) hacia y desde el servidor; sin embargo, AJAX requiere que el cliente inicie las peticiones y espere las respuestas del servidor (half-duplex).</p>
+<p><a href="https://html.spec.whatwg.org/multipage/web-sockets.html#network" target="_blank" rel="noopener">WebSockets</a> permite que el cliente o el servidor creen un canal de comunicación &#39;full-duplex&#39; (bidireccional), lo que permite que cliente y servidor se comuniquen de manera verdaderamente asíncrona. Los WebSockets realizan su handshake inicial de <em>actualización (upgrade)</em> sobre HTTP y, a partir de ahí, toda la comunicación se lleva a cabo sobre canales TCP mediante el uso de tramas (frames). Para más información, consulte el <a href="https://tools.ietf.org/html/rfc6455" target="_blank" rel="noopener">WebSocket Protocol</a>.</p>
+<h3 id="origin">Origin</h3>
+<p>Es responsabilidad del servidor verificar la <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin" target="_blank" rel="noopener">cabecera <code>Origin</code></a> en el handshake HTTP inicial de WebSocket. Si el servidor no valida la cabecera origin en el handshake inicial de WebSocket, el servidor WebSocket puede aceptar conexiones de cualquier origen. Esto podría permitir a los atacantes comunicarse con el servidor WebSocket entre dominios, dando lugar a problemas similares a CSRF. Consulte también <a href="https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/" target="_blank" rel="noopener">A01:2025 Broken Access Control</a>. El exploit de esta debilidad se denomina Cross-Site Websocket Hijacking (CSWH o CSWSH).</p>
+<h3 id="confidentiality-and-integrity">Confidencialidad e integridad</h3>
+<p>Los WebSockets pueden utilizarse sobre TCP sin cifrar o sobre TLS cifrado. Para usar WebSockets sin cifrar se utiliza el esquema de URI <code>ws://</code> (puerto predeterminado 80); para usar WebSockets cifrados (TLS) se utiliza el esquema de URI <code>wss://</code> (puerto predeterminado 443). Consulte también <a href="https://owasp.org/Top10/2025/A04_2025-Cryptographic_Failures/" target="_blank" rel="noopener">A04:2025 Cryptographic Failures</a>.</p>
+<h3 id="input-sanitization">Saneamiento de entrada</h3>
+<p>Como con cualquier dato proveniente de fuentes no confiables, los datos deben sanearse y codificarse adecuadamente. Consulte también <a href="https://owasp.org/Top10/2025/A05_2025-Injection/" target="_blank" rel="noopener">A05:2025 Injection</a> (incluye XSS).</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar el uso de WebSockets.</li>
+<li>Evaluar su implementación aplicando las mismas pruebas que en los canales HTTP normales.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<ol>
+<li>Identificar que la aplicación utiliza WebSockets.<ul>
+<li>Inspeccionar el código fuente del lado del cliente en busca del esquema de URI <code>ws://</code> o <code>wss://</code>.</li>
+<li>Usar las Herramientas para desarrolladores de Google Chrome para ver la comunicación WebSocket en Network.</li>
+<li>Usar la pestaña WebSocket de <a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a>.</li>
+</ul>
+</li>
+<li>Origin.<ul>
+<li>Usando un cliente WebSocket (se puede encontrar uno en la sección Herramientas más abajo), intentar conectarse al servidor WebSocket remoto. Si se establece una conexión, es posible que el servidor no esté comprobando la cabecera origin del handshake de WebSocket.</li>
+</ul>
+</li>
+<li>Confidencialidad e integridad.<ul>
+<li>Comprobar que la conexión WebSocket utiliza TLS para transportar información sensible <code>wss://</code>.</li>
+<li>Comprobar la implementación de HTTPS en busca de problemas de seguridad (certificado válido, BEAST, CRIME, RC4, etc.). Consulte la sección <a href="#/4-Web_Application_Security_Testing/09-Weak_Cryptography/01-Weak_Transport_Layer_Security">Weak Transport Layer Security</a> de esta guía.</li>
+</ul>
+</li>
+<li>Autenticación.<ul>
+<li>Los WebSockets no manejan la autenticación; se deben realizar las pruebas normales de autenticación de caja negra. Consulte las secciones de <a href="#/4-Web_Application_Security_Testing/04-Authentication/README">Authentication Testing</a> de esta guía.</li>
+</ul>
+</li>
+<li>Autorización.<ul>
+<li>Los WebSockets no manejan la autorización; se deben realizar las pruebas normales de autorización de caja negra. Consulte las secciones de <a href="#/4-Web_Application_Security_Testing/05-Authorization/README">Authorization Testing</a> de esta guía.</li>
+</ul>
+</li>
+<li>Saneamiento de entrada.<ul>
+<li>Usar la pestaña WebSocket de <a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a> para reproducir y realizar fuzzing de peticiones y respuestas WebSocket. Consulte la sección <a href="#/4-Web_Application_Security_Testing/07-Injection/README">Injection Testing</a> de esta guía.</li>
+</ul>
+</li>
+</ol>
+<h4 id="example-1">Ejemplo 1</h4>
+<p>Una vez que hemos identificado que la aplicación utiliza WebSockets (como se describió antes), podemos usar el <a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a> para interceptar las peticiones y respuestas WebSocket. Luego, ZAP puede utilizarse para reproducir y realizar fuzzing de las peticiones/respuestas WebSocket.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/11-Client-side/images/11-owasp_zap_websockets.png" alt="ZAP WebSockets" loading="lazy"><br><em>Figura 4.11.10-1: ZAP WebSockets</em></p>
+<h4 id="example-2">Ejemplo 2</h4>
+<p>Usando un cliente WebSocket (se puede encontrar uno en la sección Herramientas más abajo), intentar conectarse al servidor WebSocket remoto. Si se permite la conexión, es posible que el servidor WebSocket no esté comprobando la cabecera origin del handshake de WebSocket. Intentar reproducir peticiones interceptadas previamente para verificar que la comunicación WebSocket entre dominios es posible.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/11-Client-side/images/11-websocket_client.png" alt="Cliente WebSocket" loading="lazy"><br><em>Figura 4.11.10-2: Cliente WebSocket</em></p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Las pruebas de caja gris son similares a las de caja negra. En las pruebas de caja gris, el pentester tiene un conocimiento parcial de la aplicación. La única diferencia es que puede disponerse de documentación de la API de la aplicación evaluada, que incluya las peticiones y respuestas WebSocket esperadas.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://github.com/ethicalhack3r/scripts/blob/master/WebSockets.html" target="_blank" rel="noopener">WebSocket Client</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://web.dev/articles/websockets-basics" target="_blank" rel="noopener">HTML5 Rocks - Introducing WebSockets: Bringing Sockets to the Web</a></li>
+<li><a href="https://html.spec.whatwg.org/multipage/web-sockets.html#network" target="_blank" rel="noopener">W3C - The WebSocket API</a></li>
+<li><a href="https://tools.ietf.org/html/rfc6455" target="_blank" rel="noopener">IETF - The WebSocket Protocol</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/1385.html" target="_blank" rel="noopener">CWE-1385: Missing Origin Validation in WebSockets</a></li>
+<li><a href="https://www.christian-schneider.net/blog/cross-site-websocket-hijacking/" target="_blank" rel="noopener">Christian Schneider - Cross-Site WebSocket Hijacking (CSWSH)</a></li>
+<li><a href="https://repositum.tuwien.at/retrieve/21955" target="_blank" rel="noopener">Robert Koch- On WebSockets in Penetration Testing</a></li>
+<li><a href="https://digi.ninja/blog/zap_web_sockets.php" target="_blank" rel="noopener">DigiNinja - ZAP and Web Sockets</a></li>
+</ul>

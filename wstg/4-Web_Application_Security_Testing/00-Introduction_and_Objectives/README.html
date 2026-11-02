@@ -1,0 +1,56 @@
+<h1 id="introduction-and-objectives">Introducción y objetivos</h1>
+<p>Esta sección describe la metodología de pruebas de seguridad de aplicaciones web de OWASP y explica cómo probar la existencia de evidencia de vulnerabilidades en la aplicación debido a deficiencias en los controles de seguridad identificados.</p>
+<h2 id="what-is-web-application-security-testing">¿Qué son las pruebas de seguridad de aplicaciones web?</h2>
+<p>Una prueba de seguridad es un método para evaluar la seguridad de un sistema informático o de una red mediante la validación y verificación metódicas de la eficacia de los controles de seguridad de la aplicación. Una prueba de seguridad de una aplicación web se centra únicamente en evaluar la seguridad de una aplicación web. El proceso implica un análisis activo de la aplicación en busca de debilidades, fallos técnicos o vulnerabilidades. Cualquier problema de seguridad que se encuentre se presentará al propietario del sistema, junto con una evaluación del impacto, una propuesta de mitigación o una solución técnica.</p>
+<h2 id="what-is-a-vulnerability">¿Qué es una vulnerabilidad?</h2>
+<p>Una vulnerabilidad es un fallo o una debilidad en el diseño, la implementación, la operación o la gestión de un sistema que podría ser explotado para comprometer los objetivos de seguridad del sistema.</p>
+<h2 id="what-is-a-threat">¿Qué es una amenaza?</h2>
+<p>Una amenaza es cualquier cosa (un atacante externo malicioso, un usuario interno, una inestabilidad del sistema, etc.) que pueda dañar los activos de una aplicación (recursos de valor, como los datos de una base de datos o del sistema de archivos) mediante la explotación de una vulnerabilidad.</p>
+<h2 id="what-is-a-test">¿Qué es una prueba?</h2>
+<p>Una prueba es una acción para demostrar que una aplicación cumple los requisitos de seguridad de sus partes interesadas.</p>
+<h2 id="the-approach-in-writing-this-guide">El enfoque al escribir esta guía</h2>
+<p>El enfoque de OWASP es abierto y colaborativo:</p>
+<ul>
+<li>Abierto: cualquier experto en seguridad puede participar en el proyecto con su experiencia. Todo es gratuito.</li>
+<li>Colaborativo: se realiza una lluvia de ideas antes de escribir los artículos para que el equipo pueda compartir ideas y desarrollar una visión colectiva del proyecto. Eso significa un consenso aproximado, una audiencia más amplia y una mayor participación.</li>
+</ul>
+<p>Este enfoque tiende a dar como resultado una metodología de pruebas definida que será:</p>
+<ul>
+<li>Consistente</li>
+<li>Reproducible</li>
+<li>Rigurosa</li>
+<li>Sometida a control de calidad</li>
+</ul>
+<p>Los problemas que se abordan están completamente documentados y probados. Es importante utilizar diversos métodos para probar todas las vulnerabilidades conocidas y documentar todas las actividades de pruebas de seguridad.</p>
+<h2 id="what-is-the-owasp-testing-methodology">¿Qué es la metodología de pruebas de OWASP?</h2>
+<p>Las pruebas de seguridad nunca serán una ciencia exacta en la que se pueda definir una lista completa de todos los posibles problemas que deberían probarse. De hecho, las pruebas de seguridad son solo una de las varias técnicas adecuadas para probar la seguridad de las aplicaciones web en determinadas circunstancias. El objetivo de este proyecto es recopilar todas las técnicas de prueba posibles, explicarlas y mantener la guía actualizada. La metodología de pruebas de seguridad de aplicaciones web de OWASP se basa en el enfoque de caja negra. El evaluador tiene poca o ninguna información sobre la aplicación que se va a probar.</p>
+<p>El modelo de pruebas consta de:</p>
+<ul>
+<li>Evaluador: quien realiza las actividades de prueba</li>
+<li>Herramientas y metodología: el núcleo de este proyecto de Guía de Pruebas</li>
+<li>Aplicación: la caja negra que se va a probar</li>
+</ul>
+<p>Las pruebas se pueden clasificar como pasivas o activas:</p>
+<h3 id="passive-testing">Pruebas pasivas</h3>
+<p>Durante las pruebas pasivas, el evaluador intenta comprender la lógica de la aplicación y la explora como un usuario final. Se pueden utilizar herramientas para recopilar información. Por ejemplo, se puede usar un proxy HTTP(S) para observar todas las peticiones y respuestas HTTP(S). Al final de esta fase, el evaluador debería comprender, en general, todos los puntos de acceso y la funcionalidad del sistema (p. ej., cabeceras HTTP, parámetros, cookies, API, uso de tecnologías y patrones, etc.). La sección de <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/README">Recopilación de información</a> explica cómo realizar pruebas pasivas.</p>
+<p>Por ejemplo, un evaluador puede encontrar una página en la siguiente URL: <code>https://www.example.com/login/auth_form</code></p>
+<p>Esto puede indicar un formulario de autenticación en el que la aplicación solicita un nombre de usuario y una contraseña.</p>
+<p>Los siguientes parámetros representan dos puntos de acceso a la aplicación: <code>https://www.example.com/appx?a=1&amp;b=1</code></p>
+<p>En este caso, la aplicación tiene dos puntos de acceso (los parámetros <code>a</code> y <code>b</code>). Todos los puntos de entrada encontrados en esta fase representan objetivos de prueba. Llevar un registro del árbol de directorios o de llamadas de la aplicación y de todos los puntos de acceso puede ser útil durante las pruebas activas.</p>
+<h3 id="active-testing">Pruebas activas</h3>
+<p>Durante las pruebas activas, el evaluador utiliza las metodologías descritas en las siguientes secciones.</p>
+<p>El conjunto de pruebas activas se ha dividido en 12 categorías:</p>
+<ul>
+<li>Recopilación de información</li>
+<li>Pruebas de gestión de la configuración y del despliegue</li>
+<li>Pruebas de gestión de identidades</li>
+<li>Pruebas de autenticación</li>
+<li>Pruebas de autorización</li>
+<li>Pruebas de gestión de sesiones</li>
+<li>Pruebas de inyección</li>
+<li>Manejo de errores</li>
+<li>Criptografía débil</li>
+<li>Pruebas de lógica de negocio</li>
+<li>Pruebas del lado del cliente</li>
+<li>Pruebas de API</li>
+</ul>

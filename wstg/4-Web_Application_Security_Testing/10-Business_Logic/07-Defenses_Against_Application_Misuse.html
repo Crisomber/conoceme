@@ -1,0 +1,93 @@
+<h1 id="defenses-against-application-misuse">Defensas contra el uso indebido de la aplicación</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El uso indebido e inválido de funcionalidad válida puede identificar ataques que intentan enumerar la aplicación web, identificar debilidades y explotar vulnerabilidades. Se deben realizar pruebas para determinar si existen mecanismos defensivos en la capa de aplicación que protejan la aplicación.</p>
+<p>La falta de defensas activas permite a un atacante buscar vulnerabilidades sin ninguna consecuencia. Por lo tanto, el propietario de la aplicación no sabrá que su aplicación está bajo ataque.</p>
+<h3 id="example">Ejemplo</h3>
+<p>Un usuario autenticado realiza la siguiente secuencia (poco probable) de acciones:</p>
+<ol>
+<li>Intenta acceder a un archivo cuyo ID sus roles no le permiten descargar</li>
+<li>Sustituye el número de ID del archivo por una comilla simple <code>&#39;</code></li>
+<li>Altera una petición GET para convertirla en POST</li>
+<li>Añade un parámetro adicional</li>
+<li>Duplica un par nombre/valor de parámetro</li>
+</ol>
+<p>La aplicación está monitoreando el uso indebido y responde tras el quinto evento con una confianza extremadamente alta de que el usuario es un atacante. Por ejemplo, la aplicación:</p>
+<ul>
+<li>Deshabilita la funcionalidad crítica</li>
+<li>Habilita pasos de autenticación adicionales para la funcionalidad restante</li>
+<li>Añade retrasos de tiempo en cada ciclo de petición-respuesta</li>
+<li>Comienza a registrar datos adicionales sobre las interacciones del usuario (p. ej., cabeceras de petición HTTP, cuerpos y cuerpos de respuesta sanitizados)</li>
+</ul>
+<p>Si la aplicación no responde de ninguna manera y el atacante puede seguir abusando de la funcionalidad y enviando contenido claramente malicioso a la aplicación, la aplicación ha fallado este caso de prueba. En la práctica, es poco probable que las acciones discretas del ejemplo anterior ocurran así. Es mucho más probable que se use una herramienta de fuzzing para identificar debilidades en cada parámetro por turno. Esto es también lo que habrá hecho un evaluador de seguridad.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Generar notas de todas las pruebas realizadas contra el sistema.</li>
+<li>Revisar qué pruebas tuvieron una funcionalidad distinta ante una entrada agresiva.</li>
+<li>Comprender las defensas existentes y verificar si son suficientes para proteger el sistema contra técnicas de elusión.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Esta prueba es inusual en cuanto a que el resultado se puede extraer de todas las demás pruebas realizadas contra la aplicación web. Mientras se realizan todas las demás pruebas, hay que tomar nota de las medidas que puedan indicar que la aplicación tiene una autodefensa integrada:</p>
+<ul>
+<li>Respuestas modificadas</li>
+<li>Peticiones bloqueadas</li>
+<li>Acciones que cierran la sesión de un usuario o bloquean su cuenta</li>
+</ul>
+<p>Estas pueden ser solo localizadas. Las defensas localizadas (por función) más comunes son:</p>
+<ul>
+<li>Rechazar entradas que contienen ciertos caracteres</li>
+<li>Bloquear una cuenta temporalmente tras un número de fallos de autenticación</li>
+</ul>
+<p>Los controles de seguridad localizados no son suficientes. A menudo no hay defensas contra el uso indebido general, como:</p>
+<ul>
+<li>Navegación forzada (forced browsing)</li>
+<li>Elusión de la validación de entrada de la capa de presentación</li>
+<li>Múltiples errores de control de acceso</li>
+<li>Nombres de parámetros adicionales, duplicados o ausentes</li>
+<li>Múltiples fallos de validación de entrada o de verificación de la lógica de negocio con valores que no pueden ser resultado de errores o erratas del usuario</li>
+<li>Recepción de datos estructurados (p. ej., JSON, XML) con formato inválido</li>
+<li>Recepción de payloads flagrantes de Cross-Site Scripting (XSS) o de Inyección SQL</li>
+<li>Uso de la aplicación a una velocidad mayor de la que sería posible sin herramientas de automatización</li>
+<li>Cambio de ubicación geográfica continental de un usuario</li>
+<li>Cambio de user agent</li>
+<li>Acceso a un proceso de negocio de varias etapas en el orden incorrecto</li>
+<li>Gran número, o alta tasa de uso, de funcionalidad específica de la aplicación (p. ej., envío de códigos de cupón, pagos fallidos con tarjeta de crédito, cargas de archivos, descargas de archivos, cierres de sesión, etc.).</li>
+</ul>
+<h3 id="ui-misrepresentation--content-spoofing">Tergiversación de la interfaz de usuario / suplantación de contenido (Content Spoofing)</h3>
+<p>La tergiversación de la interfaz de usuario ocurre cuando una entrada controlada por el usuario se muestra en elementos de interfaz de confianza de una manera que puede engañar a usuarios o administradores, sin requerir la ejecución de scripts. A diferencia del Cross-Site Scripting, estos problemas se basan en el engaño visual o contextual y pueden permitir el abuso de flujos de trabajo o la ingeniería social dentro de la aplicación.</p>
+<p>Estos problemas representan un uso indebido de la aplicación porque abusan de flujos de trabajo legítimos de la interfaz y de límites de confianza en lugar de explotar una vulnerabilidad técnica.</p>
+<p>Algunos ejemplos comunes incluyen:</p>
+<ul>
+<li>Nombres de archivo, títulos o etiquetas controlados por el usuario que se muestran como mensajes generados por el sistema</li>
+<li>Cargas de archivos renombrados que aparecen como documentos de confianza o artefactos del sistema</li>
+<li>Texto suministrado por el usuario que se muestra como estados de aprobación, nombres de remitente o indicadores de flujo de trabajo</li>
+</ul>
+<p>Por ejemplo: una aplicación permite a los usuarios nombrar los archivos cargados. Un atacante carga un archivo llamado
+&quot;Payment Approved - Finance System&quot;. Cuando este nombre de archivo se muestra en un flujo de trabajo de revisión administrativa sin una indicación clara de que lo suministró un usuario, los revisores pueden ser engañados
+para aprobar un proceso fraudulento.</p>
+<p>Durante las pruebas, hay que evaluar si:</p>
+<ul>
+<li>Los datos controlados por el usuario se reflejan en contextos de interfaz privilegiados o con autoridad</li>
+<li>El texto inyectado puede imitar mensajes del sistema, estados del flujo de trabajo o etiquetas de confianza</li>
+<li>La presentación de la interfaz podría influir en las decisiones de los usuarios o en los procesos de negocio aunque no ocurra ninguna explotación técnica</li>
+</ul>
+<p>Estas defensas funcionan mejor en las partes autenticadas de la aplicación, aunque la tasa de creación de cuentas nuevas o de acceso a contenido (p. ej., para extraer información) puede ser útil en las áreas públicas.</p>
+<p>No es necesario que la aplicación monitoree todo lo anterior, pero hay un problema si no monitorea nada de ello. Al probar la aplicación web y realizar el tipo de acciones anteriores, ¿se tomó alguna respuesta contra el evaluador? Si no, el evaluador debe informar de que la aplicación parece no tener defensas activas a nivel de toda la aplicación contra el uso indebido. Nótese que a veces es posible que todas las respuestas a la detección de ataques sean silenciosas para el usuario (p. ej., cambios en el registro, mayor monitoreo, alertas a los administradores y retransmisión de peticiones mediante proxy), por lo que no se puede garantizar la confianza en este hallazgo. En la práctica, muy pocas aplicaciones (o infraestructuras relacionadas, como un firewall de aplicaciones web) detectan este tipo de uso indebido.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<p>Todos los demás casos de prueba son relevantes.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Las aplicaciones deben implementar defensas activas para repeler a atacantes y abusadores.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.cisa.gov/uscert/sites/default/files/publications/infosheet_SoftwareAssurance.pdf" target="_blank" rel="noopener">Software Assurance</a>, US Department Homeland Security</li>
+<li><a href="https://csrc.nist.gov/publications/detail/nistir/7864/final" target="_blank" rel="noopener">IR 7684</a> Common Misuse Scoring System (CMSS), NIST</li>
+<li><a href="https://capec.mitre.org/" target="_blank" rel="noopener">Common Attack Pattern Enumeration and Classification</a> (CAPEC), The Mitre Corporation</li>
+<li><a href="https://owasp.org/www-project-appsensor/" target="_blank" rel="noopener">OWASP AppSensor Project</a></li>
+<li>Watson C, Coates M, Melton J and Groves G, <a href="https://www.semanticscholar.org/paper/02365631792fa6c953e82cadb0e7268be35df905" target="_blank" rel="noopener">Creating Attack-Aware Software Applications with Real-Time Defenses</a>, CrossTalk The Journal of Defense Software Engineering, Vol. 24, No. 5, Sep/Oct 2011</li>
+</ul>

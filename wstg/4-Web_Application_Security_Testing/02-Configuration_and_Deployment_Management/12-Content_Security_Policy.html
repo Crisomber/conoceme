@@ -1,0 +1,189 @@
+<h1 id="content-security-policy">Content Security Policy</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-12</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Content Security Policy (CSP) es una política declarativa de lista de permitidos que se aplica mediante la cabecera de respuesta <code>Content-Security-Policy</code> o un elemento <code>&lt;meta&gt;</code> equivalente. Permite a los desarrolladores restringir los orígenes desde los cuales se cargan recursos como JavaScript, CSS, imágenes, archivos, etc. CSP es una técnica eficaz de defensa en profundidad para mitigar el riesgo de vulnerabilidades como Cross Site Scripting (XSS) y Clickjacking.</p>
+<p>Content Security Policy admite directivas que permiten un control granular del flujo de las políticas. (Véanse las <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/12-Content_Security_Policy@references">Referencias</a> para más detalles.)</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la cabecera Content-Security-Policy o el elemento meta para identificar configuraciones incorrectas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Identificar debilidades de Content Security Policy (CSP) requiere más que verificar la presencia de la cabecera. El evaluador debe valorar si la política reduce de manera significativa la superficie de ataque y si se aplica correctamente.</p>
+<h3 id="identify-and-confirm-csp-enforcement">Identificar y confirmar la aplicación de CSP</h3>
+<ul>
+<li>Inspeccionar las respuestas HTTP en busca de la cabecera <code>Content-Security-Policy</code>.</li>
+<li>Comprobar la presencia de <code>Content-Security-Policy-Report-Only</code>. Si solo está presente Report-Only, la política no se aplica.</li>
+<li>Verificar si CSP se entrega mediante una cabecera HTTP o una etiqueta <code>&lt;meta&gt;</code> (se prefieren las cabeceras HTTP).</li>
+<li>Tener en cuenta que CSP entregada mediante etiquetas <code>&lt;meta&gt;</code> no admite ciertas directivas como <code>frame-ancestors</code>, <code>report-uri</code>, <code>report-to</code> o <code>sandbox</code>.</li>
+<li>Confirmar que la política se aplica de manera coherente en los endpoints sensibles.</li>
+</ul>
+<h3 id="review-high-risk-directives">Revisar las directivas de alto riesgo</h3>
+<p>Hay que inspeccionar la política en busca de directivas inseguras o excesivamente permisivas:</p>
+<ul>
+<li><code>unsafe-inline</code> permite scripts o estilos en línea y debilita significativamente las protecciones contra XSS.</li>
+<li><code>unsafe-eval</code> permite la evaluación dinámica de código (<code>eval()</code>), lo que aumenta el riesgo de evasión.</li>
+<li><code>unsafe-hashes</code> puede permitir la ejecución en línea si los hashes son predecibles o tienen un alcance inadecuado.</li>
+<li>Las fuentes comodín (<code>*</code>) pueden permitir cargar recursos desde cualquier origen.<ul>
+<li>Los comodines parciales como <code>https://*</code> o <code>*.cdn.com</code> deben evaluarse con cuidado.</li>
+<li>Hay que determinar si los dominios de la lista de permitidos alojan endpoints JSONP o contenido controlado por el usuario.</li>
+</ul>
+</li>
+<li>La ausencia o el mal uso de <code>frame-ancestors</code> puede exponer la aplicación a clickjacking.</li>
+<li>La falta de las directivas <code>object-src</code>, <code>base-uri</code> o de un <code>default-src</code> restrictivo puede debilitar la eficacia de la política.</li>
+<li>Revisar el uso de <code>require-trusted-types-for</code> y <code>trusted-types</code>. En aplicaciones de alto riesgo, la ausencia de Trusted Types puede dejar expuestos los sinks de inyección basados en el DOM. Si se definen políticas de <code>trusted-types</code>, hay que asegurarse de que no sean excesivamente permisivas.</li>
+<li>Comprobar si hay directivas duplicadas o definiciones de política en conflicto que puedan dar lugar a un comportamiento de aplicación no previsto.</li>
+</ul>
+<h3 id="validate-nonce-hash-and-strict-dynamic-usage">Validar el uso de nonce, hash y strict-dynamic</h3>
+<p>Si la política usa nonces:</p>
+<ul>
+<li>Confirmar que los nonces son criptográficamente aleatorios.</li>
+<li>Verificar que los nonces se regeneran en cada respuesta y no se reutilizan.</li>
+<li>Asegurarse de que los patrones heredados de scripts en línea no se consideren de confianza inadvertidamente.</li>
+</ul>
+<p>Si la política usa fuentes basadas en hash (p. ej., <code>&#39;sha256-...&#39;</code>, <code>&#39;sha384-...&#39;</code>, <code>&#39;sha512-...&#39;</code>) en lugar de nonces, o junto con ellos:</p>
+<ul>
+<li>Confirmar que el hash coincide con el contenido exacto del script/estilo en línea, incluidos los espacios en blanco: cualquier cambio en el contenido en línea invalida el hash (esto es un costo de mantenimiento, no una evasión, pero conviene señalarlo si los equipos lo han solucionado ampliando la política en otro lugar).</li>
+<li>Comprobar si se usa <code>unsafe-hashes</code> para permitir manejadores de eventos en línea con hash (p. ej., <code>onclick=&quot;...&quot;</code>); esto extiende la confianza a sinks basados en atributos y debe acotarse estrechamente.</li>
+<li>Determinar si existe un &quot;hash gadget&quot; que un atacante pueda encontrar: un script en línea ya existente y permitido por hash que pueda reutilizarse, o cuyo comportamiento pueda influirse (p. ej., mediante un sink del DOM) para ejecutar lógica del atacante sin necesidad de un nuevo hash.</li>
+</ul>
+<p>Si se usa <code>strict-dynamic</code>:</p>
+<ul>
+<li>Entender que la confianza se propaga desde los scripts basados en nonce o en hash.</li>
+<li>Confirmar que ninguna cadena de confianza insegura permite la carga de scripts controlados por el atacante.</li>
+<li>Tener en cuenta que los navegadores que ignoran <code>strict-dynamic</code> (navegadores heredados) recurren a los hosts/esquemas listados en <code>script-src</code>; hay que comprobar que esa lista de reserva no sea en sí misma excesivamente permisiva.</li>
+</ul>
+<h3 id="review-trusted-types-interaction">Revisar la interacción con Trusted Types</h3>
+<p><a href="https://w3c.github.io/trusted-types/dist/spec/" target="_blank" rel="noopener">Trusted Types</a> es una API del navegador, aplicada mediante CSP (<code>require-trusted-types-for &#39;script&#39;</code> y <code>trusted-types &lt;policy-names&gt;</code>), que mitiga el XSS basado en DOM al exigir que los sinks peligrosos del DOM (<code>innerHTML</code>, <code>document.write</code>, <code>Function()</code>, <code>eval()</code>, etc.) reciban un objeto <code>TrustedHTML</code>/<code>TrustedScript</code>/<code>TrustedScriptURL</code> en lugar de una cadena en bruto.</p>
+<ul>
+<li>Confirmar si <code>require-trusted-types-for &#39;script&#39;</code> está presente. Sin él, Trusted Types no se aplica aunque se declaren nombres de políticas de <code>trusted-types</code>.</li>
+<li>Enumerar las políticas con nombre permitidas por <code>trusted-types</code> (p. ej., <code>trusted-types policyA policyB;</code>). Revisar la implementación de <code>createHTML</code>/<code>createScript</code>/<code>createScriptURL</code> de cada política (normalmente en el JavaScript de la aplicación) en busca de brechas de sanitización; una política permisiva o de paso directo anula la protección.</li>
+<li>Comprobar si hay <code>trusted-types *</code> o una política <code>default</code> excesivamente permisiva, ya que cualquiera de las dos puede dejar pasar cadenas arbitrarias.</li>
+<li>Como Trusted Types solo cubre los sinks de XSS del DOM alcanzables desde un script, hay que contrastar esto con las pruebas de <a href="#/4-Web_Application_Security_Testing/11-Client-side/01-DOM-based_Cross_Site_Scripting">Cross-Site Scripting basado en DOM</a>; CSP/Trusted Types es allí un control de mitigación, no un sustituto de corregir el sink subyacente.</li>
+<li>Trusted Types no cubre la inyección basada en marcado (p. ej., inyección de HTML mediante plantillas renderizadas en el servidor); para esa clase de problema, véase <a href="#/4-Web_Application_Security_Testing/11-Client-side/03-HTML_Injection">Inyección de HTML</a>.</li>
+</ul>
+<h3 id="evaluate-csp-reporting-mechanisms">Evaluar los mecanismos de reporte de CSP</h3>
+<p>Si <code>report-uri</code> o <code>report-to</code> están configurados:</p>
+<ul>
+<li><p>Verificar que los endpoints de reporte son alcanzables y funcionales.</p>
+</li>
+<li><p>Determinar si se expone información sensible en los reportes (p. ej., URL completas con cadenas de consulta o tokens en <code>blocked-uri</code>/<code>document-uri</code>).</p>
+</li>
+<li><p>Confirmar que el reporte no crea nuevos vectores de inyección o de denegación de servicio (p. ej., un endpoint interno que analiza los reportes de forma insegura, o la falta de limitación de tasa que permita inundar de reportes).</p>
+</li>
+<li><p>Para <code>report-to</code> (CSP Nivel 3, Reporting API), confirmar que el grupo de endpoints referenciado esté realmente declarado mediante una cabecera <code>Reporting-Endpoints</code> (o la cabecera heredada <code>Report-To</code>), por ejemplo:</p>
+<pre><code class="language-http">Reporting-Endpoints: csp-endpoint=&quot;https://example.com/csp-reports&quot;
+Content-Security-Policy: default-src &#39;self&#39;; report-to csp-endpoint
+</code></pre>
+<p>  Si el nombre de grupo de <code>report-to</code> en la CSP no coincide con un endpoint declarado, las infracciones se descartan silenciosamente; esta es una configuración incorrecta común al migrar desde <code>report-uri</code>.</p>
+</li>
+<li><p>Cuando <code>report-uri</code> y <code>report-to</code> estén ambos presentes por compatibilidad hacia atrás, confirmar que apuntan a destinos equivalentes y que los evaluadores/la monitorización no dependen de solo uno de ellos.</p>
+</li>
+</ul>
+<h3 id="attempt-controlled-bypass-techniques">Intentar técnicas de evasión controladas</h3>
+<p>Cuando sea apropiado y esté autorizado, se debe intentar validar la aplicación de la política probando payloads controlados:</p>
+<ul>
+<li>Intentos de inyección de scripts en línea.</li>
+<li>Payloads basados en URL de datos (data URL).</li>
+<li>Manipulación de callbacks JSONP desde dominios de la lista de permitidos.</li>
+<li>Encadenamiento de gadgets basados en DOM usando orígenes de scripts de confianza.</li>
+</ul>
+<p>La ejecución exitosa de JavaScript inyectado indica una configuración incorrecta de CSP o una aplicación ineficaz.</p>
+<p>Herramientas como <a href="https://cspbypass.com/" target="_blank" rel="noopener">CSPBypass</a> (<a href="https://github.com/renniepak/CSPBypass" target="_blank" rel="noopener">código fuente</a>) automatizan esta comprobación: se pega una política candidata y la herramienta informa de las técnicas de evasión conocidas aplicables a esa política (p. ej., hosts de JSONP/AngularJS/CDN en la lista de permitidos, esquemas permisivos). Su salida debe tratarse como un punto de partida, no como prueba de explotabilidad; hay que confirmar que cualquier evasión señalada realmente ejecuta JavaScript controlado por el atacante en el contexto de la aplicación objetivo antes de reportarla como hallazgo.</p>
+<p>Estos intentos de evasión se solapan con las <a href="#/4-Web_Application_Security_Testing/11-Client-side/README">pruebas del lado del cliente</a> y deben validarse junto con ellas: una evasión de CSP normalmente solo tiene impacto si llega a un punto de inyección real cubierto allí (XSS basado en DOM, inyección de HTML, ejecución de JavaScript).</p>
+<h3 id="assess-policy-strength">Evaluar la solidez de la política</h3>
+<p>Las aplicaciones críticas para el negocio deben aspirar a implementar una política estricta. Una CSP robusta normalmente:</p>
+<ul>
+<li>Evita <code>unsafe-inline</code> y <code>unsafe-eval</code>.</li>
+<li>Usa controles de scripts basados en nonce o en hash.</li>
+<li>Restringe la incrustación de objetos (<code>object-src &#39;none&#39;</code>).</li>
+<li>Restringe la manipulación de la etiqueta base (<code>base-uri &#39;none&#39;</code>).</li>
+<li>Restringe el enmarcado mediante <code>frame-ancestors</code>.</li>
+</ul>
+<h3 id="common-csp-bypass-patterns">Patrones comunes de evasión de CSP</h3>
+<p>Incluso cuando CSP está presente, las configuraciones incorrectas o las debilidades de diseño pueden permitir su evasión. Los evaluadores deben considerar los siguientes patrones comunes:</p>
+<h4 id="jsonp-and-trusted-third-party-endpoints">JSONP y endpoints de terceros de confianza</h4>
+<p>Si una CSP incluye en la lista de permitidos dominios de terceros (p. ej., CDN), hay que determinar si esos dominios exponen endpoints JSONP o contenido controlado por el usuario. Los atacantes pueden aprovechar la inyección de callbacks para ejecutar JavaScript arbitrario cumpliendo aun así con la política.</p>
+<h4 id="wildcard-and-broad-source-policies">Políticas con comodines y fuentes amplias</h4>
+<p>Las políticas que dependen de comodines (<code>*</code>, <code>https://*</code>, <code>*.example.com</code>) amplían significativamente el límite de confianza. Las tomas de control de subdominios o los servicios de terceros comprometidos pueden permitir la evasión dentro del alcance permitido.</p>
+<h4 id="nonce-reuse-or-predictable-nonces">Reutilización de nonces o nonces predecibles</h4>
+<p>Si los nonces se reutilizan entre peticiones o se generan de forma predecible, los atacantes pueden reutilizarlos o adivinarlos para ejecutar scripts inyectados. Cada respuesta debe generar un nonce nuevo y criptográficamente robusto.</p>
+<h4 id="over-reliance-on-strict-dynamic">Dependencia excesiva de strict-dynamic</h4>
+<p>Aunque <code>strict-dynamic</code> mejora las políticas basadas en nonce, la confianza se propaga desde los scripts de confianza. Si un script de confianza carga recursos controlados por el atacante, la protección puede debilitarse.</p>
+<h4 id="missing-defense-in-depth-directives">Directivas de defensa en profundidad ausentes</h4>
+<p>La ausencia de directivas como:</p>
+<ul>
+<li><code>object-src &#39;none&#39;</code></li>
+<li><code>base-uri &#39;none&#39;</code></li>
+<li><code>frame-ancestors</code></li>
+</ul>
+<p>puede dejar la aplicación expuesta a la inyección de objetos, la manipulación de la etiqueta base o el clickjacking, incluso si la ejecución de scripts está parcialmente restringida.</p>
+<h4 id="csp-in-report-only-mode">CSP en modo Report-Only</h4>
+<p>A veces las aplicaciones despliegan CSP en modo <code>Report-Only</code> de forma indefinida. En tales casos, las infracciones se registran pero no se bloquean, por lo que no ofrecen protección real.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Las organizaciones deben implementar una Content Security Policy sólida y bien acotada que reduzca de manera significativa la superficie de ataque, en lugar de limitarse a satisfacer requisitos de cumplimiento.</p>
+<h3 id="general-recommendations">Recomendaciones generales</h3>
+<ul>
+<li>Evitar el uso de <code>unsafe-inline</code> y <code>unsafe-eval</code>.</li>
+<li>Preferir controles de scripts basados en nonce o en hash.</li>
+<li>Usar una directiva <code>default-src</code> restrictiva.</li>
+<li>Definir explícitamente:<ul>
+<li><code>object-src &#39;none&#39;</code></li>
+<li><code>base-uri &#39;none&#39;</code></li>
+<li><code>frame-ancestors</code></li>
+</ul>
+</li>
+<li>Minimizar el número de dominios de terceros en la lista de permitidos.</li>
+<li>Revisar periódicamente las políticas CSP al introducir nuevas dependencias de frontend.</li>
+</ul>
+<h3 id="deployment-best-practices">Mejores prácticas de despliegue</h3>
+<ul>
+<li>Desplegar <code>Content-Security-Policy-Report-Only</code> temporalmente para pruebas y luego aplicar <code>Content-Security-Policy</code> una vez validado.</li>
+<li>Monitorear los reportes de infracciones para detectar fallos legítimos e intentos de ataque potenciales.</li>
+<li>Preferir <code>report-to</code> (CSP Nivel 3) manteniendo <code>report-uri</code> por compatibilidad hacia atrás cuando sea necesario.</li>
+<li>Asegurar que los nonces son criptográficamente aleatorios y se regeneran en cada respuesta.</li>
+<li>Revisar las políticas durante grandes refactorizaciones del frontend o cambios de framework.</li>
+</ul>
+<h3 id="strict-policy-guidance">Guía de política estricta</h3>
+<p>Una política estricta ofrece protección contra ataques XSS almacenados, reflejados y ciertos ataques XSS basados en DOM, y debe ser el objetivo en aplicaciones de alto riesgo o críticas para el negocio.</p>
+<p>Basadas en enfoques con nonce, algunas políticas de ejemplo son:</p>
+<p>Política estricta moderada:</p>
+<pre><code class="language-HTTP">script-src &#39;nonce-r4nd0m&#39; &#39;strict-dynamic&#39;;
+object-src &#39;none&#39;;
+base-uri &#39;none&#39;;
+</code></pre>
+<p>Política estricta restringida al máximo:</p>
+<pre><code class="language-HTTP">script-src &#39;nonce-r4nd0m&#39;;
+object-src &#39;none&#39;;
+base-uri &#39;none&#39;;
+</code></pre>
+<blockquote>
+<p>Nota: <code>&#39;nonce-r4nd0m&#39;</code> se muestra como un marcador de posición de ejemplo. En la práctica, los nonces deben ser valores criptográficamente robustos, codificados en base64 y generados de forma única para cada respuesta HTTP.</p>
+</blockquote>
+<p>Los equipos deben adaptar con cuidado las políticas estrictas, asegurando la compatibilidad con la arquitectura de la aplicación y manteniendo los objetivos de seguridad.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://csp-evaluator.withgoogle.com/" target="_blank" rel="noopener">Google CSP Evaluator</a></li>
+<li><a href="https://portswigger.net/bappstore/35237408a06043e9945a11016fcbac18" target="_blank" rel="noopener">CSP Auditor - Burp Suite Extension</a></li>
+<li><a href="https://chromewebstore.google.com/detail/ahlnecfloencbkpfnpljbojmjkfgnmdc" target="_blank" rel="noopener">CSP Generator Chrome</a> / <a href="https://addons.mozilla.org/en-US/firefox/addon/csp-generator/" target="_blank" rel="noopener">Firefox</a></li>
+<li><a href="https://cspvalidator.netlify.app/" target="_blank" rel="noopener">CSP Validator</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a> - incluye análisis automatizado y pasivo de configuraciones incorrectas de CSP.</li>
+<li><a href="https://cspbypass.com/" target="_blank" rel="noopener">CSPBypass</a> - herramienta diseñada para ayudar a los evaluadores de seguridad a analizar e intentar técnicas de evasión contra implementaciones restrictivas de CSP.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Content Security Policy Cheat Sheet</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP" target="_blank" rel="noopener">Mozilla Developer Network: Content Security Policy</a></li>
+<li><a href="https://www.w3.org/TR/CSP3/" target="_blank" rel="noopener">CSP Level 3 W3C</a></li>
+<li><a href="https://csp.withgoogle.com/docs/index.html" target="_blank" rel="noopener">CSP with Google</a></li>
+<li><a href="https://content-security-policy.com/" target="_blank" rel="noopener">Content-Security-Policy</a></li>
+<li><a href="https://speakerdeck.com/lweichselbaum/csp-a-successful-mess-between-hardening-and-mitigation" target="_blank" rel="noopener">CSP A Successful Mess Between Hardening And Mitigation</a></li>
+<li><a href="https://content-security-policy.com/unsafe-hashes/" target="_blank" rel="noopener">The unsafe-hashes Source List Keyword</a></li>
+<li><a href="https://w3c.github.io/trusted-types/dist/spec/" target="_blank" rel="noopener">Trusted Types W3C</a></li>
+<li><a href="https://www.w3.org/TR/reporting-1/" target="_blank" rel="noopener">Reporting API W3C</a></li>
+</ul>

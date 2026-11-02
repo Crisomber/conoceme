@@ -1,0 +1,104 @@
+<h1 id="network-infrastructure-configuration">Configuración de la infraestructura de red</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La infraestructura de una aplicación web (servidores web y de aplicaciones, bases de datos, servidores de autenticación, balanceadores de carga/CDN y, en los despliegues modernos, controles de red en la nube y capas de contenedores/orquestación) es tan segura como su elemento más débil o peor configurado. Un solo componente sin revisar o vulnerable puede comprometer la aplicación misma, incluso si el código de la propia aplicación es sólido; por ejemplo, una falla en el servidor web que revele código fuente le entrega al atacante información para atacar la aplicación directamente.</p>
+<p>Después de mapear la infraestructura (véase <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/10-Map_Application_Architecture">Mapear la arquitectura de red y de la aplicación</a>), las pruebas deben:</p>
+<ul>
+<li>Identificar cada elemento y cómo afecta a la seguridad de la aplicación.</li>
+<li>Revisar cada elemento en busca de vulnerabilidades conocidas.</li>
+<li>Revisar las herramientas administrativas utilizadas para mantenerlos.</li>
+<li>Revisar que los sistemas de autenticación no puedan ser manipulados por usuarios externos.</li>
+<li>Mantener, y contrastar con ella, una lista de puertos requeridos por la aplicación sujeta a control de cambios.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar las configuraciones de las aplicaciones establecidas en toda la red y validar que no sean vulnerables.</li>
+<li>Validar que los frameworks y sistemas utilizados sean seguros y no sean susceptibles a vulnerabilidades conocidas debido a software sin mantenimiento o a configuraciones y credenciales predeterminadas.</li>
+<li>Cuando la infraestructura esté alojada en la nube o use contenedores, revisar los controles de aislamiento de red (grupos de seguridad/NSG, diseño de VPC/subredes, configuración de balanceadores de carga/CDN, políticas de service mesh, <code>NetworkPolicy</code> de Kubernetes) en busca de exposición no intencionada o reglas excesivamente permisivas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="known-server-vulnerabilities">Vulnerabilidades conocidas de los servidores</h3>
+<p>Las vulnerabilidades en diversas áreas de la arquitectura de la aplicación, ya sea en el servidor web o en la base de datos de backend, pueden comprometer gravemente la aplicación. Por ejemplo, considérese una vulnerabilidad de servidor que permite a un usuario remoto y no autenticado subir archivos al servidor web o incluso reemplazar archivos existentes. Esta vulnerabilidad podría comprometer la aplicación, ya que un usuario malicioso podría reemplazar la aplicación misma o introducir código que afecte a los servidores de backend, pues el código de la aplicación se ejecutaría igual que el de cualquier otra aplicación.</p>
+<p>Revisar las vulnerabilidades de los servidores puede ser difícil si la prueba debe realizarse mediante una prueba de penetración a ciegas. En estos casos, las vulnerabilidades deben probarse desde un sitio remoto, normalmente con una herramienta automatizada. Sin embargo, probar algunas vulnerabilidades puede tener resultados impredecibles sobre el servidor web, y probar otras (como las directamente involucradas en ataques de denegación de servicio) podría no ser posible debido a la interrupción del servicio que implicaría que la prueba tuviera éxito.</p>
+<p>Algunas herramientas automatizadas señalan vulnerabilidades en función de la versión del servidor web que obtienen. Esto genera tanto falsos positivos como falsos negativos. Por un lado, si el administrador local del sitio ha eliminado u ocultado la versión del servidor web, la herramienta de escaneo no marcará el servidor como vulnerable aunque lo sea. Por otro lado, si el proveedor del software no actualiza la versión del servidor web cuando se corrigen las vulnerabilidades, la herramienta de escaneo señalará vulnerabilidades que no existen. Este último caso es en realidad muy común, ya que algunos proveedores de sistemas operativos hacen backport de los parches de seguridad al software que incluyen en el sistema operativo, pero no hacen una actualización completa a la última versión del software. Esto ocurre en la mayoría de las distribuciones GNU/Linux, como Debian, Red Hat y SuSE. En la mayoría de los casos, el escaneo de vulnerabilidades de una arquitectura de aplicación solo encontrará vulnerabilidades asociadas a los elementos &quot;expuestos&quot; de la arquitectura (como el servidor web) y normalmente no podrá encontrar vulnerabilidades asociadas a elementos que no están directamente expuestos, como el backend de autenticación, la base de datos de backend o los proxies inversos en uso.</p>
+<p>Finalmente, no todos los proveedores de software divulgan públicamente las vulnerabilidades, lo que significa que estas debilidades pueden no estar registradas en las bases de datos de vulnerabilidades conocidas (como <a href="https://nvd.nist.gov/" target="_blank" rel="noopener">NVD</a> o los avisos específicos de cada proveedor). Esta información solo se divulga a los clientes o se publica mediante correcciones que no van acompañadas de avisos. Esto reduce la eficacia de las herramientas de escaneo de vulnerabilidades. Normalmente, la cobertura de vulnerabilidades de estas herramientas será muy buena para los productos comunes (como el servidor web Apache, Microsoft IIS o Lotus Domino de IBM), pero será deficiente para productos menos conocidos.</p>
+<p>Por ello, lo mejor es revisar las vulnerabilidades cuando se le proporciona al evaluador información interna sobre el software, incluidas las versiones, los lanzamientos y los parches aplicados. Con esta información, el evaluador puede obtener datos del proveedor y analizar las vulnerabilidades potenciales en la arquitectura, así como su posible impacto sobre la aplicación. Cuando sea posible, estas vulnerabilidades pueden probarse para determinar sus efectos reales y detectar si existen elementos externos (como sistemas de detección o prevención de intrusiones) que puedan reducir o anular la posibilidad de una explotación exitosa. Incluso es posible que el evaluador determine, mediante una revisión de la configuración, que la vulnerabilidad en realidad no está presente porque afecta a un componente de software que no está en uso.</p>
+<p>También vale la pena señalar que los proveedores a veces corrigen vulnerabilidades en silencio y ponen las correcciones a disposición con nuevas versiones del software. Distintos proveedores tienen ciclos de lanzamiento diferentes que determinan el soporte que pueden ofrecer para versiones antiguas. Un evaluador con información detallada sobre las versiones de software utilizadas en la arquitectura puede analizar el riesgo asociado al uso de versiones antiguas que dejarán de tener soporte a corto plazo o que ya no lo tienen. Esto es crítico porque, si surge una vulnerabilidad en una versión antigua sin soporte, el personal de sistemas puede no enterarse directamente. Nunca se publicarán parches para ella y los avisos pueden no listar esa versión como vulnerable porque ya no tiene soporte. Incluso si conocen la vulnerabilidad y los riesgos asociados para el sistema, será necesaria una actualización completa a una nueva versión del software, lo que podría introducir tiempos de inactividad significativos en la arquitectura de la aplicación u obligar a reescribir la aplicación por incompatibilidades con la última versión del software.</p>
+<h3 id="cloud-and-container-network-configuration">Configuración de red en la nube y en contenedores</h3>
+<p>El mismo principio de revisión de la configuración de red se aplica cuando la &quot;infraestructura de red&quot; se define en la configuración del proveedor de nube o en manifiestos de contenedores/orquestación, en lugar de en enrutadores, switches y firewalls físicos. Una configuración incorrecta aquí es una de las causas más comunes de exposición no intencionada a internet de sistemas que de otro modo serían internos. La siguiente tabla separa lo que puede verificarse sin credenciales (caja negra) de lo que requiere acceso a la configuración del proveedor (caja gris), e indica la evidencia que realmente respalda un hallazgo: en todos los casos, el resultado de caja negra (un puerto que responde, un servicio alcanzable) es la evidencia; el parámetro de configuración en sí, visto en caja gris, es la explicación de por qué ocurre.</p>
+<div class="tabla"><table><thead><tr>
+<th>Control</th>
+<th>Prueba de caja negra</th>
+<th>Prueba de caja gris</th>
+<th>Evidencia que requiere un hallazgo</th>
+</tr>
+</thead><tbody><tr>
+<td>Grupos de seguridad / NSG / reglas de firewall en la nube</td>
+<td>Escanear los puertos de las IP públicas del objetivo en busca de puertos distintos de los servicios públicos previstos (especialmente SSH/RDP/puertos de bases de datos).</td>
+<td>Leer directamente el conjunto de reglas: <code>aws ec2 describe-security-groups</code> (AWS), <code>az network nsg rule list --nsg-name &lt;nsg&gt;</code> (Azure) o <code>gcloud compute firewall-rules list</code> (GCP), comprobando si hay ingreso desde <code>0.0.0.0/0</code> o egreso sin restricciones.</td>
+<td>El escaneo de caja negra muestra que el puerto realmente responde (no solo filtrado/sin respuesta), o el conjunto de reglas visto en caja gris muestra una regla específica que otorga ese acceso sin ningún control compensatorio.</td>
+</tr>
+<tr>
+<td>Aislamiento de VPC/subredes</td>
+<td>Intentar alcanzar directamente desde internet los hosts de la capa de backend (puertos de bases de datos, rutas de administración internas), usando direcciones/nombres de host descubiertos mediante reconocimiento.</td>
+<td>Revisar el diseño de la VPC/subredes y las tablas de enrutamiento: <code>aws ec2 describe-route-tables</code> (AWS), <code>az network vnet subnet list</code> más la inspección de la tabla de rutas (Azure), o <code>gcloud compute networks subnets list</code> / <code>gcloud compute routes list</code> (GCP), confirmando que las capas de backend están en subredes privadas sin ruta a un gateway de internet.</td>
+<td>Una conexión directa desde fuera de la VPC tiene éxito, o la tabla de rutas muestra una ruta a un gateway de internet/NAT desde una subred que debería ser privada.</td>
+</tr>
+<tr>
+<td>Configuración de balanceadores de carga/CDN</td>
+<td>Intentar alcanzar directamente el servidor de origen (evitando el nombre de host del balanceador de carga/CDN), usando una IP encontrada en el historial de DNS, en registros de transparencia de certificados o en cabeceras filtradas.</td>
+<td>Revisar las reglas de los listeners, la configuración del origen y los ajustes de restricción del origen (p. ej., un grupo de seguridad del origen limitado únicamente a los rangos de IP del CDN, o una cabecera/secreto de verificación del origen).</td>
+<td>El origen responde directamente al intento de evasión (y no solo al tráfico que llega mediante el nombre de host previsto del balanceador de carga/CDN).</td>
+</tr>
+<tr>
+<td>Políticas de service mesh</td>
+<td>En la mayoría de los despliegues no se puede probar directamente desde fuera de la malla; considérese solo de caja gris, a menos que el evaluador tenga un punto de apoyo dentro del clúster/malla.</td>
+<td>Para Istio: <code>kubectl get authorizationpolicy --all-namespaces</code> y <code>kubectl get peerauthentication --all-namespaces -o yaml</code> (comprobando <code>mtls.mode</code>) para revisar las políticas de autorización y el modo mTLS de los servicios que deberían requerir autenticación interna de la malla.</td>
+<td>Una política <code>ALLOW-ALL</code> o un modo mTLS <code>PERMISSIVE</code>/ausente encontrado en la configuración, idealmente confirmado por una llamada no autenticada dentro de la malla que tiene éxito cuando el diseño pretendía que fuera denegada.</td>
+</tr>
+<tr>
+<td><code>NetworkPolicy</code> de Kubernetes</td>
+<td>Desde un pod que ya esté dentro del clúster (si está en el alcance), intentar una conexión desde un pod no autorizado a una carga de trabajo sensible (p. ej., un pod de base de datos).</td>
+<td>Confirmar qué plugin CNI está instalado (<code>kubectl get pods -n kube-system</code> para identificar los pods propios del CNI, p. ej., <code>calico-node</code> o <code>cilium</code>) y si aplica <code>NetworkPolicy</code>; ejecutar <code>kubectl get networkpolicy --all-namespaces</code> y <code>kubectl describe networkpolicy &lt;name&gt; -n &lt;namespace&gt;</code> para revisar los objetos de política de la carga de trabajo sensible y si se aplica una denegación por defecto a nivel de namespace.</td>
+<td>El intento de conexión dentro del clúster tiene éxito a pesar de que existe una <code>NetworkPolicy</code> aparentemente restrictiva (lo que demuestra que el CNI no la está aplicando), o <code>kubectl get networkpolicy</code> no devuelve nada para un namespace que contiene una carga de trabajo sensible.</td>
+</tr>
+</tbody></table></div>
+<p>Algunas cosas que conviene tener en cuenta y que aplican a las cinco filas:</p>
+<ul>
+<li>Estas son comprobaciones ilustrativas, no una lista exhaustiva: las llamadas exactas a la API, los comandos de CLI y las rutas de la consola difieren según el proveedor y la versión, y cambian con el tiempo. Hay que adaptarse al despliegue real (AWS vs. Azure vs. GCP, qué plugin CNI, qué service mesh) en lugar de tratar los comandos anteriores como universales.</li>
+<li>Los resultados de caja negra son la evidencia principal de un hallazgo; la revisión de la configuración en caja gris explica la causa y ayuda a confirmar la corrección, pero una prueba de caja negra que no logra reproducir la exposición (p. ej., el puerto está filtrado a pesar de una regla de aspecto permisivo, porque otro control lo bloquea) significa que el hallazgo debe replantearse en su alcance, no que la revisión de la configuración estuviera equivocada.</li>
+</ul>
+<p>Por ejemplo: un grupo de seguridad destinado a permitir que el balanceador de carga alcance la aplicación en el puerto 443 también tiene una regla de entrada para el puerto 3306 (MySQL) abierta a <code>0.0.0.0/0</code>, colocada temporalmente para un script de migración puntual y nunca eliminada.</p>
+<h3 id="administrative-tools">Herramientas administrativas</h3>
+<p>Toda infraestructura de servidor web requiere la existencia de herramientas administrativas para mantener y actualizar la información utilizada por la aplicación. Esta información incluye contenido estático (páginas web, archivos gráficos), código fuente de la aplicación, bases de datos de autenticación de usuarios, etc. El tipo de herramientas administrativas utilizadas puede variar según el sitio, la tecnología o el software en uso: algunas son consolas administrativas basadas en web (véase también <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces">Enumeración de interfaces de administración de la infraestructura y de la aplicación</a>, que lo cubre con más profundidad, incluidas las consolas modernas de nube, Kubernetes y CI/CD), otras son archivos de configuración en texto plano (como en Apache) y otras son herramientas nativas del SO, gráficas o de línea de comandos (como en el servidor IIS de Microsoft o <code>kubectl</code>/las CLI de nube en los despliegues modernos).</p>
+<p>En la mayoría de los casos, la configuración del servidor se gestiona con diversas herramientas de mantenimiento de archivos, administradas mediante SSH/SFTP, WebDAV, sistemas de archivos de red (NFS, CIFS), pipelines de infraestructura como código (Terraform/CloudFormation/Ansible) o herramientas GitOps que aplican automáticamente los cambios de configuración. Obviamente, el sistema operativo de los elementos que componen la arquitectura de la aplicación también se gestionará con otras herramientas. Las aplicaciones también pueden contener interfaces administrativas integradas para gestionar los datos de la aplicación (usuarios, contenido, etc.).</p>
+<p>Después de mapear las interfaces administrativas utilizadas para gestionar las diferentes partes de la arquitectura, es importante revisarlas. Si un atacante obtiene acceso a cualquiera de estas interfaces, podría comprometer o dañar la arquitectura de la aplicación. Para lograrlo, es importante:</p>
+<ul>
+<li>Determinar los mecanismos que controlan el acceso a estas interfaces y sus susceptibilidades asociadas. Esta información puede estar disponible en línea.</li>
+<li>Asegurarse de que se hayan cambiado el nombre de usuario y la contraseña predeterminados.</li>
+</ul>
+<p>Algunas empresas deciden no gestionar todos los aspectos de sus aplicaciones de servidor web y pueden delegar la gestión del contenido en terceros. Esta empresa externa puede proporcionar solo ciertas partes del contenido (como novedades o promociones), o puede gestionar por completo el servidor web (incluidos el contenido y el código). Es común encontrar interfaces administrativas accesibles desde internet en estas situaciones, ya que usar internet es más barato que proporcionar una línea dedicada que conecte a la empresa externa con la infraestructura de la aplicación mediante una interfaz exclusiva de gestión. En tales situaciones, es crucial probar si las interfaces administrativas son vulnerables a ataques.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://nmap.org/" target="_blank" rel="noopener">nmap</a> - escaneo de red/puertos e identificación de servicios.</li>
+<li><a href="https://github.com/nccgroup/ScoutSuite" target="_blank" rel="noopener">ScoutSuite</a> - auditoría de configuración de seguridad multinube (AWS/Azure/GCP), incluidos grupos de seguridad/NSG y exposición de red.</li>
+<li><a href="https://github.com/prowler-cloud/prowler" target="_blank" rel="noopener">Prowler</a> - evaluación de seguridad de AWS/Azure/GCP, incluidas comprobaciones de red y de reglas de firewall.</li>
+<li><a href="https://github.com/aquasecurity/kube-bench" target="_blank" rel="noopener">kube-bench</a> - escáner del CIS Kubernetes Benchmark.</li>
+<li><a href="https://github.com/aquasecurity/kube-hunter" target="_blank" rel="noopener">kube-hunter</a> - identifica componentes de Kubernetes expuestos a la red.</li>
+<li><a href="https://www.shodan.io/" target="_blank" rel="noopener">Shodan</a> / <a href="https://censys.com/" target="_blank" rel="noopener">Censys</a> - datos de escaneo de toda internet útiles para identificar infraestructura expuesta involuntariamente durante evaluaciones de caja negra.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://nvd.nist.gov/" target="_blank" rel="noopener">NIST National Vulnerability Database (NVD)</a></li>
+<li><a href="https://www.cisecurity.org/cis-benchmarks" target="_blank" rel="noopener">CIS Benchmarks</a> - líneas base de endurecimiento para servidores web/de aplicaciones comunes, proveedores de nube y Kubernetes.</li>
+<li><a href="https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html" target="_blank" rel="noopener">AWS: Security Groups for Your VPC</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/virtual-network/network-security-groups-overview" target="_blank" rel="noopener">Azure Network Security Groups</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/services-networking/network-policies/" target="_blank" rel="noopener">Kubernetes: Network Policies</a></li>
+<li><a href="https://istio.io/latest/docs/reference/config/security/authorization-policy/" target="_blank" rel="noopener">Istio: Authorization Policy</a></li>
+</ul>

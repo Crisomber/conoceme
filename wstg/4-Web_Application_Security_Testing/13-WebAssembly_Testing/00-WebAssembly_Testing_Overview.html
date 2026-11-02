@@ -1,0 +1,47 @@
+<h1 id="webassembly-testing-overview">Visión general de las pruebas de WebAssembly</h1>
+<h2 id="webassembly-introduction">Introducción a WebAssembly</h2>
+<p>WebAssembly (abreviado <em>Wasm</em>) es un formato de instrucciones binarias para una máquina virtual basada en pila. Wasm está diseñado como un destino de compilación portable para lenguajes de programación, lo que permite su despliegue en la web tanto para aplicaciones cliente como servidor. Ofrece una forma de ejecutar en la web, a velocidades casi nativas, código escrito en múltiples lenguajes, como C, C++, Rust y Go.</p>
+<p>La adopción de WebAssembly ha sido impulsada por la necesidad de alto rendimiento en las aplicaciones web (p. ej., edición de video, motores de videojuegos, bibliotecas criptográficas) y por el deseo de portar aplicaciones de escritorio heredadas a la web sin reescribirlas en JavaScript.</p>
+<p>Como ocurre con la introducción de cualquier arquitectura nueva, WebAssembly presenta fallos y vulnerabilidades propios. Aunque la máquina virtual de Wasm está aislada (sandboxed) del entorno anfitrión, el código que se ejecuta <em>dentro</em> del módulo Wasm conserva las vulnerabilidades de seguridad de memoria inherentes al lenguaje de origen. Además, el límite entre el anfitrión y el módulo Wasm puede ofrecer una vía sin restricciones para comprometer la aplicación si no se protege adecuadamente.</p>
+<p>Este capítulo pretende guiar al investigador de seguridad en los conceptos necesarios para probar aplicaciones WebAssembly, investigando sus tecnologías centrales, sus entornos de ejecución y sus paradigmas de vulnerabilidad.</p>
+<h2 id="history">Historia</h2>
+<p>Debido a sus beneficios de rendimiento, WebAssembly ha evolucionado rápidamente de ser una característica específica del navegador a una tecnología versátil que se ejecuta en servidores, redes de borde (edge) y dispositivos embebidos.</p>
+<p>WebAssembly se anunció por primera vez en 2015 como un esfuerzo conjunto de ingenieros de Mozilla, Google, Microsoft y Apple. En 2017, el Producto Mínimo Viable (MVP) fue publicado y distribuido por todos los principales motores de navegador, estableciendo a Wasm como el cuarto lenguaje en ejecutarse de forma nativa en los navegadores (junto con HTML, CSS y JavaScript).</p>
+<p>En diciembre de 2019, el World Wide Web Consortium (W3C) publicó la WebAssembly Core Specification como estándar web oficial. Más o menos en la misma época se introdujo la WebAssembly System Interface (WASI). WASI estandarizó la forma en que los módulos WebAssembly interactúan con los sistemas operativos, impulsando a Wasm fuera del navegador hacia servicios de backend, microservicios y plataformas de cómputo de borde sin servidor (serverless) (como Cloudflare Workers y Fastly Compute).</p>
+<h2 id="which-webassembly-environment">¿Qué entorno de WebAssembly?</h2>
+<p>Antes de hacer suposiciones sobre la superficie de ataque, conviene conocer el entorno en el que opera el módulo WebAssembly. El investigador de seguridad puede encontrarse con:</p>
+<ul>
+<li><strong>Wasm del lado del cliente (navegador):</strong> El archivo <code>.wasm</code> es descargado y ejecutado por el navegador del usuario. Depende de &quot;código pegamento&quot; (glue code) de JavaScript para interactuar con el DOM y las Web API.</li>
+<li><strong>Del lado del servidor:</strong> El módulo Wasm se ejecuta en el backend, procesando peticiones de API o realizando cómputos pesados. Las vulnerabilidades aquí pueden llevar directamente al compromiso del servidor.</li>
+<li><strong>Serverless / cómputo de borde (Edge Computing):</strong> Se levantan instancias de Wasm en nodos de borde para interceptar y procesar peticiones HTTP. Estos entornos suelen reutilizar instancias de memoria para reducir la latencia, lo que introduce riesgos de filtración de estado entre inquilinos (cross-tenant).</li>
+<li><strong>WASI independiente (standalone):</strong> El módulo se ejecuta de forma nativa en el sistema operativo mediante runtimes como Wasmtime o Wasmer, regido por un modelo de seguridad basado en capacidades.</li>
+</ul>
+<h2 id="webassembly-core-components">Componentes centrales de WebAssembly</h2>
+<p>La arquitectura de WebAssembly se basa en varios conceptos fundamentales. Comprenderlos es crucial para analizar cómo se manifiestan las vulnerabilidades.</p>
+<h3 id="modules">Módulos</h3>
+<p>Un Módulo de WebAssembly es un archivo binario <code>.wasm</code> compilado. No tiene estado y contiene el bytecode compilado, las firmas de tipos y los segmentos de datos. En formato de texto se representa como WebAssembly Text Format (WAT).</p>
+<h3 id="linear-memory">Memoria lineal</h3>
+<p>A diferencia de las aplicaciones nativas que utilizan heaps y pilas administrados por el sistema operativo, una instancia de WebAssembly almacena sus datos de ejecución dentro de un único arreglo de bytes contiguo llamado <strong>Memoria lineal</strong> (Linear Memory). Esta memoria se expone al anfitrión como un <code>ArrayBuffer</code>. La pila, el heap, los literales de cadena y las variables globales del módulo Wasm comparten todos este espacio de memoria plano y no administrado.</p>
+<h3 id="tables">Tablas</h3>
+<p>Una Tabla (Table) es un arreglo de valores opacos, normalmente referencias a funciones. Dado que WebAssembly impone Control-Flow Integrity (CFI) y no permite la ejecución directa de código desde la memoria lineal, los punteros a función a nivel de código fuente (como en C, C++ o Rust) y los destinos de llamada dinámicos se compilan en índices enteros que apuntan a posiciones específicas de una Tabla. Posteriormente, las llamadas indirectas (<code>call_indirect</code>) se ejecutan usando esos índices.</p>
+<h3 id="imports-and-exports">Importaciones y exportaciones</h3>
+<p>WebAssembly no puede interactuar con el mundo exterior de forma autónoma.</p>
+<ul>
+<li><strong>Importaciones (Imports):</strong> Funciones o variables proporcionadas por el anfitrión (p. ej., una función de JS como <code>console.log</code>) que el módulo Wasm puede llamar.</li>
+<li><strong>Exportaciones (Exports):</strong> Funciones o instancias de memoria dentro del módulo Wasm que se hacen accesibles al anfitrión.</li>
+</ul>
+<h2 id="the-security-paradigm">El paradigma de seguridad</h2>
+<p>WebAssembly está aislado por naturaleza (sandboxed); un módulo no puede escapar de su máquina virtual para leer archivos arbitrarios o sockets de red sin que el anfitrión importe explícitamente esas capacidades.</p>
+<p>Sin embargo, <strong>la seguridad de memoria interna no está garantizada.</strong> Cuando el código heredado de C/C++ se compila a WebAssembly, algunos supuestos de endurecimiento nativo cambian:</p>
+<ul>
+<li><strong>Sin ASLR dentro del módulo:</strong> Los desplazamientos (offsets) dentro de la memoria lineal son deterministas, aunque el proceso anfitrión use ASLR.</li>
+<li><strong>Los protectores de pila dependen de la compilación:</strong> Los canarios pueden estar ausentes a menos que se habiliten explícitamente en la cadena de herramientas.</li>
+<li><strong>La memoria lineal no es ejecutable, pero su integridad no está protegida:</strong> La corrupción de memoria puede alterar datos que influyen en el flujo de control (p. ej., los índices de función usados en <code>call_indirect</code>) y en la lógica de la aplicación.</li>
+</ul>
+<p>En consecuencia, las vulnerabilidades clásicas de corrupción de memoria (desbordamientos de búfer, Use-After-Free, cadenas de formato) sobreviven a la compilación. Un atacante puede sobrescribir datos adyacentes en la memoria lineal para manipular la lógica de la aplicación, alterar los índices de la tabla de llamadas indirectas (ret2win) o corromper búferes de salida consumidos por el anfitrión, convirtiendo una vulnerabilidad de Wasm en DOM-Based XSS o en ejecución remota de código (RCE) del lado del servidor.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://webassembly.github.io/spec/core/" target="_blank" rel="noopener">W3C WebAssembly Core Specification</a></li>
+<li><a href="https://wasi.dev/" target="_blank" rel="noopener">WebAssembly System Interface (WASI)</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Concepts" target="_blank" rel="noopener">MDN Web Docs: WebAssembly Concepts</a></li>
+</ul>

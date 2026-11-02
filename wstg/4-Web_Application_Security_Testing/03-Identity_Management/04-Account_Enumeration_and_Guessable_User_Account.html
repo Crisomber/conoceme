@@ -1,0 +1,166 @@
+<h1 id="account-enumeration-and-guessable-user-account">Enumeración de cuentas y cuentas de usuario adivinables</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-IDNT-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El alcance de esta prueba es verificar si es posible recopilar un conjunto de nombres de usuario válidos interactuando con el mecanismo de autenticación de la aplicación. Esta prueba será útil para las pruebas de fuerza bruta, en las que el evaluador verifica si, dado un nombre de usuario válido, es posible encontrar la contraseña correspondiente.</p>
+<p>Con frecuencia, las aplicaciones web revelan cuándo un nombre de usuario existe en el sistema, ya sea como consecuencia de una mala configuración o como una decisión de diseño. Por ejemplo, a veces, cuando se envían credenciales incorrectas, se recibe un mensaje que indica que el nombre de usuario está presente en el sistema o que la contraseña proporcionada es incorrecta. La información obtenida puede ser utilizada por un atacante para conseguir una lista de usuarios del sistema. Esta información puede usarse para atacar la aplicación web, por ejemplo, mediante un ataque de fuerza bruta o de nombre de usuario y contraseña predeterminados.</p>
+<p>El evaluador debe interactuar con el mecanismo de autenticación de la aplicación para entender si el envío de ciertas peticiones hace que la aplicación responda de manera distinta. Este problema existe porque la información que entrega la aplicación web o el servidor web cuando el usuario proporciona un nombre de usuario válido es diferente de la que entrega cuando usa uno inválido.</p>
+<p>En algunos casos se recibe un mensaje que revela si las credenciales proporcionadas son incorrectas porque se usó un nombre de usuario inválido o una contraseña inválida. A veces, los evaluadores pueden enumerar los usuarios existentes enviando un nombre de usuario y una contraseña vacía.</p>
+<blockquote>
+<p>Nota: Algunas aplicaciones no consideran sensibles los nombres de usuario y pueden ofrecer funcionalidad que permite ver o listar directamente los nombres de usuario. Asegúrate de comprender los requisitos de seguridad de la aplicación antes de reportar problemas relacionados con la enumeración de nombres de usuario.</p>
+</blockquote>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar los procesos relacionados con la identificación de usuarios (<em>p. ej.</em> registro, inicio de sesión, etc.).</li>
+<li>Enumerar usuarios, cuando sea posible, mediante el análisis de las respuestas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>En las pruebas de caja negra, el evaluador no sabe nada sobre la aplicación específica, los nombres de usuario, la lógica de la aplicación, los mensajes de error de la página de inicio de sesión ni las funciones de recuperación de contraseña. Si la aplicación es vulnerable, el evaluador recibe un mensaje de respuesta que revela, directa o indirectamente, información útil para enumerar usuarios.</p>
+<h3 id="http-response-message">Mensaje de respuesta HTTP</h3>
+<h4 id="valid-credentials">Credenciales válidas</h4>
+<p>Registrar la respuesta del servidor cuando se envía un ID de usuario válido y una contraseña válida.</p>
+<blockquote>
+<p>Usando un proxy web, observar la información obtenida de esta autenticación exitosa (respuesta HTTP 200, longitud de la respuesta).</p>
+</blockquote>
+<h4 id="valid-user-with-wrong-password">Usuario válido con contraseña incorrecta</h4>
+<p>Ahora, el evaluador debe intentar introducir un ID de usuario válido y una contraseña incorrecta, y registrar el mensaje de error generado por la aplicación.</p>
+<blockquote>
+<p>El navegador debería mostrar un mensaje similar al siguiente:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-authenticationfailed.png" alt="Autenticación fallida" loading="lazy"><br><em>Figura 4.3.4-1: Autenticación fallida</em></p>
+<p>A diferencia de cualquier mensaje que revele la existencia del usuario, como el siguiente:</p>
+<p><code>Login for User foo: invalid password</code></p>
+<p>Usando un proxy web, observar la información obtenida de este intento de autenticación fallido (respuesta HTTP 200, longitud de la respuesta).</p>
+</blockquote>
+<h4 id="nonexistent-username">Nombre de usuario inexistente</h4>
+<p>Ahora, el evaluador debe intentar introducir un ID de usuario inválido y una contraseña incorrecta, y registrar la respuesta del servidor (el evaluador debe estar seguro de que el nombre de usuario no es válido en la aplicación). Registrar el mensaje de error y la respuesta del servidor.</p>
+<blockquote>
+<p>Si el evaluador introduce un ID de usuario inexistente, puede recibir un mensaje similar a:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/03-Identity_Management/images/03-userisnotactive.png" alt="Este usuario no está activo" loading="lazy"><br><em>Figura 4.3.4-3: Este usuario no está activo</em></p>
+<p>o un mensaje como el siguiente:</p>
+<p><code>Login failed for User foo: invalid Account</code></p>
+<p>Generalmente la aplicación debería responder con el mismo mensaje de error y la misma longitud a las distintas peticiones incorrectas. Si las respuestas no son iguales, el evaluador debe investigar y descubrir el elemento clave que crea una diferencia entre las dos respuestas. Por ejemplo:</p>
+<ol>
+<li>Petición del cliente: usuario válido/contraseña incorrecta</li>
+<li>Respuesta del servidor: La contraseña no es correcta</li>
+<li>Petición del cliente: usuario incorrecto/contraseña incorrecta</li>
+<li>Respuesta del servidor: Usuario no reconocido</li>
+</ol>
+<p>Las respuestas anteriores permiten al cliente entender que con la primera petición tiene un nombre de usuario válido. Así, puede interactuar con la aplicación solicitando un conjunto de posibles ID de usuario y observando la respuesta.</p>
+<p>Al observar la segunda respuesta del servidor, el evaluador entiende de la misma manera que no posee un nombre de usuario válido. Así, puede interactuar del mismo modo y crear una lista de ID de usuario válidos observando las respuestas del servidor.</p>
+</blockquote>
+<h3 id="other-ways-to-enumerate-users">Otras formas de enumerar usuarios</h3>
+<p>Los evaluadores pueden enumerar usuarios de varias maneras, como las siguientes:</p>
+<h4 id="analyzing-the-error-code-received-on-login-pages">Análisis del código de error recibido en las páginas de inicio de sesión</h4>
+<p>Algunas aplicaciones web entregan un código o mensaje de error específico que podemos analizar.</p>
+<h4 id="analyzing-urls-and-url-redirections">Análisis de las URL y de las redirecciones de URL</h4>
+<p>Por ejemplo:</p>
+<ul>
+<li><code>https://www.foo.com/err.jsp?User=baduser&amp;Error=0</code></li>
+<li><code>https://www.foo.com/err.jsp?User=gooduser&amp;Error=2</code></li>
+</ul>
+<p>Como se ve arriba, cuando un evaluador proporciona un ID de usuario y una contraseña a la aplicación web, ve en la URL un mensaje que indica que ha ocurrido un error. En el primer caso proporcionó un ID de usuario incorrecto y una contraseña incorrecta. En el segundo, un ID de usuario correcto y una contraseña incorrecta, por lo que puede identificar un ID de usuario válido.</p>
+<h4 id="uri-probing">Sondeo de URI</h4>
+<p>A veces un servidor web responde de manera distinta si recibe una petición de un directorio existente o no. Por ejemplo, en algunos portales cada usuario está asociado a un directorio. Si los evaluadores intentan acceder a un directorio existente, podrían recibir un error del servidor web.</p>
+<p>Algunos de los errores comunes que se reciben de los servidores web son:</p>
+<ul>
+<li>Código de error 403 Forbidden</li>
+<li>Código de error 404 Not found</li>
+</ul>
+<p>Ejemplo:</p>
+<ul>
+<li><code>https://www.foo.com/account1</code> - recibimos del servidor web: 403 Forbidden</li>
+<li><code>https://www.foo.com/account2</code> - recibimos del servidor web: 404 file Not Found</li>
+</ul>
+<p>En el primer caso el usuario existe, pero el evaluador no puede ver la página web; en el segundo caso, en cambio, el usuario &quot;account2&quot; no existe. Recopilando esta información, los evaluadores pueden enumerar los usuarios.</p>
+<h4 id="analyzing-web-page-titles">Análisis de los títulos de las páginas web</h4>
+<p>Los evaluadores pueden obtener información útil del título de la página web, donde pueden encontrar un código o mensaje de error específico que revela si los problemas están en el nombre de usuario o en la contraseña.</p>
+<p>Por ejemplo, si un usuario no puede autenticarse en una aplicación y recibe una página web cuyo título es similar a:</p>
+<ul>
+<li><code>Invalid user</code></li>
+<li><code>Invalid authentication</code></li>
+</ul>
+<h4 id="analyzing-a-message-received-from-a-recovery-facility">Análisis de un mensaje recibido de una función de recuperación</h4>
+<p>Cuando utilizamos una función de recuperación (es decir, una función de contraseña olvidada), una aplicación vulnerable podría devolver un mensaje que revela si un nombre de usuario existe o no.</p>
+<p>Por ejemplo, mensajes similares a los siguientes:</p>
+<ul>
+<li><code>Invalid username: email address is not valid or the specified user was not found.</code></li>
+<li><code>Valid username: Your password has been successfully sent to the email address you registered with.</code></li>
+</ul>
+<h4 id="friendly-404-error-message">Mensaje de error 404 amigable</h4>
+<p>Cuando solicitamos dentro del directorio un usuario que no existe, no siempre recibimos el código de error 404. En su lugar, podemos recibir &quot;200 OK&quot; con una imagen; en este caso podemos asumir que cuando recibimos esa imagen específica el usuario no existe. Esta lógica puede aplicarse a otras respuestas del servidor web; el truco está en analizar bien los mensajes del servidor web y de la aplicación web.</p>
+<h4 id="analyzing-response-times">Análisis de los tiempos de respuesta</h4>
+<p>Además de examinar el contenido de las respuestas, también se debe considerar el tiempo que tarda la respuesta. En particular, cuando la petición provoca una interacción con un servicio externo (como el envío de un correo de contraseña olvidada), esto puede añadir varios cientos de milisegundos a la respuesta, lo que puede utilizarse para determinar si el usuario solicitado es válido.</p>
+<h3 id="guessing-users">Adivinación de usuarios</h3>
+<h4 id="predictable-username-structures">Estructuras de nombres de usuario predecibles</h4>
+<p>En muchas organizaciones, los nombres de usuario siguen patrones consistentes (p. ej., la inicial del nombre más el apellido, como jbloggs, o identificadores estructurados como CN000100). Si se logra identificar la convención de nomenclatura, a menudo se pueden derivar nombres de usuario válidos de forma sistemática.</p>
+<p>Los evaluadores deben:</p>
+<ul>
+<li>Identificar si los nombres de usuario siguen una estructura predecible.</li>
+<li>Intentar generar nombres de usuario adicionales con base en los patrones observados.</li>
+<li>Utilizar diccionarios de nombres de usuario derivados de datos de la organización (p. ej., nombres del personal, formatos de correo electrónico).</li>
+<li>Observar las respuestas de la aplicación para determinar si los nombres de usuario generados son válidos.</li>
+</ul>
+<p>Las estructuras de nombres de usuario predecibles reducen significativamente el esfuerzo necesario para enumerar cuentas válidas y pueden facilitar otros ataques, como los intentos de fuerza bruta.</p>
+<p>En algunos casos los ID de usuario se crean con políticas específicas del administrador o de la empresa. Por ejemplo, podemos ver un usuario con un ID creado en orden secuencial:</p>
+<pre><code class="language-text">CN000100
+CN000101
+...
+</code></pre>
+<p>A veces los nombres de usuario se crean con un alias de REALM y luego números secuenciales:</p>
+<ul>
+<li>R1001 - usuario 001 para REALM1</li>
+<li>R2001 - usuario 001 para REALM2</li>
+</ul>
+<p>En el ejemplo anterior podemos crear scripts de shell sencillos que compongan ID de usuario y envíen una petición con una herramienta como wget para automatizar una consulta web y discernir los ID de usuario válidos. Para crear un script también podemos usar Perl y curl.</p>
+<p>Otras posibilidades son: - ID de usuario asociados a números de tarjetas de crédito o, en general, a números con un patrón. - ID de usuario asociados a nombres reales, p. ej., si Freddie Mercury tiene el ID de usuario &quot;fmercury&quot;, se podría suponer que Roger Taylor tiene el ID de usuario &quot;rtaylor&quot;.</p>
+<p>Asimismo, podemos adivinar un nombre de usuario a partir de la información recibida de una consulta LDAP o de la recopilación de información en Google, por ejemplo, de un dominio específico. Google puede ayudar a encontrar usuarios de un dominio mediante consultas específicas o mediante un script de shell o herramienta sencilla.</p>
+<blockquote>
+<p>Al enumerar cuentas de usuario, se corre el riesgo de bloquear cuentas tras un número predefinido de sondeos fallidos (según la política de la aplicación). Además, a veces la dirección IP puede ser bloqueada por reglas dinámicas del firewall de aplicaciones o del sistema de prevención de intrusiones.</p>
+</blockquote>
+<h3 id="staff-impersonation">Suplantación del personal</h3>
+<p>Asegurarse de que los usuarios no registrados no puedan seleccionar nombres de usuario reservados (p. ej., admin, administrator, moderator) durante el proceso de registro. Además, verificar que los usuarios no puedan editar su nombre de usuario actual para cambiarlo a uno de estos nombres reservados en la página de edición del perfil.</p>
+<p>Si la aplicación web tiene funciones que permiten a un usuario acceder a la funcionalidad de registro y de edición de perfil de la aplicación, las interacciones que se deben probar incluyen las siguientes:</p>
+<ul>
+<li>Proceso de registro:<ul>
+<li>Acceder a la página de registro como usuario no registrado y completar el formulario de registro ingresando uno de los nombres de usuario reservados (p. ej., admin, administrator, moderator), enviar el formulario y luego verificar la respuesta.</li>
+<li>El proceso de registro debería rechazar el envío del formulario y mostrar un mensaje de error que indique que el nombre de usuario seleccionado no está disponible para el registro.</li>
+</ul>
+</li>
+<li>Página de edición del perfil:<ul>
+<li>Iniciar sesión en la aplicación web con credenciales válidas y navegar a la página de edición del perfil. Intentar cambiar el nombre de usuario actual a uno de los nombres de usuario reservados (p. ej., admin, administrator, moderator) y guardar los cambios para verificar el comportamiento.</li>
+<li>El proceso de edición del perfil debería rechazar la solicitud de cambio de nombre de usuario y mostrar un mensaje de error que indique que el nombre de usuario seleccionado no está disponible.</li>
+</ul>
+</li>
+<li>Pruebas de variantes y similitudes:<ul>
+<li>Repetir los pasos anteriores con diferentes variaciones de los nombres de usuario reservados (p. ej., Admin, ADMIN, Administrator) y realizar pruebas con distintas combinaciones de mayúsculas y minúsculas para asegurarse de que se maneje correctamente la insensibilidad a mayúsculas y minúsculas.</li>
+<li>La aplicación web debería tratar estas variantes como idénticas a los nombres de usuario reservados, rechazando su selección o modificación.</li>
+</ul>
+</li>
+</ul>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<h4 id="authentication-error-messages">Mensajes de error de autenticación</h4>
+<p>Verificar que la aplicación responda de la misma manera a cada petición del cliente que produzca una autenticación fallida. Para este problema, las pruebas de caja negra y de caja gris comparten el mismo concepto, basado en el análisis de los mensajes o códigos de error recibidos de la aplicación web.</p>
+<blockquote>
+<p>La aplicación debería responder de la misma manera a cada intento fallido de autenticación.</p>
+<p>Por ejemplo: <em>Las credenciales enviadas no son válidas</em></p>
+</blockquote>
+<h2 id="remediation">Corrección</h2>
+<p>Asegurarse de que la aplicación devuelva mensajes de error genéricos y consistentes en respuesta a un nombre de cuenta, una contraseña u otras credenciales de usuario inválidas ingresadas durante el proceso de inicio de sesión.</p>
+<p>Asegurarse de que las cuentas predeterminadas del sistema y las cuentas de prueba se eliminen antes de poner el sistema en producción (o de exponerlo a una red no confiable).</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://curl.se/" target="_blank" rel="noopener">curl</a></li>
+<li><a href="https://www.perl.org" target="_blank" rel="noopener">PERL</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://www.gnucitizen.org/blog/username-enumeration-vulnerabilities/" target="_blank" rel="noopener">Username Enumeration Vulnerabilities</a></li>
+<li><a href="https://www.jinsonvarghese.com/prevent-wordpress-username-enumeration/" target="_blank" rel="noopener">Prevent WordPress Username Enumeration</a></li>
+<li><a href="https://www.exploit-db.com/exploits/32762" target="_blank" rel="noopener">Marco Mella, Sun Java Access &amp; Identity Manager Users enumeration</a></li>
+</ul>

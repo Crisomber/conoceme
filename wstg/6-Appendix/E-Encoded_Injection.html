@@ -1,0 +1,57 @@
+<h1 id="encoded-injection">E. Inyección codificada</h1>
+<h2 id="background">Antecedentes</h2>
+<p>La codificación de caracteres es el proceso de asignar caracteres, números y otros símbolos a un formato estándar. Normalmente esto se hace para crear un mensaje listo para su transmisión entre el emisor y el receptor. Es, en términos simples, la conversión de caracteres (pertenecientes a distintos idiomas como el inglés, el chino, el griego o cualquier otro idioma conocido) en bytes. Un ejemplo de un esquema de codificación de caracteres ampliamente utilizado es el American Standard Code for Information Interchange (ASCII), que inicialmente usaba códigos de 7 bits. Ejemplos más recientes de esquemas de codificación son los estándares de la industria informática Unicode <code>UTF-8</code> y <code>UTF-16</code>.</p>
+<p>En el ámbito de la seguridad de aplicaciones, y debido a la abundancia de esquemas de codificación disponibles, la codificación de caracteres tiene un uso indebido muy popular. Se utiliza para codificar cadenas de inyección maliciosas de manera que queden ofuscadas. Esto puede llevar a la elusión de los filtros de validación de entrada, o aprovechar formas particulares en que los navegadores representan el texto codificado.</p>
+<h2 id="input-encoding---filter-evasion">Codificación de entrada: evasión de filtros</h2>
+<p>Las aplicaciones web suelen emplear distintos tipos de mecanismos de filtrado de entrada para limitar lo que el usuario puede enviar. Si estos filtros de entrada no se implementan lo suficientemente bien, es posible hacer pasar uno o dos caracteres a través de ellos. Por ejemplo, un <code>/</code> puede representarse como <code>2F</code> (hexadecimal) en ASCII, mientras que el mismo carácter (<code>/</code>) se codifica como <code>C0</code> <code>AF</code> en Unicode (secuencia de 2 bytes). Por lo tanto, es importante que el control de filtrado de entrada conozca el esquema de codificación utilizado. Si se descubre que el filtro solo detecta inyecciones codificadas en <code>UTF-8</code>, se puede emplear un esquema de codificación diferente para eludirlo.</p>
+<h2 id="output-encoding---server--browser-consensus">Codificación de salida: consenso entre servidor y navegador</h2>
+<p>Los navegadores web necesitan conocer el esquema de codificación utilizado para mostrar una página web de manera coherente. Idealmente, esta información debe proporcionarse al navegador en el campo de la cabecera HTTP (<code>Content-Type</code>), como se muestra a continuación:</p>
+<pre><code class="language-http">Content-Type: text/html; charset=UTF-8
+</code></pre>
+<p>o mediante la etiqueta META de HTML (<code>META HTTP-EQUIV</code>), como se muestra a continuación:</p>
+<pre><code class="language-html">&lt;META http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=ISO-8859-1&quot;&gt;
+</code></pre>
+<p>Es a través de estas declaraciones de codificación de caracteres como el navegador entiende qué conjunto de caracteres utilizar al convertir bytes en caracteres. Ten en cuenta que el tipo de contenido mencionado en la cabecera HTTP tiene precedencia sobre la declaración de la etiqueta META.</p>
+<p>CERT lo describe aquí de la siguiente manera:</p>
+<p>Muchas páginas web dejan sin definir la codificación de caracteres (el parámetro <code>charset</code> en HTTP). En versiones anteriores de HTML y HTTP, se suponía que la codificación de caracteres era por defecto <code>ISO-8859-1</code> si no se definía. En realidad, muchos navegadores tenían un valor por defecto diferente, por lo que no era posible confiar en que el valor por defecto fuera <code>ISO-8859-1</code>. La versión 4 de HTML legitima esto: si no se especifica la codificación de caracteres, se puede usar cualquier codificación de caracteres.</p>
+<p>Si el servidor web no especifica qué codificación de caracteres está en uso, no puede saber qué caracteres son especiales. Las páginas web sin codificación de caracteres especificada funcionan la mayoría de las veces porque la mayoría de los conjuntos de caracteres asignan los mismos caracteres a los valores de byte por debajo de 128. Pero, ¿cuáles de los valores por encima de 128 son especiales? Algunos esquemas de <code>character-encoding</code> de 16 bits tienen representaciones multibyte adicionales para caracteres especiales como <code>&lt;</code>. Algunos navegadores reconocen esta codificación alternativa y actúan en consecuencia. Este es un comportamiento &quot;correcto&quot;, pero hace que los ataques mediante scripts maliciosos sean mucho más difíciles de prevenir. El servidor simplemente no sabe qué secuencias de bytes representan los caracteres especiales.</p>
+<p>Por lo tanto, en caso de no recibir del servidor la información sobre la codificación de caracteres, el navegador intenta adivinar el esquema de codificación o recurre a un esquema por defecto. En algunos casos, el usuario establece explícitamente la codificación por defecto en el navegador con un esquema diferente. Cualquier discrepancia de este tipo en el esquema de codificación utilizado por la página web (servidor) y el navegador puede hacer que el navegador interprete la página de una manera no prevista o inesperada.</p>
+<h3 id="encoded-injections">Inyecciones codificadas</h3>
+<p>Todos los escenarios que se presentan a continuación forman solo un subconjunto de las diversas maneras en que se puede lograr la ofuscación para eludir los filtros de entrada. Además, el éxito de las inyecciones codificadas depende del navegador utilizado. Por ejemplo, las inyecciones codificadas en <code>US-ASCII</code> antes tenían éxito solo en el navegador IE, pero no en Firefox. Por lo tanto, cabe señalar que las inyecciones codificadas, en gran medida, dependen del navegador.</p>
+<h3 id="basic-encoding">Codificación básica</h3>
+<p>Considera un filtro básico de validación de entrada que protege contra la inyección del carácter de comilla simple. En este caso, la siguiente inyección eludiría fácilmente este filtro:</p>
+<pre><code class="language-html">&lt;script&gt;alert(String.fromCharCode(88,83,83))&lt;/script&gt;
+</code></pre>
+<p>La función de JavaScript <code>String.fromCharCode</code> toma los valores Unicode dados y devuelve la cadena correspondiente. Esta es una de las formas más básicas de inyecciones codificadas. Otro vector que se puede utilizar para eludir este filtro es:</p>
+<pre><code class="language-html">&lt;IMG src=&quot;&quot; onerror=javascript:alert(&amp;quot;XSS&amp;quot;)&gt;
+</code></pre>
+<p>O utilizando los respectivos <a href="https://www.rapidtables.com/code/text/unicode-characters.html" target="_blank" rel="noopener">códigos de caracteres HTML</a>:</p>
+<pre><code class="language-html">&lt;IMG src=&quot;&quot; onerror=&quot;javascript:alert(&amp;#34;XSS&amp;#34;)&quot;&gt;
+</code></pre>
+<p>Lo anterior utiliza entidades HTML para construir la cadena de inyección. La codificación de entidades HTML se utiliza para mostrar caracteres que tienen un significado especial en HTML. Por ejemplo, <code>&gt;</code> funciona como un corchete de cierre de una etiqueta HTML. Para mostrar realmente este carácter en la página web, se deben insertar entidades de caracteres HTML en el código fuente de la página. Las inyecciones mencionadas anteriormente son una forma de codificación. Existen numerosas otras maneras en que se puede codificar (ofuscar) una cadena para eludir el filtro anterior.</p>
+<h3 id="hex-encoding">Codificación hexadecimal</h3>
+<p>Hex, abreviatura de hexadecimal, es un sistema de numeración en base 16, es decir, tiene 16 valores diferentes, del <code>0</code> al <code>9</code> y de la <code>A</code> a la <code>F</code>, para representar diversos caracteres. La codificación hexadecimal es otra forma de ofuscación que a veces se utiliza para eludir los filtros de validación de entrada. Por ejemplo, la versión codificada en hexadecimal de la cadena <code>&lt;IMG SRC=javascript:alert(&#39;XSS&#39;)&gt;</code> es</p>
+<pre><code class="language-html">&lt;IMG SRC=%6A%61%76%61%73%63%72%69%70%74%3A%61%6C%65%72%74%28%27%58%53%53%27%29&gt;
+</code></pre>
+<p>A continuación se muestra una variación de la cadena anterior. Se puede usar en caso de que se esté filtrando el carácter ‘%’:</p>
+<pre><code class="language-html">&lt;IMG SRC=&amp;#x6A&amp;#x61&amp;#x76&amp;#x61&amp;#x73&amp;#x63&amp;#x72&amp;#x69&amp;#x70&amp;#x74&amp;#x3A&amp;#x61&amp;#x6C&amp;#x65&amp;#x72&amp;#x74&amp;#x28&amp;#x27&amp;#x58&amp;#x53&amp;#x53&amp;#x27&amp;#x29&gt;
+</code></pre>
+<p>Existen otros esquemas de codificación, como Base64 y octal, que pueden utilizarse para la ofuscación. Aunque no todos los esquemas de codificación funcionan siempre, un poco de prueba y error, junto con manipulaciones inteligentes, sin duda revelará la brecha en un filtro de validación de entrada débilmente construido.</p>
+<h3 id="utf-7-encoding">Codificación UTF-7</h3>
+<p>La codificación UTF-7 de</p>
+<pre><code class="language-html">&lt;SCRIPT&gt;
+    alert(‘XSS’);
+&lt;/SCRIPT&gt;
+</code></pre>
+<p>es la siguiente</p>
+<p><code>+ADw-SCRIPT+AD4-alert(&#39;XSS&#39;);+ADw-/SCRIPT+AD4-</code></p>
+<p>Para que el script anterior funcione, el navegador tiene que interpretar la página web como codificada en <code>UTF-7</code>.</p>
+<h3 id="multi-byte-encoding">Codificación multibyte</h3>
+<p>La codificación de ancho variable es otro tipo de esquema de codificación de caracteres que utiliza códigos de longitud variable para codificar caracteres. La codificación multibyte es un tipo de codificación de ancho variable que utiliza un número variable de bytes para representar un carácter. La codificación multibyte se utiliza principalmente para codificar caracteres que pertenecen a un conjunto de caracteres grande, p. ej., chino, japonés y coreano.</p>
+<p>La codificación multibyte se ha utilizado en el pasado para eludir las funciones estándar de validación de entrada y llevar a cabo ataques de cross site scripting e inyección SQL.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Encoding_(semiotics)" target="_blank" rel="noopener">Encoding (Semiotics)</a></li>
+<li><a href="https://www.w3schools.com/HTML/html_entities.asp" target="_blank" rel="noopener">HTML Entities</a></li>
+<li><a href="https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/" target="_blank" rel="noopener">Unicode and Character Sets</a></li>
+</ul>

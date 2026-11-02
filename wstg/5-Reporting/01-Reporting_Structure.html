@@ -1,0 +1,144 @@
+<h1 id="reporting">Informes</h1>
+<p>Realizar el aspecto técnico de la evaluación es solo la mitad del proceso general de evaluación. El producto final es la elaboración de un informe bien escrito e informativo. Un informe debe ser fácil de entender y destacar todos los riesgos encontrados durante la fase de evaluación. El informe debe resultar útil tanto para la alta dirección como para el personal técnico.</p>
+<h2 id="about-this-section">Acerca de esta sección</h2>
+<p>Esta guía ofrece únicamente sugerencias sobre un posible enfoque para la elaboración de informes y no debe tratarse como reglas estrictas que deban seguirse. Al considerar cualquiera de las recomendaciones siguientes, pregúntate siempre si la recomendación mejoraría tu informe.</p>
+<p>Esta guía de informes se adapta mejor a los informes basados en consultoría. Puede resultar excesiva para informes internos o de bug bounty.</p>
+<p>Independientemente de la audiencia, es recomendable proteger el informe y cifrarlo para garantizar que solo la parte receptora pueda utilizarlo.</p>
+<p>Un buen informe ayuda a tu cliente a comprender tus hallazgos y destaca la calidad de tus pruebas técnicas. La calidad de las pruebas técnicas es completamente irrelevante si el cliente no puede entender tus hallazgos.</p>
+<h2 id="1-introduction">1. Introducción</h2>
+<h3 id="11-version-control">1.1 Control de versiones</h3>
+<p>Establece los cambios del informe, generalmente presentados en un formato de tabla como el siguiente.</p>
+<div class="tabla"><table><thead><tr>
+<th align="center">Versión</th>
+<th>Descripción</th>
+<th>Fecha</th>
+<th>Autor</th>
+</tr>
+</thead><tbody><tr>
+<td align="center">1.0</td>
+<td>Informe inicial</td>
+<td>DD/MM/AAAA</td>
+<td>J. Doe</td>
+</tr>
+</tbody></table></div>
+<h3 id="12-table-of-contents">1.2 Tabla de contenidos</h3>
+<p>Una página con la tabla de contenidos del documento.</p>
+<h3 id="13-the-team">1.3 El equipo</h3>
+<p>Una lista de los miembros del equipo que detalla su experiencia y sus cualificaciones.</p>
+<h3 id="14-scope">1.4 Alcance</h3>
+<p>Los límites y las necesidades del compromiso acordados con la organización.</p>
+<h3 id="15-limitations">1.5 Limitaciones</h3>
+<p>Las limitaciones pueden ser:</p>
+<ul>
+<li>Áreas fuera de los límites en relación con las pruebas.</li>
+<li>Funcionalidad averiada.</li>
+<li>Falta de cooperación.</li>
+<li>Falta de tiempo.</li>
+<li>Falta de acceso o de credenciales.</li>
+</ul>
+<h3 id="16-timeline">1.6 Cronograma</h3>
+<p>La duración del compromiso.</p>
+<h3 id="17-disclaimer">1.7 Descargo de responsabilidad</h3>
+<p>Puedes querer incluir un descargo de responsabilidad para tu servicio. Consulta siempre a un profesional del derecho para crear un documento legalmente vinculante.</p>
+<p>El siguiente ejemplo es solo ilustrativo. No debe usarse tal cual y no constituye asesoramiento legal.</p>
+<p><em>Esta prueba es una evaluación &quot;en un momento dado&quot; y, como tal, el entorno podría haber cambiado desde que se ejecutó la prueba. No hay garantía de que se hayan identificado todos los posibles problemas de seguridad, y es posible que se hayan descubierto nuevas vulnerabilidades desde que se realizaron las pruebas. Por lo tanto, este informe sirve como documento orientativo y no como una garantía de que el informe ofrezca una representación completa de los riesgos que amenazan a los sistemas en cuestión.</em></p>
+<h2 id="2-executive-summary">2. Resumen ejecutivo</h2>
+<p>Esto es como el discurso de ascensor del informe; su objetivo es proporcionar a los ejecutivos:</p>
+<ul>
+<li>El objetivo de la prueba.<ul>
+<li>Describir la necesidad de negocio detrás de la prueba de seguridad.</li>
+<li>Describir cómo las pruebas ayudaron a la organización a comprender sus sistemas.</li>
+</ul>
+</li>
+<li>Los hallazgos clave en un contexto de negocio, como posibles problemas de cumplimiento, daño a la reputación, etc. Centrarse en el impacto en el negocio y dejar de lado, por ahora, los detalles técnicos.</li>
+<li>Las recomendaciones estratégicas sobre cómo el negocio puede evitar que los problemas vuelvan a ocurrir. Describirlas en un contexto no técnico y dejar de lado, por ahora, las recomendaciones técnicas específicas.</li>
+</ul>
+<p>El resumen debe ser constructivo y significativo. Evita la jerga y la especulación negativa. Si se utilizan cifras, gráficos o ilustraciones, asegúrate de que ayuden a transmitir un mensaje de forma más clara que el texto.</p>
+<h2 id="3-findings">3. Hallazgos</h2>
+<p>Esta sección está dirigida al equipo técnico. Debe incluir toda la información necesaria para comprender la vulnerabilidad, replicarla y resolverla. Una separación lógica puede ayudar a mejorar la legibilidad del informe. Por ejemplo, podrías tener secciones separadas tituladas &quot;Acceso externo&quot; y &quot;Acceso interno&quot;.</p>
+<p>Si se trata de una nueva prueba (re-test), puedes crear una subsección que resuma los hallazgos de la prueba anterior, el estado actualizado de las vulnerabilidades identificadas previamente y cualquier referencia cruzada con la prueba actual.</p>
+<h3 id="31-findings-summary">3.1 Resumen de hallazgos</h3>
+<p>Una lista de los hallazgos con su nivel de riesgo. Se puede utilizar una tabla para facilitar su uso por ambos equipos.</p>
+<div class="tabla"><table><thead><tr>
+<th align="center">ID de ref.</th>
+<th>Título</th>
+<th>Nivel de riesgo</th>
+</tr>
+</thead><tbody><tr>
+<td align="center">1</td>
+<td>Elusión de la autenticación de usuarios</td>
+<td>Alto</td>
+</tr>
+</tbody></table></div>
+<h3 id="32-findings-details">3.2 Detalle de los hallazgos</h3>
+<p>Cada hallazgo debe detallarse con la siguiente información:</p>
+<ul>
+<li>ID de referencia, que puede utilizarse para la comunicación entre las partes y para las referencias cruzadas a lo largo del informe.</li>
+<li>El título de la vulnerabilidad, como &quot;Elusión de la autenticación de usuarios&quot;.</li>
+<li>La probabilidad o la explotabilidad del problema, basada en varios factores como:<ul>
+<li>Qué tan fácil es de explotar.</li>
+<li>Si existe código de exploit funcional para ello.</li>
+<li>El nivel de acceso requerido.</li>
+<li>La motivación del atacante para explotarlo.</li>
+</ul>
+</li>
+<li>El impacto de la vulnerabilidad en el sistema.</li>
+<li>El riesgo de la vulnerabilidad en la aplicación.<ul>
+<li>Algunos valores sugeridos son: Informativo, Bajo, Medio, Alto y Crítico. Asegúrate de detallar en un apéndice los valores que decidas utilizar. Esto permite al lector comprender cómo se determina cada puntuación.</li>
+<li>En ciertos compromisos se requiere una puntuación <a href="https://www.first.org/cvss/" target="_blank" rel="noopener">CVSS</a>. Si no es obligatoria, a veces es bueno tenerla y otras veces solo añade complejidad al informe.</li>
+</ul>
+</li>
+<li>Descripción detallada de qué es la vulnerabilidad, cómo explotarla y el daño que puede resultar de su explotación. Cualquier dato potencialmente sensible debe enmascararse, por ejemplo, contraseñas, información personal o datos de tarjetas de crédito.</li>
+<li>Pasos detallados sobre cómo corregir la vulnerabilidad, posibles mejoras que podrían ayudar a fortalecer la postura de seguridad y prácticas de seguridad que faltan.</li>
+<li>Recursos adicionales que podrían ayudar al lector a comprender la vulnerabilidad, como una imagen, un video, un CVE, una guía externa, etc.</li>
+</ul>
+<p>Da formato a esta sección de la manera que mejor transmita tu mensaje.</p>
+<p>Asegúrate siempre de que tus descripciones proporcionen suficiente información para que el ingeniero que lee este informe pueda actuar a partir de ella. Explica el hallazgo a fondo
+y proporciona tanto detalle técnico como sea necesario para remediarlo.</p>
+<h2 id="human-factors">Factores humanos</h2>
+<p>Los factores humanos influyen fuertemente en la eficacia de los controles de seguridad técnicos. Los atacantes suelen explotar a las personas (phishing, ingeniería social, reutilización de credenciales y flujos de recuperación social) en lugar de solo debilidades técnicas. Los evaluadores deben señalar en sus informes los problemas de cara al usuario y de proceso junto con los hallazgos técnicos, y recomendar correcciones que combinen controles técnicos, mejoras de UX y cambios específicos de proceso o de capacitación.</p>
+<p>Lista de verificación (qué buscar y reportar):</p>
+<ul>
+<li>Phishing y fuga de información: anota el texto de la interfaz, los mensajes de error o las páginas que filtran información útil para los atacantes (enumeración de cuentas, errores demasiado detallados, detalles del flujo de recuperación).</li>
+<li>UX de autenticación y recuperación: comprueba los flujos de recuperación (restablecimiento de contraseña, recuperación de cuenta, códigos de respaldo, alternativa por SMS) que puedan ser abusados o que fomenten soluciones alternativas inseguras.</li>
+<li>2FA y flujos alternativos: verifica si las opciones del segundo factor están implementadas de forma segura (sin rutas alternativas débiles) y si la UX lleva a los usuarios a desactivar las protecciones.</li>
+<li>Exposición a la ingeniería social: identifica funcionalidades o procesos (soporte/mesa de ayuda, enlaces de perfil no validados, cuentas compartidas) que un atacante podría abusar haciéndose pasar por un usuario legítimo.</li>
+<li>Manejo de sesiones y credenciales: busca sesiones de larga duración, implementaciones de &quot;recordarme&quot; o exposición de tokens que aumenten el riesgo cuando se combinan con ingeniería social o malware.</li>
+<li>Mitigaciones prácticas: recomienda primero controles técnicos (limitación de tasa, bloqueo de cuentas, 2FA seguro, flujos de recuperación reforzados, información mínima en los mensajes de error) y complétalos con correcciones de proceso específicas (procedimientos de verificación de soporte) y una guía breve y accionable para el usuario cuando corresponda.</li>
+</ul>
+<p>Notas para el informe:</p>
+<p>Proporciona ejemplos no sensibles o capturas de pantalla censuradas para mostrar el problema y su contexto de cara al usuario.
+Sugiere pasos de corrección concretos y priorizados sobre los que los equipos de ingeniería y de producto puedan actuar.
+Cuando corresponda, identifica quién en la organización debería ser responsable de la corrección (p. ej., producto, soporte o seguridad) y cualquier mitigación a corto plazo (feature flags, límites de tasa temporales).</p>
+<h3 id="reproducible-test-artifacts">Artefactos de prueba reproducibles</h3>
+<p>Como parte del informe, los evaluadores pueden incluir artefactos de prueba reproducibles para ayudar a los desarrolladores a verificar las correcciones.</p>
+<p>Algunos ejemplos son:</p>
+<ul>
+<li>Comandos curl que demuestren la petición</li>
+<li>Pruebas de concepto (PoC) como formularios CSRF</li>
+<li>Archivos HAR que capturen los flujos de petición/respuesta</li>
+<li>Scripts de automatización sencillos (p. ej., Selenium, Puppeteer)</li>
+</ul>
+<p>Estos artefactos pueden ayudar a los desarrolladores a validar y volver a probar rápidamente las vulnerabilidades.</p>
+<h2 id="appendices">Apéndices</h2>
+<p>Se pueden añadir múltiples apéndices, tales como:</p>
+<ul>
+<li>La metodología de pruebas utilizada.</li>
+<li>Explicaciones de la severidad y de la calificación de riesgo.</li>
+<li>Salida relevante de las herramientas utilizadas.<ul>
+<li>Asegúrate de limpiar la salida y de no simplemente volcarla.</li>
+</ul>
+</li>
+<li>Una lista de verificación de todas las pruebas realizadas, como las <a href="https://github.com/OWASP/wstg/tree/master/checklists" target="_blank" rel="noopener">listas de verificación del WSTG</a>. Estas pueden proporcionarse como adjuntos al informe.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<p>Esta sección no forma parte del formato de informe sugerido. Los siguientes enlaces ofrecen más orientación para redactar tus informes.</p>
+<ul>
+<li><a href="https://pages.nist.gov/800-63-4/" target="_blank" rel="noopener">NIST SP 800-63: Digital Identity Guidelines</a> - verificación de identidad y autenticación.</li>
+<li><a href="https://cheatsheetseries.owasp.org" target="_blank" rel="noopener">OWASP Cheat Sheet Series</a> - considera enlazar las hojas de referencia relevantes sobre phishing, autenticación y prevención de la ingeniería social.</li>
+<li><a href="https://www.sans.org/blog/tips-for-creating-a-strong-cybersecurity-assessment-report/" target="_blank" rel="noopener">SANS: Tips for Creating a Strong Cybersecurity Assessment Report</a></li>
+<li><a href="https://www.sans.org/reading-room/whitepapers/bestprac/paper/33343" target="_blank" rel="noopener">SANS: Writing a Penetration Testing Report</a></li>
+<li><a href="https://www.infosecinstitute.com/resources/penetration-testing/writing-penetration-testing-reports/" target="_blank" rel="noopener">Infosec Institute: The Art of Writing Penetration Test Reports</a></li>
+<li><a href="https://www.dummies.com/article/technology/cybersecurity/how-to-structure-a-pen-test-report-270933/" target="_blank" rel="noopener">Dummies: How to Structure a Pen Test Report</a></li>
+<li><a href="https://rhinosecuritylabs.com/penetration-testing/four-things-every-penetration-test-report/" target="_blank" rel="noopener">Rhino Security Labs: Four Things Every Penetration Test Report Should Have</a></li>
+</ul>

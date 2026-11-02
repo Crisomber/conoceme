@@ -1,0 +1,95 @@
+<h1 id="session-fixation">Fijación de sesión</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La fijación de sesión (session fixation) es posible por la práctica insegura de conservar el mismo valor de las cookies de sesión antes y después de la autenticación. Esto ocurre normalmente cuando las cookies de sesión se usan para almacenar información de estado incluso antes del inicio de sesión, p. ej., para añadir artículos a un carrito de compras antes de autenticarse para pagar.</p>
+<p>En la explotación genérica de las vulnerabilidades de fijación de sesión, un atacante puede obtener un conjunto de cookies de sesión del sitio objetivo sin autenticarse primero. Luego, el atacante puede forzar esas cookies en el navegador de la víctima mediante distintas técnicas. Si la víctima se autentica más tarde en el sitio objetivo y las cookies no se renuevan al iniciar sesión, la víctima será identificada por las cookies de sesión elegidas por el atacante. Entonces el atacante puede suplantar a la víctima con esas cookies conocidas.</p>
+<p>Este problema se puede corregir renovando las cookies de sesión después del proceso de autenticación. Como alternativa, el ataque se puede prevenir garantizando la integridad de las cookies de sesión. Al considerar atacantes de red, es decir, atacantes que controlan la red utilizada por la víctima, se debe usar <a href="https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security" target="_blank" rel="noopener">HSTS</a> completo o añadir el prefijo <code>__Host-</code> / <code>__Secure-</code> al nombre de la cookie.</p>
+<p>La adopción completa de HSTS ocurre cuando un host activa HSTS para sí mismo y para todos sus subdominios. Esto se describe en un artículo titulado <em>Testing for Integrity Flaws in Web Sessions</em> de Stefano Calzavara, Alvise Rabitti, Alessio Ragazzo y Michele Bugliesi.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Analizar el mecanismo de autenticación y su flujo.</li>
+<li>Forzar cookies y evaluar el impacto.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>En esta sección se explica la estrategia de pruebas que se mostrará en la siguiente sección.</p>
+<p>El primer paso es hacer una petición al sitio que se va a probar (<em>p. ej.</em> <code>www.example.com</code>). Si el evaluador solicita lo siguiente:</p>
+<pre><code class="language-http">GET / HTTP/1.1
+Host: www.example.com
+</code></pre>
+<p>Obtendrá la siguiente respuesta:</p>
+<pre><code class="language-html">HTTP/1.1 200 OK
+Date: Wed, 14 Aug 2008 08:45:11 GMT
+Server: IBM_HTTP_Server
+Set-Cookie: JSESSIONID=0000d8eyYq3L0z2fgq10m4v-rt4:-1; Path=/; secure
+Cache-Control: no-cache=&quot;set-cookie,set-cookie2&quot;
+Expires: Thu, 01 Dec 1994 16:00:00 GMT
+Keep-Alive: timeout=5, max=100
+Connection: Keep-Alive
+Content-Type: text/html;charset=Cp1254
+Content-Language: en-US
+</code></pre>
+<p>La aplicación establece un nuevo identificador de sesión, <code>JSESSIONID=0000d8eyYq3L0z2fgq10m4v-rt4:-1</code>, para el cliente.</p>
+<p>A continuación, si el evaluador se autentica con éxito en la aplicación con el siguiente POST a <code>https://www.example.com/authentication.php</code>:</p>
+<pre><code class="language-http">POST /authentication.php HTTP/1.1
+Host: www.example.com
+[...]
+Referer: https://www.example.com
+Cookie: JSESSIONID=0000d8eyYq3L0z2fgq10m4v-rt4:-1
+Content-Type: application/x-www-form-urlencoded
+Content-length: 57
+
+Name=Meucci&amp;wpPassword=secret!&amp;wpLoginattempt=Log+in
+</code></pre>
+<p>El evaluador observa la siguiente respuesta del servidor:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Date: Thu, 14 Aug 2008 14:52:58 GMT
+Server: Apache/2.2.2 (Fedora)
+X-Powered-By: PHP/5.1.6
+Content-language: en
+Cache-Control: private, must-revalidate, max-age=0
+X-Content-Encoding: gzip
+Content-length: 4090
+Connection: close
+Content-Type: text/html; charset=UTF-8
+...
+HTML data
+...
+</code></pre>
+<p>Como no se ha emitido ninguna cookie nueva tras una autenticación exitosa, el evaluador sabe que es posible realizar un secuestro de sesión a menos que se garantice la integridad de la cookie de sesión.</p>
+<p>El evaluador puede enviar un identificador de sesión válido a un usuario (posiblemente mediante un truco de ingeniería social), esperar a que se autentique y, posteriormente, verificar que se han asignado privilegios a esa cookie.</p>
+<h3 id="test-with-forced-cookies">Prueba con cookies forzadas</h3>
+<p>Esta estrategia de pruebas está dirigida a atacantes de red, por lo que solo necesita aplicarse a sitios sin adopción completa de HSTS (los sitios con adopción completa de HSTS son seguros, ya que todas sus cookies tienen integridad). Se asume que se tienen dos cuentas de prueba en el sitio evaluado, una que actúa como víctima y otra como atacante. Se simula un escenario en el que el atacante fuerza en el navegador de la víctima todas las cookies que no se emiten de nuevo tras el inicio de sesión y que no tienen integridad. Después del inicio de sesión de la víctima, el atacante presenta las cookies forzadas al sitio para acceder a la cuenta de la víctima: si son suficientes para actuar en nombre de la víctima, la fijación de sesión es posible.</p>
+<p>Estos son los pasos para ejecutar esta prueba:</p>
+<ol>
+<li>Acceder a la página de inicio de sesión del sitio.</li>
+<li>Guardar una instantánea del almacén de cookies (cookie jar) antes de iniciar sesión, excluyendo las cookies que contengan el prefijo <code>__Host-</code> o <code>__Secure-</code> en su nombre.</li>
+<li>Iniciar sesión en el sitio como la víctima y acceder a cualquier página que ofrezca una función segura que requiera autenticación.</li>
+<li>Restablecer el almacén de cookies a la instantánea tomada en el paso 2.</li>
+<li>Activar la función segura identificada en el paso 3.</li>
+<li>Observar si la operación del paso 5 se ha realizado con éxito. Si es así, el ataque tuvo éxito.</li>
+<li>Limpiar el almacén de cookies, iniciar sesión como el atacante y acceder a la página del paso 3.</li>
+<li>Escribir en el almacén de cookies, una por una, las cookies guardadas en el paso 2.</li>
+<li>Activar de nuevo la función segura identificada en el paso 3.</li>
+<li>Limpiar el almacén de cookies e iniciar sesión de nuevo como la víctima.</li>
+<li>Observar si la operación del paso 9 se ha realizado con éxito en la cuenta de la víctima. Si es así, el ataque tuvo éxito; de lo contrario, el sitio es seguro frente a la fijación de sesión.</li>
+</ol>
+<p>Se recomienda usar dos máquinas o navegadores diferentes para la víctima y el atacante. Esto permite reducir el número de falsos positivos si la aplicación web realiza una identificación (fingerprinting) para verificar el acceso habilitado desde una cookie dada. Una variante más corta pero menos precisa de la estrategia de pruebas requiere solo una cuenta de prueba. Sigue los mismos pasos, pero se detiene en el paso 6.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Implementar la renovación del token de sesión después de que un usuario se autentique con éxito.</p>
+<p>La aplicación siempre debe invalidar primero el ID de sesión existente antes de autenticar a un usuario y, si la autenticación es exitosa, proporcionar otro ID de sesión.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">ZAP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://owasp.org/www-community/attacks/Session_fixation" target="_blank" rel="noopener">Session Fixation</a></li>
+<li><a href="https://www.acrossecurity.com/papers/session_fixation.pdf" target="_blank" rel="noopener">ACROS Security</a></li>
+<li><a href="https://shiflett.org/articles/session-fixation" target="_blank" rel="noopener">Chris Shiflett</a></li>
+</ul>

@@ -1,0 +1,155 @@
+<h1 id="enumerate-infrastructure-and-application-admin-interfaces">Enumeración de interfaces de administración de la infraestructura y de la aplicación</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-05</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Pueden existir interfaces de administración en la aplicación o en el servidor de aplicaciones para permitir que ciertos usuarios realicen actividades privilegiadas en el sitio. Se deben realizar pruebas para revelar si es posible que un usuario no autorizado o estándar acceda a esta funcionalidad privilegiada y cómo.</p>
+<p>Una aplicación puede requerir una interfaz de administración para que un usuario privilegiado acceda a funcionalidades que pueden modificar el funcionamiento del sitio. Dichos cambios pueden incluir:</p>
+<ul>
+<li>Aprovisionamiento de cuentas de usuario</li>
+<li>Diseño y disposición del sitio</li>
+<li>Manipulación de datos</li>
+<li>Cambios de configuración</li>
+</ul>
+<p>En muchos casos, estas interfaces no cuentan con controles suficientes para protegerlas del acceso no autorizado. Las pruebas tienen como objetivo descubrir estas interfaces de administración y acceder a las funcionalidades destinadas a los usuarios privilegiados.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar interfaces y funcionalidades de administración ocultas, incluidas las consolas de gestión de nube, orquestación de contenedores, gestión de APIs y CI/CD.</li>
+<li>Comprobar en cada interfaz descubierta la existencia de credenciales predeterminadas, débiles o reutilizadas, y su exposición a redes/usuarios más allá de los previstos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>La siguiente sección describe vectores que pueden usarse para probar la presencia de interfaces de administración. Estas técnicas también pueden usarse para probar problemas relacionados, como la escalada de privilegios, y se describen con mayor detalle en otras partes de esta guía (por ejemplo, <a href="#/4-Web_Application_Security_Testing/05-Authorization/02-Bypassing_Authorization_Schema">evasión del esquema de autorización</a> y <a href="#/4-Web_Application_Security_Testing/05-Authorization/04-Insecure_Direct_Object_References">Referencias directas inseguras a objetos</a>).</p>
+<ul>
+<li>Enumeración de directorios y archivos: puede existir una interfaz de administración que no sea visible para el evaluador. La ruta de la interfaz de administración puede adivinarse con peticiones simples como /admin o /administrator. En algunos escenarios, estas rutas pueden revelarse en segundos usando técnicas avanzadas de búsqueda en Google: <a href="https://www.exploit-db.com/google-hacking-database" target="_blank" rel="noopener">Google dorks</a>. Hay muchas herramientas disponibles para realizar fuerza bruta sobre el contenido del servidor; véase la sección de herramientas más abajo para más información. Es posible que el evaluador también deba identificar el nombre de archivo de la página de administración. Navegar forzosamente a la página identificada puede dar acceso a la interfaz.</li>
+<li>Comentarios y enlaces en el código fuente: muchos sitios usan código común que se carga para todos los usuarios del sitio. Al examinar todo el código fuente enviado al cliente, pueden descubrirse enlaces a funcionalidades de administración que deben investigarse.</li>
+<li>Revisión de la documentación del servidor y de la aplicación: si el servidor de aplicaciones o la aplicación se despliega con su configuración predeterminada, puede ser posible acceder a la interfaz de administración usando información descrita en la documentación de configuración o de ayuda. Si se encuentra una interfaz de administración y se requieren credenciales, deben consultarse las listas de contraseñas predeterminadas.</li>
+<li>Información disponible públicamente: muchas aplicaciones, como WordPress, tienen interfaces de administración disponibles por defecto.</li>
+<li>Puerto alternativo del servidor: las interfaces de administración pueden encontrarse en un puerto distinto del host que el de la aplicación principal. Por ejemplo, la interfaz de administración de Apache Tomcat suele encontrarse en el puerto 8080.</li>
+<li>Manipulación de parámetros: puede requerirse un parámetro GET o POST, o una cookie, para habilitar la funcionalidad de administración. Las pistas de ello incluyen la presencia de campos ocultos como:</li>
+</ul>
+<pre><code class="language-html">&lt;input type=&quot;hidden&quot; name=&quot;admin&quot; value=&quot;no&quot;&gt;
+</code></pre>
+<p>o en una cookie:</p>
+<p><code>Cookie: session_cookie; useradmin=0</code></p>
+<p>Una vez descubierta una interfaz de administración, puede usarse una combinación de las técnicas anteriores para intentar evadir la autenticación. Si esto falla, el evaluador puede querer intentar un ataque de fuerza bruta. En tal caso, el evaluador debe ser consciente de la posibilidad de bloqueo de la cuenta de administración si existe dicha funcionalidad.</p>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Debe realizarse un examen más detallado de los componentes del servidor y de la aplicación para asegurar el endurecimiento (es decir, que las páginas de administración no sean accesibles para todos mediante el uso de filtrado por IP u otros controles) y, cuando corresponda, verificar que ningún componente use credenciales o configuraciones predeterminadas.
+Debe revisarse el código fuente para asegurar que el modelo de autorización y autenticación garantice una separación clara de funciones entre los usuarios normales y los administradores del sitio. Deben revisarse las funciones de la interfaz de usuario compartidas entre usuarios normales y administradores para asegurar una separación clara entre la presentación de dichos componentes y la fuga de información desde dicha funcionalidad compartida.</p>
+<p>Cada framework web puede tener sus propias páginas o rutas de administración predeterminadas, como en los siguientes ejemplos:</p>
+<p>PHP:</p>
+<pre><code class="language-html">/phpinfo
+/phpmyadmin/
+/phpMyAdmin/
+/mysqladmin/
+/MySQLadmin
+/MySQLAdmin
+/login.php
+/logon.php
+/xmlrpc.php
+/dbadmin
+</code></pre>
+<p>WordPress:</p>
+<pre><code class="language-html">wp-admin/
+wp-admin/about.php
+wp-admin/admin-ajax.php
+wp-admin/admin-db.php
+wp-admin/admin-footer.php
+wp-admin/admin-functions.php
+wp-admin/admin-header.php
+</code></pre>
+<p>Joomla:</p>
+<pre><code class="language-html">/administrator/index.php
+/administrator/index.php?option=com_login
+/administrator/index.php?option=com_content
+/administrator/index.php?option=com_users
+/administrator/index.php?option=com_menus
+/administrator/index.php?option=com_installer
+/administrator/index.php?option=com_config
+</code></pre>
+<p>Tomcat:</p>
+<pre><code class="language-html">/manager/html
+/host-manager/html
+/manager/text
+/tomcat-users.xml
+</code></pre>
+<p>Apache:</p>
+<pre><code class="language-html">/index.html
+/httpd.conf
+/apache2.conf
+/server-status
+</code></pre>
+<p>Nginx:</p>
+<pre><code class="language-html">/index.html
+/index.htm
+/index.php
+/nginx_status
+/index.php
+/nginx.conf
+/html/error
+</code></pre>
+<h3 id="modern-admin-api-management-container-and-cicd-interfaces">Interfaces modernas de administración, gestión de APIs, contenedores y CI/CD</h3>
+<p>Más allá de las rutas de administración clásicas de aplicaciones/frameworks, los despliegues modernos suelen exponer interfaces privilegiadas adicionales que los evaluadores deben enumerar específicamente y comprobar en busca de credenciales predeterminadas o exposición no deseada:</p>
+<h4 id="cloud-provider-consoles">Consolas de proveedores de nube</h4>
+<ul>
+<li>Las propias consolas web de la nube (AWS, Azure, GCP) no son directamente alcanzables a través de la superficie de ataque de la aplicación, pero el acceso filtrado o mal configurado suele aflorar a través de la aplicación: hay que comprobar si hay credenciales de nube expuestas en JS del lado del cliente, archivos de configuración o mensajes de error, y confirmar que no otorguen acceso a la consola/API más allá de lo que la aplicación necesita.</li>
+<li>Es común encontrar expuestas interfaces de gestión autoalojadas de servicios adyacentes a la nube: navegadores de almacenamiento de objetos, consolas de administración de bases de datos (p. ej., proxies de RDS/Cloud SQL con interfaces de administración expuestas) y paneles de monitoreo proporcionados por IaaS. Cualquier instancia descubierta debe tratarse como una interfaz de administración sujeta a las mismas comprobaciones de credenciales/exposición que se indican más abajo.</li>
+</ul>
+<h4 id="kubernetes-and-container-orchestration-dashboards">Paneles de Kubernetes y de orquestación de contenedores</h4>
+<ul>
+<li>Kubernetes Dashboard: históricamente se ha expuesto sin autenticación o con un inicio de sesión mediante <code>service-account-token</code> con privilegios excesivos, lo que permite el control total del clúster. Hay que buscar <code>/api/v1/namespaces/kubernetes-dashboard/...</code> o un ingress/NodePort dedicado al dashboard, y confirmar que requiera autenticación y use una cuenta de servicio de mínimo privilegio en lugar de <code>cluster-admin</code> (<code>kubectl auth can-i --list --as=system:serviceaccount:&lt;ns&gt;:&lt;sa&gt;</code>, según <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/09-File_Permissions@kubernetes-volume-mounts-and-securitycontext">Permisos de archivos</a>).</li>
+<li>La API de solo lectura de <code>kubelet</code> (puerto <code>10255</code>, obsoleta) y la API autenticada de kubelet (puerto <code>10250</code>): hay que comprobar si alguna de ellas es alcanzable desde fuera de la red del clúster y si el acceso anónimo está habilitado.</li>
+<li>etcd (puerto <code>2379</code>/<code>2380</code>): si es alcanzable, el acceso sin autenticación expone todo el estado del clúster, incluidos los Secrets.</li>
+<li>Interfaces de plataformas de contenedores como Portainer, Rancher o el proxy de consola de Kubernetes administrado de un proveedor de nube: hay que comprobar si existen credenciales de administrador predeterminadas y si los endpoints de configuración inicial/registro siguen siendo alcanzables después del despliegue (algunas herramientas permiten que cualquiera reclame la primera cuenta de administrador si no se completó la configuración).</li>
+</ul>
+<h4 id="application-managementactuator-endpoints">Endpoints de gestión de aplicaciones/Actuator</h4>
+<ul>
+<li>Spring Boot Actuator: <code>/actuator</code>, <code>/actuator/env</code>, <code>/actuator/heapdump</code>, <code>/actuator/httptrace</code> y <code>/actuator/mappings</code> son interfaces de gestión por derecho propio, no solo salida de depuración: <code>/actuator/env</code> puede exponer credenciales, y algunas versiones/configuraciones de Actuator permiten reconfigurar (p. ej., <code>/actuator/loggers</code> cambiando los niveles de log) en lugar de ofrecer solo acceso de lectura. Véase <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/02-Application_Platform_Configuration@debug-endpoints-and-debug-modes">Endpoints y modos de depuración</a> para la lista completa de endpoints; cualquier endpoint de Actuator alcanzable y sin autenticación debe tratarse aquí como un hallazgo de exposición de interfaz de administración, no solo como una fuga de información.</li>
+<li>Endpoints de gestión equivalentes de otros frameworks: middleware de health-check/diagnóstico de ASP.NET Core, Django admin (<code>/admin/</code> con <code>DEBUG=True</code> o un superusuario débil/predeterminado) y blueprints/módulos de administración nativos del framework similares que se entregan habilitados por defecto.</li>
+</ul>
+<h4 id="api-management-consoles">Consolas de gestión de APIs</h4>
+<ul>
+<li>Las interfaces de administración de gateways/gestión de APIs (p. ej., Kong Admin API, Apigee, acceso a la consola de AWS API Gateway mediante claves filtradas, Tyk Dashboard) suelen escuchar en un puerto o ruta distintos de los de la API pública y pueden no tener autenticación por defecto (por ejemplo, la Kong Admin API históricamente tenía por defecto acceso sin autenticar en el puerto <code>8001</code>).</li>
+<li>Hay que buscar documentación de API expuesta o portales para desarrolladores que además expongan funcionalidades de gestión (generación de claves, cambios de cuota) y no solo documentación, y confirmar que requieran una autenticación proporcional a las acciones disponibles.</li>
+</ul>
+<h4 id="cicd-management-uis">Interfaces de gestión de CI/CD</h4>
+<ul>
+<li>Consolas comunes de CI/CD autoalojadas que se deben enumerar: Jenkins (<code>/login</code>, consola <code>/script</code>, <code>/asynchPeople/</code>), el área de administración de GitLab CI/CD, TeamCity, Argo CD y los endpoints de gestión de los runners autoalojados de GitHub/GitLab Actions.</li>
+<li>Estas interfaces tienen un impacto especialmente alto si están expuestas, ya que los sistemas de CI/CD normalmente contienen credenciales de despliegue, acceso al código fuente y la capacidad de ejecutar pasos de compilación arbitrarios. Hay que comprobar:<ul>
+<li>Credenciales predeterminadas o documentadas por defecto que nunca se rotaron (p. ej., el archivo de contraseña inicial de administrador de Jenkins que quedó legible, o asistentes de configuración que quedaron incompletos).</li>
+<li>Acceso anónimo/de invitado dejado habilitado (Jenkins históricamente lo permite mediante una configuración de &quot;lectura/compilación anónima&quot;).</li>
+<li>Consolas de scripts o creación arbitraria de pipelines/jobs alcanzables sin autenticación completa, ya que normalmente equivalen a ejecución remota de código.</li>
+</ul>
+</li>
+</ul>
+<h4 id="default-credential-and-exposure-checks">Comprobaciones de credenciales predeterminadas y de exposición</h4>
+<p>Para cualquier interfaz de tipo administración encontrada mediante lo anterior (clásica o moderna), se deben realizar las mismas comprobaciones básicas:</p>
+<ul>
+<li>Probar las credenciales predeterminadas documentadas para ese producto/versión específico (consultar la documentación del proveedor y listas como <a href="https://cirt.net/passwords" target="_blank" rel="noopener">Cirt: Default Password list</a> o <a href="https://github.com/danielmiessler/SecLists/tree/master/Passwords/Default-Credentials" target="_blank" rel="noopener">SecLists</a>); no hacer fuerza bruta más allá de una lista pequeña y documentada de valores predeterminados sin autorización.</li>
+<li>Confirmar que la interfaz no es alcanzable desde internet público cuando solo está destinada a uso interno/de operadores (comprobarlo mediante un escaneo directo de IP/puerto además de por nombre de host, ya que puede ser alcanzable por IP aunque no esté enlazada en ningún lado).</li>
+<li>Confirmar que se aplica TLS y que la interfaz no acepta HTTP en texto plano para el envío de credenciales.</li>
+<li>Cuando la interfaz exponga un asistente de configuración/primera ejecución, confirmar que no pueda volver a activarse ni alcanzarse tras el despliegue para reclamar una cuenta de administrador.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<p>Varias herramientas pueden ayudar a identificar interfaces y funcionalidades de administración ocultas, entre ellas:</p>
+<ul>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/forced-browse/" target="_blank" rel="noopener">ZAP - Forced Browse</a> es un uso mantenido actualmente del antiguo proyecto DirBuster de OWASP.</li>
+<li><a href="https://github.com/vanhauser-thc/thc-hydra" target="_blank" rel="noopener">THC-HYDRA</a> es una herramienta que permite la fuerza bruta sobre muchas interfaces, incluida la autenticación HTTP basada en formularios.</li>
+<li>Un programa de fuerza bruta es mucho más efectivo cuando usa un buen diccionario, como el diccionario de <a href="https://www.invicti.com/blog/web-security/svn-digger-better-lists-for-forced-browsing" target="_blank" rel="noopener">Netsparker</a>.</li>
+<li><a href="https://github.com/projectdiscovery/nuclei" target="_blank" rel="noopener">nuclei</a> con los conjuntos de plantillas <code>exposed-panels</code> y <code>default-logins</code> puede identificar a escala muchas de las interfaces modernas de administración/CI/CD/orquestación descritas anteriormente.</li>
+<li><a href="https://github.com/aquasecurity/kube-hunter" target="_blank" rel="noopener">kube-hunter</a> - identifica el servidor de la API de Kubernetes, kubelet y endpoints de dashboard expuestos.</li>
+<li><a href="https://github.com/danielmiessler/SecLists/tree/master/Passwords/Default-Credentials" target="_blank" rel="noopener">SecLists - Default Credentials</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cirt.net/passwords" target="_blank" rel="noopener">Cirt: Default Password list</a></li>
+<li><a href="https://github.com/fuzzdb-project/fuzzdb/blob/master/discovery/predictable-filepaths/login-file-locations/Logins.txt" target="_blank" rel="noopener">FuzzDB can be used to do brute force browsing admin login path</a></li>
+<li><a href="https://github.com/fuzzdb-project/fuzzdb/blob/master/attack/business-logic/CommonDebugParamNames.txt" target="_blank" rel="noopener">Common admin or debugging parameters</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/" target="_blank" rel="noopener">Kubernetes Dashboard Security</a></li>
+<li><a href="https://developer.konghq.com/gateway/secure-the-admin-api/" target="_blank" rel="noopener">Kong Admin API - Securing the Admin API</a></li>
+<li><a href="https://www.jenkins.io/doc/book/security/" target="_blank" rel="noopener">Jenkins: Securing Jenkins</a></li>
+</ul>

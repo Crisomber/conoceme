@@ -1,0 +1,46 @@
+<h1 id="map-execution-paths-through-application">Mapeo de las rutas de ejecución de la aplicación</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Antes de comenzar las pruebas de seguridad, es fundamental comprender la estructura de la aplicación. Sin un conocimiento profundo del diseño de la aplicación, es poco probable realizar una prueba exhaustiva.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Mapear la aplicación objetivo y comprender los flujos de trabajo principales.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>En las pruebas de caja negra es extremadamente difícil probar todo el código base. Esto no solo se debe a que el evaluador no puede ver las rutas de código de la aplicación, sino también a que probar todas las rutas de código consumiría muchísimo tiempo. Una forma de conciliar esto es documentar las rutas de código que se descubrieron y probaron.</p>
+<p>Hay varias maneras de abordar la prueba y la medición de la cobertura de código:</p>
+<ul>
+<li><strong>Rutas (Path)</strong>: probar cada una de las rutas de una aplicación, incluyendo pruebas de análisis combinatorio y de valores límite para cada ruta de decisión. Aunque este enfoque ofrece exhaustividad, el número de rutas que se pueden probar crece exponencialmente con cada rama de decisión.</li>
+<li><strong>Flujo de datos (o análisis de contaminación, Taint Analysis)</strong>: prueba la asignación de variables mediante interacción externa (normalmente de los usuarios). Se centra en mapear el flujo, la transformación y el uso de los datos a lo largo de la aplicación.</li>
+<li><strong>Condiciones de carrera (Race)</strong>: prueba múltiples instancias concurrentes de la aplicación que manipulan los mismos datos.</li>
+</ul>
+<p>La elección del método y el grado en que se usa cada uno deben negociarse con el propietario de la aplicación. Además, podrían adoptarse enfoques más sencillos. Por ejemplo, el evaluador podría preguntar al propietario de la aplicación por funciones o secciones de código específicas que le preocupen en particular y discutir cómo se puede llegar a esos segmentos de código.</p>
+<p>Para demostrar la cobertura de código al propietario de la aplicación, el evaluador puede comenzar documentando en una hoja de cálculo todos los enlaces descubiertos al rastrear la aplicación con un spider (ya sea manual o automáticamente). Luego, el evaluador puede examinar más de cerca los puntos de decisión de la aplicación e investigar cuántas rutas de código significativas se descubren. Estas deben documentarse a continuación en la hoja de cálculo con URL, descripciones en prosa y capturas de pantalla de las rutas descubiertas.</p>
+<h3 id="automatic-spidering">Rastreo automático (Spidering)</h3>
+<p>Un spider automático es una herramienta que se utiliza para descubrir automáticamente nuevos recursos (URL) en un sitio específico. Comienza con una lista de URL por visitar, llamadas semillas (seeds), que depende de cómo se inicie el spider. Aunque hay muchas herramientas de spidering, el siguiente ejemplo utiliza <a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a>:</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/01-Information_Gathering/images/07-zapsp.png" alt="Pantalla de Zed Attack Proxy" loading="lazy"><br><em>Figura 4.1.7-1: Pantalla de Zed Attack Proxy</em></p>
+<p>ZAP ofrece diversas opciones de spidering automático, que pueden aprovecharse según las necesidades del evaluador:</p>
+<ul>
+<li><a href="https://www.zaproxy.org/docs/desktop/start/features/spider/" target="_blank" rel="noopener">Spider</a></li>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/client-side-integration/spider/" target="_blank" rel="noopener">Client Spider</a></li>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/openapi-support/" target="_blank" rel="noopener">OpenAPI Support</a></li>
+<li><a href="https://www.zaproxy.org/docs/desktop/addons/graphql-support/" target="_blank" rel="noopener">GraphQL Support</a></li>
+</ul>
+<h3 id="crawling-modern-javascript-heavy-applications">Rastreo de aplicaciones modernas con mucho JavaScript</h3>
+<p>El spidering ingenuo suele cubrir de forma insuficiente las aplicaciones modernas, ya que muchas rutas y caminos de decisión solo son alcanzables mediante el enrutamiento del lado del cliente, el contenido renderizado dinámicamente o llamadas a API desencadenadas por la interacción del usuario, y no por seguir enlaces <code>&lt;a href&gt;</code>. Esto significa que una parte significativa de las rutas de ejecución de la aplicación puede no ser descubierta nunca por un spider que solo analiza HTML estático.</p>
+<p>Para mejorar la cobertura de estas aplicaciones, conviene considerar crawlers capaces de ejecutar JavaScript y seguir la navegación del lado del cliente, como <a href="https://github.com/projectdiscovery/katana" target="_blank" rel="noopener">katana</a> (que admite un modo headless para este fin), el <a href="https://www.zaproxy.org/docs/desktop/addons/client-side-integration/spider/" target="_blank" rel="noopener">Client Spider</a> de ZAP o el crawler de Burp Suite. Ejercitar manualmente los flujos de trabajo de la aplicación a través de un proxy de interceptación, como se describe en <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/06-Identify_Application_Entry_Points">Identify Application Entry Points</a>, sigue siendo importante para alcanzar rutas protegidas tras flujos de varios pasos, estados de autenticación o lógica condicional que los crawlers automatizados pueden no desencadenar por sí solos.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/List_of_concept-_and_mind-mapping_software" target="_blank" rel="noopener">Software de diagramación</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Code_coverage" target="_blank" rel="noopener">Code Coverage</a></li>
+</ul>

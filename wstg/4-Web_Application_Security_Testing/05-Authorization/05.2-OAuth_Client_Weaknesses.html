@@ -1,0 +1,89 @@
+<h1 id="oauth-client-weaknesses">Debilidades del cliente OAuth</h1>
+<h2 id="summary">Resumen</h2>
+<p>OAuth concede derechos de acceso sobre recursos a los clientes. Esto les permite actuar en nombre del propietario del recurso. El cliente recibe el código de autorización y el refresh token en el intercambio de tokens y los almacena.</p>
+<p>No proteger el intercambio de tokens y las credenciales puede resultar en acceso no autorizado a recursos y en la elevación de privilegios.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar debilidades en el cliente OAuth.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Para probar las debilidades del cliente, el objetivo será:</p>
+<ol>
+<li>Obtener las credenciales utilizadas para la autorización.</li>
+<li>Concederse acceso a recursos arbitrarios mediante forced browsing.</li>
+<li>Evadir la autorización.</li>
+</ol>
+<h3 id="xposed-client-secret">Secreto de cliente expuesto</h3>
+<p>El secreto de cliente (client secret) se utiliza para autenticar al cliente frente al servidor de autorización (AS) con el fin de demostrar que el cliente es un origen de confianza.</p>
+<p>Los clientes públicos generalmente no pueden almacenar el secreto de cliente de forma segura.</p>
+<p>Para identificar el secreto de cliente en el código del lado del cliente, se debe realizar un reconocimiento del código del lado del cliente.</p>
+<ol>
+<li>Navegar a la aplicación.</li>
+<li>Abrir las herramientas de desarrollo del navegador.</li>
+<li>Ir a la pestaña Debugger.</li>
+<li>Presionar Ctrl+Shift+F para abrir la búsqueda.</li>
+<li>Buscar términos similares a <code>client-secret</code> y determinar si se encuentra alguno.</li>
+</ol>
+<p>Si esto no tiene éxito, también se puede:</p>
+<ol>
+<li>Recorrer el proceso de autorización con un proxy interceptor HTTP como ZAP.</li>
+<li>Obtener el secreto de cliente del URI en el parámetro <code>client-secret</code>.</li>
+<li>Reemplazar el término de búsqueda de la búsqueda anterior por el valor del secreto de cliente y determinar si está expuesto.</li>
+</ol>
+<h3 id="improper-token-storage">Almacenamiento inadecuado de tokens</h3>
+<p>El cliente recibe access tokens e idealmente los almacena en una ubicación donde puedan estar protegidos de los atacantes.</p>
+<p>Los clientes confidenciales deben almacenar los tokens en memoria volátil para evitar el acceso mediante otros ataques como la inclusión de archivos locales, atacantes que logren acceder al entorno o ataques de Inyección SQL.</p>
+<p>Los clientes públicos, como las aplicaciones de una sola página, no tienen la posibilidad de almacenar tokens de forma segura. Por ejemplo, un ataque de Cross-Site Scripting permite a los atacantes acceder a las credenciales almacenadas en el navegador.</p>
+<p>Los clientes públicos pueden almacenar tokens en el session storage del navegador o en una cookie, pero no en el local storage. Para determinar si los tokens están almacenados de forma inadecuada:</p>
+<ol>
+<li>Navegar a la aplicación.</li>
+<li>Obtener un access token.</li>
+<li>Abrir las herramientas de desarrollo del navegador.</li>
+<li>Ir a la pestaña Application.</li>
+<li>Localizar el Local Storage y ver los datos almacenados.</li>
+<li>Localizar el Session Storage y ver los datos almacenados.</li>
+<li>Localizar el Cookie Store y ver los datos almacenados.</li>
+</ol>
+<h3 id="access-token-injection">Inyección de access token</h3>
+<p>Este ataque solo es posible cuando el cliente utiliza un tipo de respuesta que emite directamente un access token al cliente. Esto ocurre con los tipos de concesión Implicit Flows, Resource Owner Password Credential y los flujos máquina a máquina. Véase <a href="#/4-Web_Application_Security_Testing/05-Authorization/05-OAuth_Weaknesses">Debilidades de OAuth</a> para una descripción más detallada.</p>
+<p>La inyección de access token tiene éxito cuando un access token se filtra a un atacante y luego se usa para autenticarse con el cliente legítimo.</p>
+<p>Para probar la inyección de access token, se siguen los pasos a continuación. En este ejemplo, se filtró el token de autorización (<code>ZXhhbXBsZQo=</code>).</p>
+<ol>
+<li>Interceptar el tráfico entre el cliente y el servidor de autorización.</li>
+<li>Iniciar un flujo de OAuth con un cliente que utilice el tipo de concesión Implicit Flow.</li>
+<li>Inyectar el access token robado:<ul>
+<li>Enviar al cliente una respuesta de autorización falsificada con el access token robado (<code>ZXhhbXBsZQo=</code>).</li>
+<li>Interceptar una respuesta de autorización válida y reemplazar el access token (<code>dGVzdGluZwo=</code>) por el filtrado (<code>ZXhhbXBsZQo=</code>).</li>
+</ul>
+</li>
+</ol>
+<p><img src="wstg/4-Web_Application_Security_Testing/05-Authorization/images/05-token-injection.png" alt="Un diagrama del flujo de inyección de access token" loading="lazy"><br><em>Figura 4.5.5.2-: Flujo de inyección de access token</em></p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">Cross Site Request Forgery</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/04-Client-side_URL_Redirect">Client-side URL Redirect</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/10-JSON_Web_Tokens">Testing JSON Web Tokens</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/09-Clickjacking">Clickjacking</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/11-Client-side/07-Cross_Origin_Resource_Sharing">Testing Cross Origin Resource Sharing</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Usar un secreto de cliente solo si el cliente tiene la capacidad de almacenarlo de forma segura.</li>
+<li>Seguir las mejores prácticas para almacenar tokens de forma segura. Tratarlos con las mismas consideraciones de seguridad que otras credenciales.</li>
+<li>Evitar los tipos de concesión de OAuth obsoletos. Véase <a href="#/4-Web_Application_Security_Testing/05-Authorization/05-OAuth_Weaknesses">Debilidades de OAuth</a> para una descripción más detallada.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://portswigger.net/burp/releases" target="_blank" rel="noopener">BurpSuite</a></li>
+<li><a href="https://github.com/portswigger/espresso" target="_blank" rel="noopener">EsPReSSO</a></li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://oauth.net/articles/authentication/" target="_blank" rel="noopener">User Authentication with OAuth 2.0</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6749" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6750" target="_blank" rel="noopener">The OAuth 2.0 Authorization Framework: Bearer Token Usage</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6819" target="_blank" rel="noopener">OAuth 2.0 Threat Model and Security Considerations</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9700" target="_blank" rel="noopener">OAuth 2.0 Security Best Current Practice</a></li>
+<li><a href="https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce" target="_blank" rel="noopener">Authorization Code Flow with Proof Key for Code Exchange</a></li>
+</ul>

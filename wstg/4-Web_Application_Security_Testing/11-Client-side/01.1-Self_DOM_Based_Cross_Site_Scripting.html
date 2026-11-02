@@ -1,0 +1,46 @@
+<h1 id="self-dom-based-cross-site-scripting">Cross-Site Scripting basado en DOM autoinfligido (Self DOM-Based XSS)</h1>
+<h2 id="summary">Resumen</h2>
+<p>El Self DOM-Based Cross-Site Scripting es un ataque específico que requiere conocimiento previo del cross site scripting basado en DOM e ingeniería social exitosa. El término &quot;self&quot; hace referencia a que el usuario necesita inyectar el payload en el campo de entrada y, por tanto, ejecuta la vulnerabilidad él mismo. La vulnerabilidad es además específica porque la Content Security Policy (CSP) del sitio web puede bloquear la ejecución de scripts.</p>
+<p>Este escenario utilizará el término &quot;sink&quot; (sumidero) de la siguiente manera: en computación, un sink, event sink o data sink es una clase o función diseñada para recibir entrada o eventos de otro objeto o función. Por lo tanto, para encontrar posibles vulnerabilidades primero hay que identificar los sinks de la aplicación que se desea probar.</p>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El proceso de pruebas de Self DOM-Based cross site scripting es el siguiente:</p>
+<ol>
+<li>Buscar sinks vulnerables que permitan entrada del usuario.</li>
+<li>Una vez identificado un posible sink, se puede insertar un payload.</li>
+<li>Revisar el registro de errores en las herramientas de desarrollo del navegador para ver el resultado y extraer conclusiones.</li>
+<li>Comprobar si un atacante podría convencer a un usuario de insertar el payload sin que se requieran conocimientos técnicos extensos.</li>
+</ol>
+<h3 id="example">Ejemplo</h3>
+<p>Este ejemplo específico proviene de este <a href="https://hackerone.com/reports/406587" target="_blank" rel="noopener">reporte de HackerOne</a>.</p>
+<p>En el ejemplo, la siguiente función de JavaScript se ejecuta en el sitio web <code>https://example.com</code>.</p>
+<pre><code class="language-js">//Marketo Form Code
+function strip(html) {
+    var tmp = document.createElement(&quot;DIV&quot;);
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || &quot;&quot;;
+}
+
+$(&#39;form&#39;).submit(function() {
+    $(&#39;textarea&#39;).val(function() {
+        return strip($(this).val());
+    });
+});
+</code></pre>
+<p>El abuso de esta funcionalidad puede describirse de la siguiente manera:</p>
+<ol>
+<li>El manejador del evento <code>submit</code> pasa el valor actual de cualquier elemento <code>textarea</code> a la función <code>strip</code>.</li>
+<li>Esta función crea un nuevo elemento <code>div</code> y asigna el valor proporcionado a la propiedad <code>innerHTML</code>.</li>
+<li>En el último paso devuelve la propiedad <code>textContent</code> del <code>div</code> resultante.</li>
+</ol>
+<p>Este tipo de código se utiliza normalmente para eliminar etiquetas HTML de una cadena, ya que la propiedad <code>textContent</code> contiene la cadena que el navegador renderizó al analizar el HTML. Este método es inherentemente inseguro porque utiliza <code>innerHTML</code>. Cuando se proporciona entrada del usuario a la propiedad <code>innerHTML</code>, el navegador web la analiza y, por tanto, puede conducir a la ejecución de JavaScript malicioso.</p>
+<p>Se puede utilizar el siguiente payload para probar la vulnerabilidad.<code>&lt;img src=x onerror=alert(1) /&gt;</code></p>
+<p>La consola de desarrollo mostraría dos errores: uno que indica que se solicitó <code>https://www.example.com/x</code> y devolvió un 404 (debido al atributo src de la etiqueta img). Otro que informaba de una violación de la CSP del sitio web.</p>
+<p>Este segundo error ocurrió porque el navegador intenta ejecutar el código JavaScript del atributo <code>onerror</code>, pero la CSP del sitio web impidió la ejecución. Al realizar las mismas acciones en un navegador con la CSP deshabilitada, el JavaScript del atributo <code>onerror</code> se ejecutó.</p>
+<p>Un atacante podría explotar esta vulnerabilidad convenciendo a un usuario de pegar un payload malicioso en el campo &#39;message&#39; del formulario de contacto y luego hacer clic en el botón &quot;send message&quot;. Este ataque podría potenciarse convenciendo al usuario de utilizar una versión de navegador que no soporte CSP.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Para proteger adecuadamente los servicios del XSS basado en DOM, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">DOM based XSS prevention cheat sheet</a>.</p>
+<h3 id="references">Referencias</h3>
+<ul>
+<li><a href="https://owasp.org/www-community/attacks/DOM_Based_XSS" target="_blank" rel="noopener">OWASP - DOM-Based Cross Site Scripting</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank" rel="noopener">CSP Cheat Sheet</a></li>
+</ul>

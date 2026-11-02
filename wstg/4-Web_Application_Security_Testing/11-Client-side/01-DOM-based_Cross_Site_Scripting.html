@@ -1,0 +1,70 @@
+<h1 id="dom-based-cross-site-scripting">Cross-Site Scripting basado en DOM</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-01</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p><a href="https://owasp.org/www-community/attacks/DOM_Based_XSS" target="_blank" rel="noopener">El cross-site scripting basado en DOM</a> es el nombre habitual de los errores de <a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">XSS</a> que resultan de que el contenido activo del lado del navegador en una página, normalmente JavaScript, obtiene entrada del usuario a través de una <a href="https://github.com/wisec/domxsswiki/wiki/sources" target="_blank" rel="noopener">fuente (source)</a> y la utiliza en un <a href="https://github.com/wisec/domxsswiki/wiki/Sinks" target="_blank" rel="noopener">sumidero (sink)</a>, lo que conduce a la ejecución de código inyectado. Este documento solo trata los errores de JavaScript que conducen a XSS.</p>
+<p>El DOM, o <a href="https://en.wikipedia.org/wiki/Document_Object_Model" target="_blank" rel="noopener">Document Object Model</a>, es el formato estructural utilizado para representar documentos en un navegador. El DOM permite que scripts dinámicos como JavaScript hagan referencia a componentes del documento, como un campo de formulario o una cookie de sesión. El navegador también utiliza el DOM por motivos de seguridad, por ejemplo para impedir que scripts de distintos dominios obtengan las cookies de sesión de otros dominios. Una vulnerabilidad de XSS basado en DOM puede ocurrir cuando el contenido activo, como una función de JavaScript, es modificado por una petición especialmente construida de manera que un elemento del DOM pueda ser controlado por un atacante.</p>
+<p>No todos los errores de XSS requieren que el atacante controle el contenido devuelto por el servidor; también pueden abusar de malas prácticas de programación en JavaScript para lograr los mismos resultados. Las consecuencias son las mismas que las de un fallo de XSS típico; solo cambia el medio de entrega.</p>
+<p>En comparación con otros tipos de vulnerabilidades de cross site scripting (<a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">reflejado y almacenado</a>, en los que el servidor recibe un parámetro sin sanear y lo devuelve al usuario, donde se ejecuta en el contexto de su navegador), una vulnerabilidad de XSS basado en DOM controla el flujo del código utilizando elementos del Document Object Model (DOM) junto con código creado por el atacante para alterar dicho flujo.</p>
+<p>Por su naturaleza, las vulnerabilidades de XSS basado en DOM pueden ejecutarse en muchos casos sin que el servidor pueda determinar qué se está ejecutando realmente. Esto puede volver ineficaces muchas de las técnicas generales de filtrado y detección de XSS frente a estos ataques.</p>
+<p>Este ejemplo hipotético utiliza el siguiente código del lado del cliente:</p>
+<pre><code class="language-html">&lt;script&gt;
+document.write(&quot;Site is at: &quot; + document.location.href + &quot;.&quot;);
+&lt;/script&gt;
+</code></pre>
+<p>Un atacante puede añadir <code>#&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;</code> a la URL de la página afectada, lo que, al ejecutarse, mostrará el cuadro de alerta. En este caso, el código añadido no se enviaría al servidor, ya que todo lo que sigue al carácter <code>#</code> no es tratado por el navegador como parte de la consulta, sino como un fragmento. En este ejemplo, el código se ejecuta de inmediato y la página muestra una alerta con &quot;xss&quot;. A diferencia de los tipos más comunes de cross site scripting (<a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">reflejado y almacenado</a>, en los que el código se envía al servidor y luego de vuelta al navegador), este se ejecuta directamente en el navegador del usuario sin contacto con el servidor.</p>
+<p>Las <a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">consecuencias</a> de los fallos de XSS basado en DOM son tan amplias como las de las formas más conocidas de XSS, e incluyen la obtención de cookies, la inyección de más scripts maliciosos, etc., por lo que deben tratarse con la misma gravedad.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los sumideros (sinks) del DOM.</li>
+<li>Construir payloads (cargas útiles) correspondientes a cada tipo de sumidero.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Las aplicaciones JavaScript difieren de manera significativa de otros tipos de aplicaciones porque con frecuencia son generadas dinámicamente por el servidor. Para entender qué código se está ejecutando, hay que rastrear (crawl) el sitio web evaluado para determinar todas las instancias de JavaScript que se ejecutan y los lugares donde se acepta entrada del usuario. Muchos sitios web dependen de grandes bibliotecas de funciones, que a menudo abarcan cientos de miles de líneas de código y no han sido desarrolladas internamente. En estos casos, las pruebas de arriba hacia abajo suelen ser la única opción viable, ya que muchas funciones de bajo nivel nunca se utilizan, y analizarlas para determinar cuáles son sumideros consumirá más tiempo del que normalmente se tiene. Lo mismo puede decirse de las pruebas de arriba hacia abajo si de entrada no se identifican las entradas o su ausencia.</p>
+<p>La entrada del usuario se presenta en dos formas principales:</p>
+<ul>
+<li>Entrada escrita en la página por el servidor de una manera que no permite XSS directo, y</li>
+<li>Entrada obtenida de objetos de JavaScript del lado del cliente.</li>
+</ul>
+<p>A continuación se muestran dos ejemplos de cómo el servidor puede insertar datos en JavaScript:</p>
+<pre><code class="language-js">var data = &quot;&lt;escaped data from the server&gt;&quot;;
+var result = someFunction(&quot;&lt;escaped data from the server&gt;&quot;);
+</code></pre>
+<p>A continuación se muestran dos ejemplos de entrada proveniente de objetos de JavaScript del lado del cliente:</p>
+<pre><code class="language-js">var data = window.location;
+var result = someFunction(window.referrer);
+</code></pre>
+<p>Aunque hay poca diferencia en el código JavaScript respecto a cómo se obtienen, es importante tener en cuenta que cuando la entrada se recibe a través del servidor, este puede aplicar a los datos cualquier transformación que desee. En cambio, las transformaciones que realizan los objetos de JavaScript son bastante bien conocidas y están documentadas. Si <code>someFunction</code> en el ejemplo anterior fuera un sumidero, la explotabilidad en el primer caso dependería del filtrado realizado por el servidor, mientras que en el segundo dependería de la codificación que haga el navegador sobre el objeto <code>window.referrer</code>. Stefano Di Paulo ha escrito un excelente artículo sobre lo que devuelven los navegadores al solicitar los distintos elementos de una <a href="https://github.com/wisec/domxsswiki/wiki/location,-documentURI-and-URL-sources" target="_blank" rel="noopener">URL mediante los atributos document y location</a>.</p>
+<p>Además, JavaScript suele ejecutarse fuera de los bloques <code>&lt;script&gt;</code>, como lo demuestran los muchos vectores que en el pasado han permitido eludir filtros de XSS. Al rastrear la aplicación, es importante tomar nota del uso de scripts en lugares como los manejadores de eventos y los bloques CSS con atributos expression. Asimismo, hay que tener en cuenta que cualquier objeto CSS o script alojado fuera del sitio deberá evaluarse para determinar qué código se ejecuta.</p>
+<p>Las pruebas automatizadas tienen un éxito muy limitado para identificar y validar XSS basado en DOM, ya que normalmente identifican XSS enviando un payload específico e intentando observarlo en la respuesta del servidor. Esto puede funcionar bien en el ejemplo sencillo que se muestra a continuación, donde el parámetro message se refleja al usuario:</p>
+<pre><code class="language-html">&lt;script&gt;
+var pos=document.URL.indexOf(&quot;message=&quot;)+5;
+document.write(document.URL.substring(pos,document.URL.length));
+&lt;/script&gt;
+</code></pre>
+<p>Sin embargo, puede no detectarse en el siguiente caso artificioso:</p>
+<pre><code class="language-html">&lt;script&gt;
+var navAgt = navigator.userAgent;
+
+if (navAgt.indexOf(&quot;MSIE&quot;)!=-1) {
+        document.write(&quot;You are using IE as a browser and visiting site: &quot; + document.location.href + &quot;.&quot;);
+}
+else
+{
+    document.write(&quot;You are using an unknown browser.&quot;);
+}
+&lt;/script&gt;
+</code></pre>
+<p>Por esta razón, las pruebas automatizadas no detectarán las áreas que puedan ser susceptibles a XSS basado en DOM, a menos que la herramienta de pruebas pueda realizar un análisis adicional del código del lado del cliente.</p>
+<p>Por lo tanto, se deben realizar pruebas manuales, que pueden llevarse a cabo examinando las áreas del código donde se hace referencia a parámetros que pudieran ser útiles para un atacante. Ejemplos de tales áreas son los lugares donde se escribe código dinámicamente en la página, así como otros donde se modifica el DOM o incluso donde se ejecutan scripts directamente.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Para conocer las medidas que previenen el XSS basado en DOM, consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">DOM-based XSS Prevention Cheat Sheet</a>.</p>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://github.com/wisec/domxsswiki/wiki/" target="_blank" rel="noopener">DomXSSWiki</a></li>
+</ul>

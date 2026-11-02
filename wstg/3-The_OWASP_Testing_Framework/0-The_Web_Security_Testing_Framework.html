@@ -1,0 +1,116 @@
+<h1 id="the-web-security-testing-framework">El marco de pruebas de seguridad web</h1>
+<h2 id="overview">Descripción general</h2>
+<p>Este marco pretende ser un conjunto flexible de actividades de prueba que las organizaciones pueden adoptar y adaptar, sin asumir una secuencia fija ni un flujo de trabajo con puertas de control. Las pruebas de seguridad no tienen un único hogar: ocurren en las discusiones de requisitos, en las revisiones de arquitectura, en el IDE, en los pipelines de CI/CD, en los entornos de staging y producción, y mediante escaneo continuo e investigadores externos, a menudo de forma simultánea.</p>
+<p>A diferencia de una metodología prescriptiva, este marco reconoce que la cadencia, la secuencia y la responsabilidad de las pruebas varían según el contexto. Una startup puede comenzar con un modelado de amenazas ligero y revisión de código. Una organización regulada puede priorizar el modelado de amenazas, la revisión del diseño y la automatización de CI/CD. Un equipo de producto maduro puede operar todas las actividades de forma continua. El objetivo es ayudar a las organizaciones a elegir y escalar la combinación adecuada de actividades para su modelo de amenazas, sus prácticas de desarrollo y su tolerancia al riesgo. Para la comparación de costos y el contexto de negocio, consulta la <a href="#/2-Introduction/README@why-web-application-security-testing-matters">Introducción</a>.</p>
+<h2 id="testing-activities">Actividades de prueba</h2>
+<p>Las siguientes seis categorías cubren las principales actividades de prueba que contribuyen a la seguridad de las aplicaciones. Cada una suele repetirse con una cadencia (activada por cambios de requisitos, decisiones de arquitectura, cada commit, según un calendario de lanzamientos o de forma continua) en lugar de ocurrir una sola vez en una secuencia fija. Pueden, y deben, retroalimentarse entre sí. Por ejemplo, una prueba de penetración puede exponer una vulnerabilidad en la lógica de negocio que no se identificó durante el modelado de amenazas, revelando un control faltante que debería añadirse al modelo de amenazas y al diseño. Además, las actividades de prueba forman su propio ciclo de retroalimentación. Durante las pruebas de vulnerabilidades, puede que descubras algo que requiera volver a fases anteriores (el reconocimiento puede necesitar ampliarse, o pueden surgir nuevos objetivos de recopilación de información), tratando las pruebas de seguridad como un ciclo iterativo y continuo en lugar de una secuencia de una sola pasada.</p>
+<h3 id="requirements-and-policy-review">Revisión de requisitos y políticas</h3>
+<p>Establecer y documentar las políticas de seguridad, los estándares de codificación segura y la línea base de requisitos de seguridad. El <a href="https://owasp.org/www-project-application-security-verification-standard/" target="_blank" rel="noopener">OWASP Application Security Verification Standard (ASVS)</a> y la <a href="https://cheatsheetseries.owasp.org/" target="_blank" rel="noopener">OWASP Cheat Sheet Series</a> proporcionan controles de referencia. Al revisar los requisitos, hay que asegurar la claridad en las siguientes áreas:</p>
+<ul>
+<li>Gestión de usuarios y federación de identidades</li>
+<li>Autenticación y autenticación multifactor (MFA)</li>
+<li>Autorización y control de acceso (RBAC / ABAC)</li>
+<li>Confidencialidad, integridad y privacidad de los datos (incluido el manejo de información de identificación personal (PII))</li>
+<li>Gestión de sesiones y manejo de tokens</li>
+<li>Seguridad del transporte y estándares criptográficos</li>
+<li>Contratos de API e integraciones de terceros</li>
+<li>Infraestructura como código (IaC), imágenes de contenedores y configuración de la nube</li>
+<li>Riesgo de la cadena de suministro y de las dependencias</li>
+<li>Requisitos de respuesta a incidentes y monitoreo</li>
+<li>Estándares de cumplimiento aplicables (PCI DSS, HIPAA, GDPR, SOC 2, ISO/IEC 27001, etc.)</li>
+</ul>
+<p>Hay que revisar esta línea base cada vez que cambien los requisitos, las regulaciones o las prioridades del negocio.</p>
+<h3 id="design-architecture-and-threat-modeling">Diseño, arquitectura y modelado de amenazas</h3>
+<p>Revisar la documentación de diseño y arquitectura (especificaciones, modelos, plantillas de infraestructura como código) para verificar la alineación con los requisitos de seguridad. Identificar los riesgos de diseño emergentes en estas áreas:</p>
+<ul>
+<li>Microservicios y API: límites entre servicios, autenticación entre servicios, API gateways</li>
+<li>Nube y contenedores: políticas de gestión de identidad y acceso (IAM), aislamiento de red, procedencia de los contenedores, gestión de secretos</li>
+<li>Arquitecturas del lado del cliente: aplicaciones de una sola página (SPA), manejo del estado, política de cross-origin resource sharing (CORS)</li>
+<li>Dependencias de terceros y servicios gestionados: límites de confianza, responsabilidades de cumplimiento</li>
+</ul>
+<p>Emprender el modelado de amenazas para identificar escenarios de ataque realistas y asegurar que cada amenaza haya sido mitigada, aceptada como riesgo residual o transferida a un tercero. Esto ocurre en múltiples niveles: modelado de amenazas de todo el sistema cuando cambia la arquitectura, y modelado de amenazas a nivel de elemento de trabajo (por ejemplo, para historias de usuario individuales) para identificar las amenazas específicas de nuevas funcionalidades o cambios. Herramientas como <a href="https://owasp.org/www-project-threat-dragon/" target="_blank" rel="noopener">OWASP Threat Dragon</a> y <a href="https://owasp.org/www-project-pytm/" target="_blank" rel="noopener">Pythonic Threat Modeling</a> pueden ayudar a estructurar este ejercicio.</p>
+<h3 id="code-level-review-and-analysis">Revisión y análisis a nivel de código</h3>
+<p>Revisar manualmente el código en busca de defectos de seguridad, en particular en la lógica compleja, las implementaciones criptográficas, el control de acceso y el código de las API. Combinar la revisión manual con el análisis estático automatizado:</p>
+<ul>
+<li>Las herramientas de <strong>Static Application Security Testing (SAST)</strong> escanean el código fuente en busca de patrones de vulnerabilidades conocidos.</li>
+<li>Las herramientas de <strong>escaneo de secretos</strong> detectan credenciales incluidas accidentalmente en commits antes de que lleguen al control de versiones.</li>
+<li>Las herramientas de <strong>Software Composition Analysis (SCA)</strong> escanean las dependencias en busca de vulnerabilidades conocidas.</li>
+</ul>
+<p>Usa herramientas como SonarQube, Semgrep, TruffleHog, OWASP Dependency-Check o Snyk, y establece políticas para corregir las dependencias vulnerables. Idealmente, estas actividades se integran en el entorno de desarrollo (plugins del IDE, hooks de pre-commit) y en el pipeline de compilación, ejecutándose en cada commit o pull request.</p>
+<h3 id="dynamic-and-penetration-testing">Pruebas dinámicas y de penetración</h3>
+<p>Probar la aplicación en ejecución en busca de vulnerabilidades que el análisis estático o la revisión manual del código pudieron haber pasado por alto. Esta actividad incluye:</p>
+<ul>
+<li>Las herramientas de Dynamic Application Security Testing (DAST) como ZAP o Burp Suite rastrean y aplican fuzzing a la aplicación</li>
+<li>Las pruebas de penetración manuales validan la explotabilidad, prueban los puntos de integración y sondean la lógica de negocio</li>
+<li>La revisión de la configuración asegura que no haya servicios innecesarios habilitados, que se hayan cambiado las credenciales por defecto, que las cabeceras de seguridad estén presentes y que las versiones y los cifrados de TLS/SSL sean los adecuados Estas actividades pueden dirigirse a entornos de staging o producción, ejecutarse bajo demanda o con una cadencia programada, y ser realizadas por un equipo interno, un consultor externo o mediante un <a href="#/3-The_OWASP_Testing_Framework/1-Bug_Bounty_Programs">programa de bug bounty</a>. Para metodologías y marcos de trabajo de pruebas de penetración, consulta el <a href="#/6-Appendix/G-Penetration_Testing_Methodologies">Apéndice G</a>.</li>
+</ul>
+<h3 id="continuous-integration-pipeline-testing">Pruebas en el pipeline de integración continua</h3>
+<p>Integrar las pruebas de seguridad en los pipelines de integración continua (CI) y entrega continua (CD) para que la seguridad no sea una ocurrencia tardía. Definir las comprobaciones de seguridad por etapa del pipeline:</p>
+<ul>
+<li>En tiempo de compilación, ejecutar SAST, SCA y escaneo de secretos</li>
+<li>En staging, ejecutar DAST y escaneo de IaC y de imágenes de contenedores</li>
+<li>Antes del lanzamiento, exigir la aprobación de seguridad y definir umbrales para bloquear el despliegue Este es el tejido conectivo que permite que la revisión de código, el escaneo automatizado y las pruebas dinámicas se ejecuten de forma continua sin convertirse en un cuello de botella. Consulta <a href="https://owaspsamm.org/model/" target="_blank" rel="noopener">OWASP SAMM</a> y <a href="https://csrc.nist.gov/publications/detail/sp/800-218/final" target="_blank" rel="noopener">NIST SSDF</a> para orientación sobre cómo escalar estas prácticas.</li>
+</ul>
+<h3 id="continuous-and-crowd-sourced-testing">Pruebas continuas y colaborativas (crowdsourcing)</h3>
+<p>Operar las pruebas de seguridad como una actividad permanente más allá del pipeline de desarrollo. Esto incluye el monitoreo de seguridad operativa y la reevaluación periódica (volver a ejecutar las herramientas SAST/DAST/SCA, pruebas de penetración manuales o revisiones del modelado de amenazas) para detectar nuevas vulnerabilidades introducidas por cambios de código, actualizaciones de dependencias o la deriva de la infraestructura. También incluye los <a href="#/3-The_OWASP_Testing_Framework/1-Bug_Bounty_Programs">programas de bug bounty</a>, que operan de forma continua y aprovechan a investigadores de seguridad externos para identificar ataques novedosos y casos límite que las pruebas internas pueden pasar por alto. Como las demás actividades de prueba, esto no es un evento único sino una práctica sostenida y paralela.</p>
+<h2 id="matching-activity-to-cadence">Asociar la actividad con la cadencia</h2>
+<p>La siguiente tabla muestra cómo suelen encajar las actividades de prueba en el flujo de trabajo de una organización, sin asumir una secuencia fija:</p>
+<div class="tabla"><table><thead><tr>
+<th>Actividad de prueba</th>
+<th>Cadencia típica</th>
+<th>Responsable típico</th>
+<th>Ejemplos y referencias</th>
+</tr>
+</thead><tbody><tr>
+<td>Revisión de requisitos y políticas</td>
+<td>Por evento (nueva funcionalidad, cambio regulatorio)</td>
+<td>Gerente de producto + seguridad</td>
+<td>OWASP ASVS, Cheat Sheet Series, documentos de cumplimiento</td>
+</tr>
+<tr>
+<td>Diseño, arquitectura y modelado de amenazas</td>
+<td>Por evento (cambio de arquitectura, nueva historia de usuario/elemento de trabajo)</td>
+<td>Arquitectos + seguridad + desarrolladores</td>
+<td>Threat Dragon, pytm, STRIDE, evaluación de riesgos del NIST</td>
+</tr>
+<tr>
+<td>Revisión de código, SAST, SCA, escaneo de secretos</td>
+<td>Continua (cada commit / PR)</td>
+<td>Desarrolladores + herramientas automatizadas</td>
+<td>SonarQube, Semgrep, TruffleHog, Dependency-Check, Snyk</td>
+</tr>
+<tr>
+<td>DAST y pruebas de penetración</td>
+<td>Programada + por evento (calendario de lanzamientos, bajo demanda)</td>
+<td>Equipo interno de seguridad o un tercero</td>
+<td>ZAP, Burp Suite, pruebas manuales</td>
+</tr>
+<tr>
+<td>Programas de bug bounty</td>
+<td>Continua, siempre activa</td>
+<td>Investigadores externos</td>
+<td>HackerOne, Bugcrowd o autoalojado</td>
+</tr>
+<tr>
+<td>Puertas de seguridad del pipeline de CI/CD</td>
+<td>Continua (cada compilación / despliegue)</td>
+<td>Desarrolladores + herramientas automatizadas</td>
+<td>Logs de compilación, integración de herramientas SAST/SCA</td>
+</tr>
+<tr>
+<td>Monitoreo operativo y reevaluación periódica</td>
+<td>Continua (monitoreo), programada (evaluaciones)</td>
+<td>Equipos de operaciones + seguridad</td>
+<td>SIEM/análisis de logs, reescaneo programado, pentests</td>
+</tr>
+</tbody></table></div>
+<h2 id="where-to-start">Por dónde empezar</h2>
+<p>Si tu organización está construyendo un programa de pruebas desde cero, no te sientas obligado a implementar todas las actividades a la vez ni en un orden fijo. En su lugar, comienza con la actividad que ofrezca el valor más inmediato según tu perfil de riesgo y tus prácticas de desarrollo:</p>
+<ul>
+<li>Los equipos con una gran velocidad de desarrollo pueden comenzar con la revisión de código y la integración de SAST en CI/CD, detectando de forma temprana los errores comunes.</li>
+<li>Los equipos que construyen sistemas complejos e interconectados pueden priorizar el modelado de amenazas y la revisión de la arquitectura.</li>
+<li>Los equipos que despliegan en infraestructura de nube o de microservicios pueden enfocarse en el escaneo de IaC y la revisión de la configuración de la nube.</li>
+<li>Los equipos de producto con una API publicada pueden priorizar las pruebas de API y las pruebas de penetración centradas en la seguridad.</li>
+<li>Las organizaciones que manejan datos sensibles pueden comenzar con la clasificación de datos, los estándares de cifrado y la revisión de requisitos orientada al cumplimiento.</li>
+</ul>
+<p>A medida que se alcance la madurez, hay que ampliar la cobertura para incluir las demás actividades, refinando el enfoque según lo que revelen las pruebas. El marco no es una lista de verificación que deba completarse en orden, sino una referencia del rango de actividades que, con el tiempo, construyen un programa de pruebas integral.</p>

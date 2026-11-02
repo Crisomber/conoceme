@@ -1,0 +1,120 @@
+<h1 id="cookies-attributes">Atributos de las cookies</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-SESS-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Las cookies web (en adelante, cookies) suelen ser un vector de ataque clave para los usuarios maliciosos (que normalmente atacan a otros usuarios), y la aplicación siempre debe ejercer la debida diligencia para protegerlas.</p>
+<p>HTTP es un protocolo sin estado, lo que significa que no conserva ninguna referencia a las peticiones enviadas por el mismo usuario. Para resolver este problema se crearon las sesiones, que se añaden a las peticiones HTTP. Los navegadores, como se explica en <a href="#/4-Web_Application_Security_Testing/11-Client-side/12-Browser_Storage">pruebas del almacenamiento del navegador</a>, contienen multitud de mecanismos de almacenamiento. En esa sección de la guía se analiza cada uno de ellos a fondo.</p>
+<p>El mecanismo de almacenamiento de sesiones más utilizado en los navegadores es el almacenamiento de cookies. Las cookies pueden ser establecidas por el servidor, incluyendo una cabecera <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie" target="_blank" rel="noopener"><code>Set-Cookie</code></a> en la respuesta HTTP, o mediante JavaScript. Las cookies pueden usarse por múltiples motivos, como:</p>
+<ul>
+<li>gestión de sesiones</li>
+<li>personalización</li>
+<li>rastreo</li>
+</ul>
+<p>Para proteger los datos de las cookies, la industria ha desarrollado medios que ayudan a blindarlas y limitar su superficie de ataque. Con el tiempo, las cookies se han convertido en un mecanismo de almacenamiento preferido para las aplicaciones web, ya que permiten gran flexibilidad de uso y protección.</p>
+<p>Los medios para proteger las cookies son:</p>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Creating_cookies" target="_blank" rel="noopener">Atributos de las cookies</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Cookie_prefixes" target="_blank" rel="noopener">Prefijos de las cookies</a></li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Asegurar que se establece la configuración de seguridad adecuada para las cookies.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>A continuación se describe cada atributo y prefijo. El evaluador debe validar que la aplicación los utiliza correctamente. Las cookies pueden revisarse mediante un <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@intercepting-proxy">proxy de interceptación</a> o examinando el almacén de cookies (cookie jar) del navegador.</p>
+<h3 id="cookie-attributes">Atributos de las cookies</h3>
+<h4 id="secure-attribute">Atributo Secure</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#Secure" target="_blank" rel="noopener"><code>Secure</code></a> indica al navegador que solo envíe la cookie si la petición se realiza a través de un canal seguro como <code>HTTPS</code>. Esto ayuda a proteger la cookie de ser transmitida en peticiones sin cifrar. Si se puede acceder a la aplicación tanto por <code>HTTP</code> como por <code>HTTPS</code>, un atacante podría redirigir al usuario para que envíe su cookie como parte de peticiones no protegidas.</p>
+<h4 id="httponly-attribute">Atributo HttpOnly</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#HttpOnly" target="_blank" rel="noopener"><code>HttpOnly</code></a> se utiliza para ayudar a prevenir ataques como la fuga de sesión, ya que no permite que la cookie sea accesible mediante un script del lado del cliente como JavaScript.</p>
+<blockquote>
+<p>Esto no limita toda la superficie de ataque de los ataques XSS, ya que un atacante aún podría enviar peticiones en nombre del usuario, pero limita enormemente el alcance de los vectores de ataque XSS.</p>
+</blockquote>
+<h4 id="domain-attribute">Atributo Domain</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Scope_of_cookies" target="_blank" rel="noopener"><code>Domain</code></a> se utiliza para comparar el dominio de la cookie con el dominio del servidor al que se dirige la petición HTTP. Si el dominio coincide o si es un subdominio, a continuación se comprobará el atributo <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@path-attribute"><code>path</code></a>.</p>
+<p>Solo los hosts que pertenecen al dominio especificado pueden establecer una cookie para ese dominio. Además, el atributo <code>domain</code> no puede ser un dominio de nivel superior (como <code>.gov</code> o <code>.com</code>) para evitar que los servidores establezcan cookies arbitrarias para otro dominio (como establecer una cookie para <code>owasp.org</code>). Si no se establece el atributo domain, se utiliza como valor predeterminado de <code>domain</code> el nombre de host del servidor que generó la cookie.</p>
+<p>Por ejemplo, si una aplicación en <code>app.mydomain.com</code> establece una cookie sin atributo domain, la cookie se reenviaría en todas las peticiones posteriores a <code>app.mydomain.com</code>, pero no a sus subdominios (como <code>hacker.app.mydomain.com</code>) ni a <code>otherapp.mydomain.com</code>. (Sin embargo, las versiones antiguas de Edge/IE se comportan de forma diferente y <em>sí</em> envían estas cookies a los subdominios.) Si un desarrollador quisiera relajar esta restricción, podría establecer el atributo <code>domain</code> en <code>mydomain.com</code>. En este caso, la cookie se enviaría en todas las peticiones a <code>app.mydomain.com</code> y a los subdominios de <code>mydomain.com</code>, como <code>hacker.app.mydomain.com</code>, e incluso <code>bank.mydomain.com</code>. Si hubiera un servidor vulnerable en un subdominio (por ejemplo, <code>otherapp.mydomain.com</code>) y el atributo <code>domain</code> se hubiera establecido de forma demasiado laxa (por ejemplo, <code>mydomain.com</code>), el servidor vulnerable podría utilizarse para recolectar cookies (como tokens de sesión) en todo el alcance de <code>mydomain.com</code>.</p>
+<h4 id="path-attribute">Atributo Path</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Scope_of_cookies" target="_blank" rel="noopener"><code>Path</code></a> desempeña un papel importante al definir el alcance de las cookies junto con el <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@domain-attribute"><code>domain</code></a>. Además del dominio, se puede especificar la ruta de URL para la que es válida la cookie. Si el dominio y la ruta coinciden, la cookie se enviará en la petición. Al igual que con el atributo domain, si el atributo path se establece de forma demasiado laxa, podría dejar la aplicación vulnerable a ataques de otras aplicaciones en el mismo servidor. Por ejemplo, si el atributo path se estableciera en la raíz del servidor web <code>/</code>, las cookies de la aplicación se enviarían a todas las aplicaciones dentro del mismo dominio (si varias aplicaciones residen en el mismo servidor). Un par de ejemplos para múltiples aplicaciones en el mismo servidor:</p>
+<ul>
+<li><code>path=/bank</code></li>
+<li><code>path=/private</code></li>
+<li><code>path=/docs</code></li>
+<li><code>path=/docs/admin</code></li>
+</ul>
+<h4 id="expires-attribute">Atributo Expires</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Permanent_cookies" target="_blank" rel="noopener"><code>Expires</code></a> se utiliza para:</p>
+<ul>
+<li>establecer cookies persistentes</li>
+<li>limitar la vida útil si una sesión vive demasiado tiempo</li>
+<li>eliminar una cookie de forma forzada estableciéndola en una fecha pasada</li>
+</ul>
+<p>A diferencia de las <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Session_cookies" target="_blank" rel="noopener">cookies de sesión</a>, las cookies persistentes serán utilizadas por el navegador hasta que la cookie expire. Una vez superada la fecha de expiración establecida, el navegador eliminará la cookie.</p>
+<h4 id="samesite-attribute">Atributo SameSite</h4>
+<p>El atributo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#SameSite_cookies" target="_blank" rel="noopener"><code>SameSite</code></a> puede utilizarse para indicar si una cookie debe enviarse junto con peticiones entre sitios (cross-site). Esta característica permite al servidor mitigar el riesgo de fuga de información entre sitios. En algunos casos, se utiliza también como estrategia de reducción de riesgo (o mecanismo de defensa en profundidad) para prevenir ataques de <a href="#/4-Web_Application_Security_Testing/06-Session_Management/05-Cross_Site_Request_Forgery">cross-site request forgery</a>. Este atributo puede configurarse en tres modos diferentes:</p>
+<ul>
+<li><code>Strict</code></li>
+<li><code>Lax</code></li>
+<li><code>None</code></li>
+</ul>
+<p><code>SameSite</code> compara <a href="https://developer.mozilla.org/en-US/docs/Glossary/Site" target="_blank" rel="noopener">sitios</a>, no orígenes. Un sitio es el esquema y el dominio registrable, como <code>https://mydomain.com</code>, por lo que <code>https://app.mydomain.com</code> y <code>https://otherapp.mydomain.com</code> son el mismo sitio aunque sean orígenes distintos. <code>SameSite</code> no restringe las peticiones entre ellos. Si un atacante controla cualquier subdominio del mismo sitio, por ejemplo mediante XSS o una <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/10-Subdomain_Takeover">toma de control de subdominio</a>, puede enviar a la aplicación peticiones que incluyan sus cookies, incluso las <code>Strict</code>. Al evaluar cuánta protección ofrece <code>SameSite</code>, hay que considerar todos los subdominios del sitio.</p>
+<h5 id="strict-value">Valor Strict</h5>
+<p>El valor <code>Strict</code> es el uso más restrictivo de <code>SameSite</code>. El navegador envía la cookie solo en las peticiones que provienen del mismo sitio que la estableció, y nunca en peticiones entre sitios, incluidas las navegaciones de nivel superior, como seguir un enlace desde otro sitio. Este valor se recomienda especialmente para las acciones realizadas dentro del mismo sitio. Sin embargo, puede afectar la experiencia de navegación con algunos sistemas de gestión de sesiones. Cuando un usuario con sesión iniciada sigue un enlace a la aplicación desde otro sitio, como un cliente de correo web, el navegador no envía la cookie en esa primera petición, por lo que el usuario aparece como si hubiera cerrado sesión. La cookie se vuelve a enviar en la siguiente petición del mismo sitio, por ejemplo cuando el usuario sigue un enlace dentro de la aplicación.</p>
+<h5 id="lax-value">Valor Lax</h5>
+<p>El valor <code>Lax</code> es menos restrictivo que <code>Strict</code>. Permite que la cookie se envíe en <em>navegaciones de nivel superior</em> entre sitios que usen un método HTTP &quot;seguro&quot; (en la práctica, <code>GET</code>), por ejemplo, cuando un usuario sigue un enlace desde otro sitio. <strong>No</strong> envía la cookie en peticiones de <em>subrecursos</em> entre sitios, como las desencadenadas por las etiquetas <code>&lt;img&gt;</code>, <code>&lt;script&gt;</code> o <code>&lt;iframe&gt;</code>, <code>fetch()</code> o <code>XMLHttpRequest</code>, y tampoco envía la cookie en navegaciones entre sitios que usen <code>POST</code> u otros métodos no seguros.</p>
+<p>A partir de 2020, los navegadores basados en Chromium (Chrome, Edge, Opera) tratan cualquier cookie establecida <strong>sin</strong> un atributo <code>SameSite</code> explícito como <code>SameSite=Lax</code> de forma predeterminada. Firefox y Safari no aplican ese valor predeterminado. En esos navegadores, una cookie que omite <code>SameSite</code> sigue siendo elegible para enviarse en peticiones entre sitios, sujeta en cambio a sus propios controles de prevención de rastreo y de cookies de terceros (Enhanced Tracking Protection / Total Cookie Protection de Firefox, Intelligent Tracking Prevention de Safari). Obsérvese que omitir el atributo no es lo mismo que establecer <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@none-value"><code>SameSite=None</code></a>, que es un valor explícito que además requiere el atributo <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@secure-attribute"><code>Secure</code></a> para ser aceptado. Esos controles de prevención de rastreo son mecanismos de privacidad y no sustituyen el establecimiento de <code>SameSite</code>, y se comportan de manera diferente a una restricción explícita <code>SameSite=Lax</code>. Los evaluadores no deben asumir que una cookie está protegida contra CSRF solo porque una petición entre sitios parezca bloqueada en Firefox o Safari: hay que verificar la cabecera <code>Set-Cookie</code> real en lugar de inferir la protección a partir del comportamiento observado del navegador.</p>
+<p>Cuando un navegador basado en Chromium aplica <code>Lax</code> de forma predeterminada, usa una <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#samesitesamesite-value" target="_blank" rel="noopener">versión más permisiva de <code>Lax</code></a>: una cookie sin atributo <code>SameSite</code> se sigue enviando en peticiones <code>POST</code> de nivel superior entre sitios durante dos minutos después de establecerse. Las cookies que establecen explícitamente <code>SameSite=Lax</code> no tienen esta excepción. Esto significa que un <code>POST</code> entre sitios enviado poco después de que el usuario inicie sesión aún puede llevar una cookie de sesión que no tenga atributo <code>SameSite</code>.</p>
+<h5 id="none-value">Valor None</h5>
+<p>El valor <code>None</code> especifica que el navegador enviará la cookie en todos los contextos, incluidas las peticiones entre sitios (el comportamiento normal antes de la implementación de <code>SameSite</code>). Una cookie que establece <code>SameSite=None</code> también debe establecer el atributo <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@secure-attribute"><code>Secure</code></a>, <em>p. ej.</em> <code>SameSite=None; Secure</code>. Los navegadores basados en Chromium y Firefox rechazan una cookie <code>SameSite=None</code> sin <code>Secure</code>, de modo que la cookie no se almacena en absoluto. Safari no aplica este requisito (véase la <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#browser_compatibility" target="_blank" rel="noopener">tabla de compatibilidad de navegadores en MDN</a>).</p>
+<h3 id="cookie-prefixes">Prefijos de las cookies</h3>
+<p>Por diseño, las cookies no tienen la capacidad de garantizar la integridad y la confidencialidad de la información almacenada en ellas. Esas limitaciones hacen imposible que un servidor tenga confianza sobre cómo se establecieron los atributos de una cookie dada en el momento de su creación. Para dar a los servidores tales capacidades de forma retrocompatible, la industria ha introducido el concepto de <a href="https://tools.ietf.org/html/draft-ietf-httpbis-cookie-prefixes-00" target="_blank" rel="noopener"><code>Cookie Name Prefixes</code></a> (prefijos en el nombre de la cookie) para facilitar el paso de dichos detalles incrustados como parte del nombre de la cookie.</p>
+<h4 id="host-prefix">Prefijo Host</h4>
+<p>El prefijo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Cookie_prefixes" target="_blank" rel="noopener"><code>__Host-</code></a> espera que las cookies cumplan las siguientes condiciones:</p>
+<ol>
+<li>La cookie debe establecerse con el <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@secure-attribute">atributo <code>Secure</code></a>.</li>
+<li>La cookie debe establecerse desde un URI considerado seguro por el agente de usuario.</li>
+<li>Se envía solo al host que estableció la cookie y NO DEBE incluir ningún <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@domain-attribute">atributo <code>Domain</code></a>.</li>
+<li>La cookie debe establecerse con el <a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes@path-attribute">atributo <code>Path</code></a> con un valor de <code>/</code> para que se envíe con cada petición al host.</li>
+</ol>
+<p>Por esta razón, la cookie <code>Set-Cookie: __Host-SID=12345; Secure; Path=/</code> sería aceptada, mientras que cualquiera de las siguientes sería siempre rechazada:
+<code>Set-Cookie: __Host-SID=12345</code>
+<code>Set-Cookie: __Host-SID=12345; Secure</code>
+<code>Set-Cookie: __Host-SID=12345; Domain=site.example</code>
+<code>Set-Cookie: __Host-SID=12345; Domain=site.example; Path=/</code>
+<code>Set-Cookie: __Host-SID=12345; Secure; Domain=site.example; Path=/</code></p>
+<h4 id="secure-prefix">Prefijo Secure</h4>
+<p>El prefijo <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#Cookie_prefixes" target="_blank" rel="noopener"><code>__Secure-</code></a> es menos restrictivo y se puede introducir añadiendo al nombre de la cookie la cadena <code>__Secure-</code>, que distingue entre mayúsculas y minúsculas. Se esperaría que cualquier cookie que coincida con el prefijo <code>__Secure-</code> cumpla las siguientes condiciones:</p>
+<ol>
+<li>La cookie debe establecerse con el atributo <code>Secure</code>.</li>
+<li>La cookie debe establecerse desde un URI considerado seguro por el agente de usuario.</li>
+</ol>
+<h3 id="strong-practices">Buenas prácticas</h3>
+<p>Según las necesidades de la aplicación y cómo deba funcionar la cookie, deben aplicarse los atributos y prefijos. Cuanto más blindada esté la cookie, mejor.</p>
+<p>Juntando todo esto, podemos definir la configuración de atributos de cookie más segura como: <code>Set-Cookie: __Host-SID=&lt;session token&gt;; path=/; Secure; HttpOnly; SameSite=Strict</code>.</p>
+<h2 id="tools">Herramientas</h2>
+<h3 id="intercepting-proxy">Proxy de interceptación</h3>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://portswigger.net" target="_blank" rel="noopener">Web Proxy Burp Suite</a></li>
+</ul>
+<h3 id="browser-plug-in">Plug-in de navegador</h3>
+<ul>
+<li>Herramientas de desarrollo del navegador (panel Application o Storage)</li>
+<li><a href="https://github.com/codebutler/firesheep" target="_blank" rel="noopener">&quot;FireSheep&quot; for FireFox</a></li>
+<li><a href="https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank" rel="noopener">&quot;Cookie-Editor&quot; for Chrome</a></li>
+<li><a href="https://addons.mozilla.org/en-US/firefox/addon/cookiebro/" target="_blank" rel="noopener">&quot;Cookiebro - Cookie Manager&quot; for FireFox</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://tools.ietf.org/html/rfc2965" target="_blank" rel="noopener">RFC 2965 - HTTP State Management Mechanism</a></li>
+<li><a href="https://tools.ietf.org/html/rfc2616" target="_blank" rel="noopener">RFC 2616 - Hypertext Transfer Protocol - HTTP 1.1</a></li>
+<li><a href="https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/" target="_blank" rel="noopener">Cookies: HTTP State Management Mechanism - draft-ietf-httpbis-rfc6265bis</a></li>
+<li><a href="https://seckb.yehg.net/2012/02/important-expires-attribute-of-set.html" target="_blank" rel="noopener">The important &quot;expires&quot; attribute of Set-Cookie</a></li>
+<li><a href="https://seckb.yehg.net/2012/06/httponly-session-id-in-url-and-page.html" target="_blank" rel="noopener">HttpOnly Session ID in URL and Page Body</a></li>
+<li><a href="https://learn.microsoft.com/en-gb/archive/blogs/ieinternals/internet-explorer-cookie-internals-faq" target="_blank" rel="noopener">Internet Explorer Cookie Internals (FAQ)</a></li>
+</ul>

@@ -1,0 +1,108 @@
+<h1 id="client-side-template-injection">Inyección de plantillas del lado del cliente</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CLNT-15</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La Client-Side Template Injection (CSTI), también conocida como DOM-based Template Injection, surge cuando las aplicaciones que usan frameworks del lado del cliente (como Angular, Vue.js o Alpine.js) incrustan dinámicamente entrada del usuario en el DOM de la página web. Si esta entrada se incrusta en una expresión de plantilla o es interpretada por el motor de plantillas del framework, un atacante puede inyectar directivas maliciosas.</p>
+<p>A diferencia de la <a href="#/4-Web_Application_Security_Testing/07-Injection/18-Server-side_Template_Injection">Server-Side Template Injection (SSTI)</a>, en la que la plantilla se renderiza en el servidor, la CSTI ocurre por completo dentro del navegador del usuario. Cuando el framework recorre el DOM en busca de contenido dinámico, puede ejecutar las expresiones de plantilla inyectadas. Esto suele conducir a Cross-Site Scripting (XSS), pero el método de inyección y explotación difiere del XSS estándar porque el payload debe seguir la sintaxis específica del motor de plantillas (p. ej., <code>{{ 7*7 }}</code>).</p>
+<p>Esta vulnerabilidad es particularmente común en las Single Page Applications (SPA), donde los desarrolladores pueden depender del renderizado del lado del cliente sin una separación estricta de contextos.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar el framework del lado del cliente y su versión utilizados por la aplicación.</li>
+<li>Detectar los puntos de inyección donde la entrada del usuario se refleja en el DOM y es procesada por el motor de plantillas.</li>
+<li>Evaluar si la inyección permite la ejecución arbitraria de JavaScript (XSS) mediante la sintaxis de plantillas.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<h4 id="framework-identification">Identificación del framework</h4>
+<p>El primer paso es identificar si se usa un framework del lado del cliente. Los evaluadores deben buscar atributos específicos en el código fuente HTML o cabeceras de respuesta HTTP específicas.</p>
+<ul>
+<li><strong>Angular:</strong> Buscar atributos como <code>ng-app</code>, <code>ng-model</code> o <code>ng-bind</code>.</li>
+<li><strong>Vue.js:</strong> Buscar atributos que comiencen con <code>v-</code>, como <code>v-if</code>, <code>v-for</code>, o la presencia del objeto global Vue en la consola.</li>
+<li><strong>Alpine.js:</strong> Buscar <code>x-data</code>, <code>x-html</code>.</li>
+</ul>
+<h4 id="injection-detection">Detección de la inyección</h4>
+<p>Para detectar CSTI, los evaluadores deben inyectar caracteres sintácticamente significativos para el motor de plantillas. La sintaxis más común de interpolación en muchos frameworks son las dobles llaves <code>{{ }}</code>.</p>
+<p>Una operación aritmética sencilla es la sonda estándar. Si la aplicación evalúa la operación, es vulnerable.</p>
+<p><strong>Sonda genérica:</strong></p>
+<pre><code class="language-txt">Inject the string: {{ 7*7 }}
+</code></pre>
+<ul>
+<li>Si la aplicación muestra <code>49</code>, hay CSTI.</li>
+<li>Si la aplicación muestra <code>{{ 7*7 }}</code>, probablemente no es vulnerable o existe un escapado contextual estricto.</li>
+</ul>
+<h4 id="angular">Angular</h4>
+<p>Angular actúa sobre el DOM. Si un atacante puede inyectar en el DOM una cadena que contenga expresiones de Angular antes de que Angular se inicialice (bootstrap) o lo compile, la expresión se ejecutará.</p>
+<p><strong>Payloads para detección:</strong></p>
+<ul>
+<li><code>{{ 7*7 }}</code></li>
+<li><code>{{ constructor.constructor(&#39;alert(1)&#39;)() }}</code></li>
+</ul>
+<p>En las versiones antiguas de Angular (1.x), el motor de plantillas funciona en un sandbox. La explotación requiere salir de este sandbox. La complejidad del payload depende en gran medida de la versión específica.</p>
+<p><strong>Payload de ejemplo (evasión del sandbox de Angular 1.5.x):</strong></p>
+<pre><code class="language-javascript">{{x={&#39;y&#39;:&#39;&#39;.constructor.prototype};x[&#39;y&#39;].charAt=[].join;$eval(&#39;x=alert(1)&#39;);}}
+</code></pre>
+<h4 id="vuejs">Vue.js</h4>
+<p>Vue.js también es susceptible si los desarrolladores usan la directiva <code>v-html</code> con entrada del usuario o si montan una instancia de Vue sobre un elemento del DOM que ya contiene HTML controlado por el usuario.</p>
+<p><strong>Payloads para detección:</strong></p>
+<ul>
+<li><code>{{ 7*7 }}</code></li>
+</ul>
+<p><strong>Payload de ejemplo (Vue.js 2.x):</strong></p>
+<pre><code class="language-javascript">{{_v.constructor(&#39;alert(1)&#39;)()}}
+</code></pre>
+<h4 id="alpinejs">Alpine.js</h4>
+<p>Alpine.js depende en gran medida de los atributos del DOM. Si un atacante puede controlar el nombre de un atributo o inyectar en una directiva, puede ejecutar código.</p>
+<p><strong>Payload de ejemplo:</strong></p>
+<pre><code class="language-html">&lt;div x-data=&quot;&quot; x-html=&quot;&#39;&lt;img src=x onerror=alert(1)&gt;&#39;&quot;&gt;&lt;/div&gt;
+</code></pre>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<h4 id="code-review">Revisión de código</h4>
+<p>En un escenario de caja gris, los evaluadores verifican cómo se maneja la entrada del usuario en el código del frontend. La clave es identificar dónde se usan &quot;sinks&quot; que interpretan HTML o sintaxis de plantillas con fuentes &quot;contaminadas&quot; (entrada del usuario).</p>
+<p><strong>Sinks de Angular:</strong>
+Buscar usos de <code>$compile</code> o <code>ng-bind-html</code>.
+Si se usa <code>ng-bind-html</code>, comprobar si <code>$sce</code> (Strict Contextual Escaping) está configurado correctamente o si se usa <code>$sce.trustAsHtml()</code> sobre datos no confiables.</p>
+<pre><code class="language-javascript">// Vulnerable example in Angular
+$scope.htmlSnippet = $sce.trustAsHtml(userInput);
+</code></pre>
+<p><strong>Sinks de Vue.js:</strong>
+Buscar la directiva <code>v-html</code>. Usar <code>v-html</code> sobre contenido proporcionado por el usuario es una causa principal de CSTI/XSS en Vue.</p>
+<pre><code class="language-html">&lt;div v-html=&quot;userProvidedComment&quot;&gt;&lt;/div&gt;
+</code></pre>
+<p><strong>Sinks de React:</strong>
+Aunque React es generalmente más seguro respecto a la inyección de plantillas porque no recorre el DOM en busca de plantillas (JSX se compila), el uso indebido de <code>dangerouslySetInnerHTML</code> permite XSS basado en DOM, que es el equivalente en React del perfil de riesgo que se analiza aquí.</p>
+<pre><code class="language-javascript">// Vulnerable example in React
+&lt;div dangerouslySetInnerHTML={{__html: userContent}} /&gt;
+</code></pre>
+<h4 id="configuration-review">Revisión de la configuración</h4>
+<p>Hay que revisar específicamente las cabeceras de Content Security Policy (CSP). Una CSP robusta puede mitigar el impacto de la CSTI al restringir desde dónde se pueden cargar scripts o al impedir la ejecución de scripts en línea (incluidos los generados por motores de plantillas).</p>
+<p>Hay que buscar <code>unsafe-eval</code> en la CSP. Muchos motores de plantillas (especialmente los más antiguos) requieren <code>unsafe-eval</code> para compilar plantillas dinámicamente. Si <code>unsafe-eval</code> está presente, los ataques de CSTI son significativamente más fáciles de explotar.</p>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li><strong>Evitar renderizar entrada del usuario como HTML:</strong> Siempre que sea posible, usar directivas seguras que traten la entrada solo como texto.<ul>
+<li>Angular: Usar <code>ng-bind</code> en lugar de <code>ng-bind-html</code>.</li>
+<li>Vue: Usar <code>v-text</code> o llaves <code>{{ }}</code> (que escapan HTML automáticamente) en lugar de <code>v-html</code>.</li>
+<li>React: Evitar <code>dangerouslySetInnerHTML</code>.</li>
+</ul>
+</li>
+<li><strong>Saneamiento:</strong> Si se requiere renderizar HTML, usar una biblioteca de saneamiento dedicada (como DOMPurify) para eliminar etiquetas y atributos peligrosos antes de pasar los datos al framework.</li>
+<li><strong>Content Security Policy (CSP):</strong> Implementar una CSP estricta que deshabilite <code>unsafe-eval</code> y restrinja las fuentes de scripts.</li>
+<li><strong>Usar compilación offline:</strong> Para frameworks como Vue o React, es preferible usar pasos de compilación (webpack, vite) que compilen las plantillas con antelación en lugar de usar el compilador en tiempo de ejecución que analiza el contenido del DOM.</li>
+</ul>
+<h3 id="tools">Herramientas</h3>
+<ul>
+<li><a href="https://github.com/cure53/DOMPurify" target="_blank" rel="noopener">DOMPurify</a>: A DOM-only, super-fast, uber-tolerant XSS sanitizer for HTML, MathML, and SVG.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers-and-articles">Whitepapers y artículos</h3>
+<ul>
+<li><a href="https://portswigger.net/research/server-side-template-injection" target="_blank" rel="noopener">PortSwigger: Client-Side Template Injection</a></li>
+<li><a href="https://portswigger.net/research/dom-based-angularjs-sandbox-escapes" target="_blank" rel="noopener">Gareth Heyes: Angular Sandbox Bypasses</a></li>
+<li><a href="https://vuejs.org/guide/best-practices/security.html" target="_blank" rel="noopener">Vue.js Security Guide</a></li>
+<li><a href="https://angular.dev/best-practices/security" target="_blank" rel="noopener">Angular Security Guide</a></li>
+<li><a href="https://ieeexplore.ieee.org/document/11352459" target="_blank" rel="noopener">{{alert(’CSTI’)}}: Large-Scale Detection of Client-Side Template Injection</a></li>
+</ul>

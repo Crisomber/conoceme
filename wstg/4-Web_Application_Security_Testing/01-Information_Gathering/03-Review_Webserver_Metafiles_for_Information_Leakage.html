@@ -1,0 +1,177 @@
+<h1 id="review-webserver-metafiles-for-information-leakage">Revisión de los metaarchivos del servidor web para detectar fuga de información</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INFO-03</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Esta sección describe cómo probar diversos archivos de metadatos en busca de fuga de información sobre las rutas o la funcionalidad de la aplicación web. Además, la lista de directorios que deben evitar los spiders, robots o crawlers también puede crearse como dependencia de <a href="#/4-Web_Application_Security_Testing/01-Information_Gathering/07-Map_Execution_Paths_Through_Application">Map execution paths through application</a>. También puede recopilarse otra información para identificar la superficie de ataque, detalles de tecnología o para su uso en trabajos de ingeniería social.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar rutas y funcionalidad ocultas u ofuscadas mediante el análisis de archivos de metadatos.</li>
+<li>Extraer y mapear otra información que pueda llevar a una mejor comprensión de los sistemas en cuestión.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<blockquote>
+<p>Cualquiera de las acciones realizadas a continuación con <code>wget</code> también podría hacerse con <code>curl</code>. Muchas herramientas de pruebas dinámicas de seguridad de aplicaciones (DAST), como ZAP y Burp Suite, incluyen comprobaciones o análisis de estos recursos como parte de su funcionalidad de spider/crawler. También pueden identificarse mediante diversos <a href="https://en.wikipedia.org/wiki/Google_hacking" target="_blank" rel="noopener">Google Dorks</a> o aprovechando funciones de búsqueda avanzada como <code>inurl:</code>.</p>
+</blockquote>
+<h3 id="robots">Robots</h3>
+<p>Los Web Spiders, Robots o Crawlers obtienen una página web y luego recorren recursivamente los hipervínculos para obtener más contenido web. Su comportamiento aceptado se especifica mediante el <a href="https://datatracker.ietf.org/doc/html/rfc9309" target="_blank" rel="noopener">Robots Exclusion Protocol</a> (<a href="https://datatracker.ietf.org/doc/html/rfc9309" target="_blank" rel="noopener">RFC 9309</a>) a través de un archivo <code>robots.txt</code> en el directorio raíz web.</p>
+<p>Como ejemplo, a continuación se cita una muestra del archivo <code>robots.txt</code> de <a href="https://www.google.com/robots.txt" target="_blank" rel="noopener">Google</a> tomada el 13 de septiembre de 2026:</p>
+<pre><code class="language-text">User-agent: *
+User-agent: Yandex
+Disallow: /search
+Allow: /search/about
+Allow: /search/howsearchworks
+Disallow: /sdch
+Disallow: /groups
+...
+# Crawlers of certain social media sites are allowed to access page markup when
+# google.com/imgres* links are shared. To learn more, please contact
+# images-robots-allowlist@google.com.
+User-agent: facebookexternalhit
+User-agent: Twitterbot
+Allow: /imgres
+Allow: /search
+Disallow: /groups
+Disallow: /hosted/images/
+Disallow: /m/
+
+Sitemap: https://www.google.com/sitemap.xml
+</code></pre>
+<p>La directiva <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/User-Agent" target="_blank" rel="noopener">User-Agent</a> se refiere al web spider/robot/crawler específico. Por ejemplo, <code>User-Agent: Googlebot</code> se refiere al spider de Google, mientras que <code>User-Agent: bingbot</code> se refiere a un crawler de Microsoft. <code>User-Agent: *</code> en el ejemplo anterior se aplica a todos los <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank" rel="noopener">web spiders/robots/crawlers</a>.</p>
+<p>La directiva <code>Disallow</code> especifica qué recursos tienen prohibidos los spiders/robots/crawlers. En el ejemplo anterior, están prohibidos los siguientes:</p>
+<pre><code class="language-text">...
+Disallow: /search
+...
+Disallow: /sdch
+...
+</code></pre>
+<p>Los web spiders/robots/crawlers pueden <a href="https://blog.cloudflare.com/perplexity-is-using-stealth-undeclared-crawlers-to-evade-website-no-crawl-directives/" target="_blank" rel="noopener">ignorar intencionalmente</a> las directivas <code>Disallow</code> especificadas en un archivo <code>robots.txt</code>. Por lo tanto, <code>robots.txt</code> no debe considerarse un mecanismo para imponer restricciones sobre cómo terceros acceden, almacenan o republican el contenido web.</p>
+<p>El archivo <code>robots.txt</code> se obtiene del directorio raíz web del servidor web. Por ejemplo, para obtener el <code>robots.txt</code> de <code>www.google.com</code> usando <code>wget</code> o <code>curl</code>:</p>
+<pre><code class="language-bash">$ curl -O -Ss https://www.google.com/robots.txt &amp;&amp; head -n5 robots.txt
+User-agent: *
+Disallow: /search
+Allow: /search/about
+Allow: /search/static
+Allow: /search/howsearchworks
+...
+</code></pre>
+<h4 id="ai-crawlers">Crawlers de IA</h4>
+<p>Se ha observado que muchos crawlers de IA, utilizados por empresas de IA para recopilar datos de entrenamiento, ignoran las directivas de <code>robots.txt</code>. Desarrolladores y propietarios de sitios han explorado contramedidas para proteger su contenido; como se describe en <a href="https://techcrunch.com/2025/03/27/open-source-devs-are-fighting-ai-crawlers-with-cleverness-and-vengeance/" target="_blank" rel="noopener">un artículo de TechCrunch de 2025</a>, la comunidad de código abierto ha respondido con tácticas como generar contenido falso interminable para consumir los recursos de los crawlers, o servir datos engañosos para degradar la calidad de los conjuntos de entrenamiento de IA. La <a href="https://www.fsf.org/blogs/sysadmin/our-small-team-vs-millions-of-bots" target="_blank" rel="noopener">Free Software Foundation</a> también ha documentado la carga operativa que los grandes volúmenes de crawlers de IA imponen a los equipos pequeños, destacando cómo incluso las reglas de <code>robots.txt</code> bienintencionadas se ignoran de forma rutinaria.</p>
+<p>Desde la perspectiva de las pruebas, las entradas de <code>robots.txt</code> destinadas a bloquear crawlers de IA (por ejemplo, <code>User-Agent: GPTBot</code>, <code>User-Agent: ClaudeBot</code>) pueden ser ineficaces, y las rutas sensibles listadas en <code>robots.txt</code> siguen siendo descubribles por cualquier crawler que ignore el protocolo.</p>
+<h4 id="analyze-robotstxt-using-google-webmaster-tools">Análisis de robots.txt con Google Webmaster Tools</h4>
+<p>Los propietarios de sitios pueden usar la función &quot;Analyze robots.txt&quot; de Google para analizar el sitio como parte de <a href="https://search.google.com/search-console/about" target="_blank" rel="noopener">Google Webmaster Tools</a>. Esta herramienta puede ayudar en las pruebas y el procedimiento es el siguiente:</p>
+<ol>
+<li>Inicia sesión en Google Webmaster Tools con una cuenta de Google.</li>
+<li>En el panel, introduce la URL del sitio que se analizará.</li>
+<li>Elige entre los métodos disponibles y sigue las instrucciones en pantalla.</li>
+</ol>
+<h3 id="meta-tags">Etiquetas META</h3>
+<p>Las etiquetas <code>&lt;META&gt;</code> se ubican dentro de la sección <code>HEAD</code> de cada documento HTML y deben ser consistentes en todo el sitio, para el caso en que el punto de partida del robot/spider/crawler no comience desde un enlace de documento distinto de la raíz web, es decir, un <a href="https://en.wikipedia.org/wiki/Deep_linking" target="_blank" rel="noopener">enlace profundo (deep link)</a>. La directiva Robots también puede especificarse mediante una <a href="https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag" target="_blank" rel="noopener">etiqueta META</a> específica.</p>
+<h4 id="robots-meta-tag">Etiqueta META Robots</h4>
+<p>Si no existe una entrada <code>&lt;META NAME=&quot;ROBOTS&quot; ... &gt;</code>, el &quot;Robots Exclusion Protocol&quot; asume por defecto <code>INDEX,FOLLOW</code> respectivamente. Por lo tanto, las otras dos entradas válidas definidas por el &quot;Robots Exclusion Protocol&quot; llevan el prefijo <code>NO...</code>, es decir, <code>NOINDEX</code> y <code>NOFOLLOW</code>.</p>
+<p>Con base en las directivas Disallow listadas en el archivo <code>robots.txt</code> de la raíz web, se realiza una búsqueda mediante expresión regular de <code>&lt;META NAME=&quot;ROBOTS&quot;</code> dentro de cada página web. El resultado se compara luego con el archivo robots.txt de la raíz web.</p>
+<h4 id="miscellaneous-meta-information-tags">Etiquetas META de información diversa</h4>
+<p>Las organizaciones suelen incrustar etiquetas META informativas en el contenido web para dar soporte a diversas tecnologías, como lectores de pantalla, vistas previas en redes sociales, indexación en motores de búsqueda, etc. Esta metainformación puede ser valiosa para los evaluadores a la hora de identificar las tecnologías utilizadas y rutas o funcionalidades adicionales que explorar y probar. La siguiente metainformación se obtuvo de <code>www.whitehouse.gov</code> mediante &quot;Ver código fuente de la página&quot; el 13 de septiembre de 2026:</p>
+<pre><code class="language-html">...
+&lt;meta name=&quot;description&quot; content=&quot;President Donald J. Trump and Vice President JD Vance are committed to lowering costs for all Americans, securing our borders, unleashing American energy dominance, restoring peace through strength, and making all Americans safe and secure once again.&quot; /&gt;
+&lt;link rel=&quot;canonical&quot; href=&quot;https://www.whitehouse.gov/&quot; /&gt;
+&lt;meta property=&quot;og:locale&quot; content=&quot;en_US&quot; /&gt;
+&lt;meta property=&quot;og:type&quot; content=&quot;website&quot; /&gt;
+&lt;meta property=&quot;og:title&quot; content=&quot;The White House&quot; /&gt;
+&lt;meta property=&quot;og:description&quot; content=&quot;President Donald J. Trump and Vice President JD Vance are committed to lowering costs for all Americans, securing our borders, unleashing American energy dominance, restoring peace through strength, and making all Americans safe and secure once again.&quot; /&gt;
+&lt;meta property=&quot;og:url&quot; content=&quot;https://www.whitehouse.gov/&quot; /&gt;
+&lt;meta property=&quot;og:site_name&quot; content=&quot;The White House&quot; /&gt;
+&lt;meta property=&quot;article:publisher&quot; content=&quot;https://www.facebook.com/WhiteHouse/&quot; /&gt;
+&lt;meta property=&quot;article:modified_time&quot; content=&quot;2026-07-22T13:21:31+00:00&quot; /&gt;
+&lt;meta property=&quot;og:image&quot; content=&quot;https://www.whitehouse.gov/wp-content/uploads/2025/03/WH47-Social-Share-Card.jpg&quot; /&gt;
+...
+&lt;meta property=&quot;og:image:type&quot; content=&quot;image/jpeg&quot; /&gt;
+&lt;meta name=&quot;twitter:card&quot; content=&quot;summary_large_image&quot; /&gt;
+&lt;meta name=&quot;twitter:title&quot; content=&quot;The White House&quot; /&gt;
+...
+&lt;meta name=&quot;twitter:image&quot; content=&quot;https://www.whitehouse.gov/wp-content/uploads/2025/03/WH47-Social-Share-Card.jpg&quot; /&gt;
+&lt;meta name=&quot;twitter:site&quot; content=&quot;@whitehouse&quot; /&gt;
+...
+</code></pre>
+<h3 id="sitemaps">Sitemaps</h3>
+<p>Un sitemap es un archivo donde un desarrollador u organización puede proporcionar información sobre las páginas, los videos y otros archivos que ofrece el sitio o la aplicación, y la relación entre ellos. Los motores de búsqueda pueden usar este archivo para navegar por el sitio de manera más eficiente. Del mismo modo, los evaluadores pueden utilizar los archivos &#39;sitemap.xml&#39; para obtener una visión más profunda del sitio o la aplicación investigados.</p>
+<p>El siguiente fragmento proviene del sitemap principal de Google, obtenido el 5 de mayo de 2020.</p>
+<pre><code class="language-bash">$ wget --no-verbose https://www.google.com/sitemap.xml &amp;&amp; head -n8 sitemap.xml
+2020-05-05 12:23:30 URL:https://www.google.com/sitemap.xml [2049] -&gt; &quot;sitemap.xml&quot; [1]
+
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;sitemapindex xmlns=&quot;https://www.google.com/schemas/sitemap/0.84&quot;&gt;
+  &lt;sitemap&gt;
+    &lt;loc&gt;https://www.google.com/gmail/sitemap.xml&lt;/loc&gt;
+  &lt;/sitemap&gt;
+  &lt;sitemap&gt;
+    &lt;loc&gt;https://www.google.com/forms/sitemaps.xml&lt;/loc&gt;
+  &lt;/sitemap&gt;
+...
+</code></pre>
+<p>Explorando a partir de ahí, un evaluador puede querer obtener el sitemap de gmail <code>https://www.google.com/gmail/sitemap.xml</code>:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;urlset xmlns=&quot;https://www.sitemaps.org/schemas/sitemap/0.9&quot; xmlns:xhtml=&quot;https://www.w3.org/1999/xhtml&quot;&gt;
+  &lt;url&gt;
+    &lt;loc&gt;https://www.google.com/intl/am/gmail/about/&lt;/loc&gt;
+    &lt;xhtml:link href=&quot;https://www.google.com/gmail/about/&quot; hreflang=&quot;x-default&quot; rel=&quot;alternate&quot;/&gt;
+    &lt;xhtml:link href=&quot;https://www.google.com/intl/el/gmail/about/&quot; hreflang=&quot;el&quot; rel=&quot;alternate&quot;/&gt;
+    &lt;xhtml:link href=&quot;https://www.google.com/intl/it/gmail/about/&quot; hreflang=&quot;it&quot; rel=&quot;alternate&quot;/&gt;
+    &lt;xhtml:link href=&quot;https://www.google.com/intl/ar/gmail/about/&quot; hreflang=&quot;ar&quot; rel=&quot;alternate&quot;/&gt;
+...
+</code></pre>
+<h3 id="security-txt">Security TXT</h3>
+<p><a href="https://securitytxt.org" target="_blank" rel="noopener">security.txt</a> fue ratificado por el IETF como <a href="https://www.rfc-editor.org/rfc/rfc9116.html" target="_blank" rel="noopener">RFC 9116 - A File Format to Aid in Security Vulnerability Disclosure</a>, que permite a los sitios definir políticas de seguridad y datos de contacto. Hay múltiples razones por las que esto puede ser de interés en escenarios de prueba, entre las que se incluyen, sin limitarse a ellas:</p>
+<ul>
+<li>Identificar rutas o recursos adicionales que incluir en el descubrimiento y análisis.</li>
+<li>Recopilación de inteligencia de fuentes abiertas.</li>
+<li>Encontrar información sobre programas de recompensas por errores (Bug Bounties), etc.</li>
+<li>Ingeniería social.</li>
+</ul>
+<p>El archivo puede estar presente en la raíz del servidor web o en el directorio <code>.well-known/</code>, por ejemplo:</p>
+<ul>
+<li><code>https://example.com/security.txt</code></li>
+<li><code>https://example.com/.well-known/security.txt</code></li>
+</ul>
+<p>Este es un ejemplo del mundo real obtenido de LinkedIn el 5 de mayo de 2020:</p>
+<pre><code class="language-bash">$ wget --no-verbose https://www.linkedin.com/.well-known/security.txt &amp;&amp; cat security.txt
+2020-05-07 12:56:51 URL:https://www.linkedin.com/.well-known/security.txt [333/333] -&gt; &quot;security.txt&quot; [1]
+# Conforms to IETF `draft-foudil-securitytxt-07`
+Contact: mailto:security@linkedin.com
+Contact: https://www.linkedin.com/help/linkedin/answer/62924
+Encryption: https://www.linkedin.com/help/linkedin/answer/79676
+Canonical: https://www.linkedin.com/.well-known/security.txt
+Policy: https://www.linkedin.com/help/linkedin/answer/62924
+</code></pre>
+<p>Las claves públicas OpenPGP contienen algunos metadatos que pueden proporcionar información sobre la propia clave. Estos son algunos elementos de metadatos comunes que pueden extraerse de una clave pública OpenPGP:</p>
+<ul>
+<li><strong>Key ID</strong>: el Key ID es un identificador corto derivado del material de la clave pública. Ayuda a identificar la clave y suele mostrarse como un valor hexadecimal de ocho caracteres.</li>
+<li><strong>Key Fingerprint</strong>: la huella de la clave (Key Fingerprint) es un identificador más largo y más único derivado del material de la clave. Suele mostrarse como un valor hexadecimal de 40 caracteres. Las huellas de clave se utilizan comúnmente para verificar la integridad y autenticidad de una clave pública.</li>
+<li><strong>Key Algorithm</strong>: el algoritmo de la clave (Key Algorithm) representa el algoritmo criptográfico utilizado por la clave pública. OpenPGP admite varios algoritmos, como RSA, DSA y ECC (criptografía de curva elíptica).</li>
+<li><strong>Key Size</strong>: el tamaño de la clave (Key Size) se refiere a la longitud o tamaño de la clave criptográfica en bits. Indica la fortaleza de la clave y determina el nivel de seguridad que ofrece.</li>
+<li><strong>Key Creation Date</strong>: la fecha de creación de la clave (Key Creation Date) indica cuándo se generó o creó la clave.</li>
+<li><strong>Key Expiration Date</strong>: las claves públicas OpenPGP pueden tener una fecha de expiración, tras la cual se consideran inválidas. La fecha de expiración de la clave (Key Expiration Date) especifica cuándo deja de ser válida.</li>
+<li><strong>User IDs</strong>: las claves públicas pueden tener uno o más User IDs asociados que identifican al propietario o entidad asociada con la clave. Los User IDs suelen incluir información como el nombre, la dirección de correo electrónico y comentarios opcionales del propietario de la clave.</li>
+</ul>
+<h3 id="humans-txt">Humans TXT</h3>
+<p><code>humans.txt</code> es una iniciativa para conocer a las personas detrás de un sitio. Toma la forma de un archivo de texto que contiene información sobre las diferentes personas que han contribuido a construir el sitio. Este archivo suele (pero no siempre) contener información relacionada con sitios o rutas de carreras profesionales o empleos.</p>
+<p>El siguiente ejemplo se obtuvo de Google el 5 de mayo de 2020:</p>
+<pre><code class="language-bash">$ wget --no-verbose  https://www.google.com/humans.txt &amp;&amp; cat humans.txt
+2020-05-07 12:57:52 URL:https://www.google.com/humans.txt [286/286] -&gt; &quot;humans.txt&quot; [1]
+Google is built by a large team of engineers, designers, researchers, robots, and others in many different sites across the globe. It is updated continuously, and built with more tools and technologies than we can shake a stick at. If you&#39;d like to help us out, see careers.google.com.
+</code></pre>
+<h3 id="other-well-known-information-sources">Otras fuentes de información en .well-known</h3>
+<p>Hay otros RFC y borradores de internet que sugieren usos estandarizados de archivos dentro del directorio <code>.well-known/</code>. Se pueden encontrar listas de estos <a href="https://en.wikipedia.org/wiki/List_of_/.well-known/_services_offered_by_webservers" target="_blank" rel="noopener">aquí en Wikipedia</a> o <a href="https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml" target="_blank" rel="noopener">aquí en IANA</a>.</p>
+<p>Sería bastante sencillo para un evaluador revisar los RFC y borradores y crear una lista para proporcionársela a un crawler o fuzzer, con el fin de verificar la existencia o el contenido de dichos archivos.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li>Navegador (Ver código fuente o funcionalidad de Dev Tools)</li>
+<li>curl</li>
+<li>wget</li>
+<li>Burp Suite</li>
+<li>ZAP</li>
+</ul>

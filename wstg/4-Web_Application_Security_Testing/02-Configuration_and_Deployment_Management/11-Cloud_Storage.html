@@ -1,0 +1,137 @@
+<h1 id="cloud-storage">Almacenamiento en la nube</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-11</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Los servicios de almacenamiento en la nube (AWS S3, Azure Blob Storage, Google Cloud Storage y equivalentes) permiten a las aplicaciones web almacenar y acceder a objetos sin ejecutar sus propios servidores de archivos. Sin embargo, una configuración inadecuada del control de acceso puede dar lugar a la exposición de información sensible, la manipulación de datos o el acceso no autorizado. Por defecto, el almacenamiento de los tres principales proveedores es privado y accesible solo para las identidades a las que se ha concedido acceso explícitamente, pero un bucket/contenedor, o los objetos individuales que contiene, pueden hacerse públicos, ya sea deliberadamente (y de forma demasiado amplia) o por error, lo que permite a un usuario no autorizado leer, subir o modificar datos.</p>
+<p>Más allá del acceso público a nivel de bucket, esta clase de problema también abarca: configuraciones incorrectas de ACL/políticas IAM que otorgan a principales específicos más acceso del previsto; debilidades en las URL firmadas/prefirmadas utilizadas para conceder acceso limitado en el tiempo sin credenciales completas; y la configuración del versionado/ciclo de vida de objetos, que puede dejar recuperables datos sensibles más antiguos o supuestamente eliminados, o trasladarlos a ubicaciones con controles de acceso más débiles.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Evaluar que la configuración del control de acceso de los servicios de almacenamiento (acceso público a nivel de bucket/contenedor, y ACL o políticas IAM a nivel de objeto/principal) esté correctamente establecida.</li>
+<li>Evaluar si las URL firmadas/prefirmadas tienen un alcance acotado, están limitadas en el tiempo y se manejan de forma adecuada.</li>
+<li>Evaluar si el versionado de objetos y la configuración del ciclo de vida podrían exponer datos sensibles antiguos o supuestamente eliminados.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>Primero, hay que identificar la URL del bucket/contenedor, que normalmente se encuentra mediante referencias en las respuestas HTTP (etiquetas <code>&lt;img&gt;</code>/<code>&lt;script&gt;</code>, bundles de JS, respuestas de API) en pruebas de caja negra, o mediante la consola del proveedor/el código fuente/la documentación en pruebas de caja gris. Luego se ejecutan los mismos tres sondeos contra cada proveedor: listar (¿el bucket/contenedor expone su contenido sin autenticación?), obtener (¿se puede leer un objeto específico o adivinado?) y escribir (¿se puede subir o sobrescribir un objeto arbitrario?). Hay que probar listar y obtener incluso cuando el nombre del bucket no se conoce de antemano; los nombres adivinables y comunes se tratan en <a href="#/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information@cloud-object-storage-artifacts">Artefactos en el almacenamiento de objetos en la nube</a> en lugar de duplicarse aquí.</p>
+<p>Las tablas siguientes muestran tanto sondeos de caja negra (curl, sin asumir autenticación) como sondeos de caja gris (herramientas de línea de comandos del proveedor cuando se dispone de credenciales). Se usa curl para las pruebas de acceso sin autenticación; se usan las CLI de los proveedores, cuando las credenciales estén dentro del alcance, para confirmar directamente los permisos configurados.</p>
+<h3 id="amazon-s3">Amazon S3</h3>
+<p>Formatos de URL: estilo virtual-hosted (<code>https://&lt;bucket&gt;.s3.&lt;region&gt;.amazonaws.com/&lt;key&gt;</code>) o estilo de ruta (<code>https://s3.&lt;region&gt;.amazonaws.com/&lt;bucket&gt;/&lt;key&gt;</code>); el endpoint global heredado (sin región) también funciona en algunas regiones.</p>
+<div class="tabla"><table><thead><tr>
+<th>Sondeo</th>
+<th>curl</th>
+<th>AWS CLI</th>
+</tr>
+</thead><tbody><tr>
+<td>Listar</td>
+<td><code>curl &quot;https://&lt;bucket&gt;.s3.amazonaws.com/&quot;</code></td>
+<td><code>aws s3 ls s3://&lt;bucket&gt;</code></td>
+</tr>
+<tr>
+<td>Obtener</td>
+<td><code>curl &quot;https://&lt;bucket&gt;.s3.amazonaws.com/&lt;key&gt;&quot;</code></td>
+<td><code>aws s3 cp s3://&lt;bucket&gt;/&lt;key&gt; -</code></td>
+</tr>
+<tr>
+<td>Escribir</td>
+<td><code>curl -X PUT -d &#39;test&#39; &quot;https://&lt;bucket&gt;.s3.amazonaws.com/test.txt&quot;</code></td>
+<td><code>aws s3 cp test.txt s3://&lt;bucket&gt;/test.txt</code></td>
+</tr>
+</tbody></table></div>
+<p>Un listado sin autenticación exitoso devuelve un cuerpo XML <code>&lt;ListBucketResult&gt;</code>; una escritura fallida devuelve <code>AccessDenied</code> en el cuerpo de la respuesta o en el error de la CLI.</p>
+<h3 id="azure-blob-storage">Azure Blob Storage</h3>
+<p>Formato de URL: <code>https://&lt;account-name&gt;.blob.core.windows.net/&lt;container-name&gt;/&lt;blob-name&gt;</code>.</p>
+<div class="tabla"><table><thead><tr>
+<th>Sondeo</th>
+<th>curl</th>
+<th>Azure CLI (caja gris)</th>
+</tr>
+</thead><tbody><tr>
+<td>Listar</td>
+<td><code>curl &quot;https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;?restype=container&amp;comp=list&quot;</code></td>
+<td><code>az storage blob list --container-name &lt;container&gt;</code></td>
+</tr>
+<tr>
+<td>Obtener</td>
+<td><code>curl &quot;https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;/&lt;blob&gt;&quot;</code></td>
+<td><code>az storage blob download --container-name &lt;container&gt; --name &lt;blob&gt;</code></td>
+</tr>
+<tr>
+<td>Escribir</td>
+<td><code>curl -X PUT -d &#39;test&#39; -H &quot;x-ms-blob-type: BlockBlob&quot; -H &quot;x-ms-version: &lt;current&gt;&quot; &quot;https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;/test.txt&quot;</code></td>
+<td><code>az storage blob upload --container-name &lt;container&gt; --name test.txt</code></td>
+</tr>
+</tbody></table></div>
+<p>Un <code>200</code> con un cuerpo XML <code>&lt;EnumerationResults&gt;</code> en el sondeo de listado significa que el nivel de acceso público del contenedor es <code>Container</code> (lectura pública + listado), y no <code>Private</code> ni <code>Blob</code> (lectura solo de nombres conocidos). <code>az storage container show-permission</code> confirma directamente el nivel configurado cuando se dispone de credenciales.</p>
+<h3 id="google-cloud-storage-gcs">Google Cloud Storage (GCS)</h3>
+<p>Formato de URL (endpoint público de estilo XML): <code>https://storage.googleapis.com/&lt;bucket-name&gt;/&lt;object-name&gt;</code>.</p>
+<div class="tabla"><table><thead><tr>
+<th>Sondeo</th>
+<th>curl</th>
+<th>gsutil (caja gris)</th>
+</tr>
+</thead><tbody><tr>
+<td>Listar</td>
+<td><code>curl &quot;https://storage.googleapis.com/storage/v1/b/&lt;bucket&gt;/o&quot;</code></td>
+<td><code>gsutil ls gs://&lt;bucket&gt;</code></td>
+</tr>
+<tr>
+<td>Obtener</td>
+<td><code>curl &quot;https://storage.googleapis.com/&lt;bucket&gt;/&lt;object&gt;&quot;</code></td>
+<td><code>gsutil cat gs://&lt;bucket&gt;/&lt;object&gt;</code></td>
+</tr>
+<tr>
+<td>Escribir</td>
+<td><code>curl -X POST --data-binary @test.txt &quot;https://storage.googleapis.com/upload/storage/v1/b/&lt;bucket&gt;/o?uploadType=media&amp;name=test.txt&quot;</code></td>
+<td><code>gsutil cp test.txt gs://&lt;bucket&gt;/test.txt</code></td>
+</tr>
+</tbody></table></div>
+<p>Un <code>200</code> con una lista de objetos en JSON en el sondeo de listado significa que el listado público está habilitado, comúnmente mediante un enlace IAM <code>allUsers</code>/<code>allAuthenticatedUsers</code> o una ACL heredada y no por el comportamiento predeterminado de GCS. <code>gsutil iam get gs://&lt;bucket&gt;</code> confirma directamente el enlace cuando se dispone de credenciales.</p>
+<p>En Windows, se deben reemplazar las comillas simples (<code>&#39;</code>) por comillas dobles (<code>&quot;</code>) en los comandos curl anteriores.</p>
+<h3 id="acl-and-iam-policy-misconfigurations">Configuraciones incorrectas de ACL y políticas IAM</h3>
+<p>Más allá de un simple interruptor público/privado, los tres proveedores admiten concesiones de acceso de grano fino que es fácil dejar con un alcance excesivo:</p>
+<ul>
+<li>AWS S3: revisar las políticas de buckets y las ACL en busca de concesiones a <code>AllUsers</code>/<code>AuthenticatedUsers</code> (el equivalente de S3 a &quot;público&quot;), y de políticas de buckets que concedan <code>s3:*</code> amplio o <code>s3:GetObject</code>/<code>s3:PutObject</code> a un principal comodín (<code>&quot;Principal&quot;: &quot;*&quot;</code>) o a otra cuenta de AWS que no debería necesitar acceso. También hay que confirmar que <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html" target="_blank" rel="noopener">S3 Block Public Access</a> esté habilitado a nivel de cuenta/bucket, salvo que se requiera explícitamente lo contrario: actúa como red de seguridad incluso si una política individual está mal configurada. <code>aws s3api get-bucket-acl</code> y <code>aws s3api get-bucket-policy</code> muestran la configuración efectiva en pruebas de caja gris.</li>
+<li>Azure Blob Storage: revisar el nivel de acceso público del contenedor (<code>Private</code>/<code>Blob</code>/<code>Container</code>) como se indicó antes y, por separado, revisar las políticas de Shared Access Signature (SAS) y las asignaciones de roles RBAC (<code>Storage Blob Data Reader/Contributor</code>) con alcance sobre la cuenta de almacenamiento en busca de concesiones más amplias de lo necesario.</li>
+<li>GCS: revisar los enlaces IAM (<code>gsutil iam get gs://&lt;bucket&gt;</code>) y cualquier ACL heredada por objeto/bucket en busca de enlaces <code>allUsers</code> (público) o <code>allAuthenticatedUsers</code> (cualquier cuenta de Google, no solo los usuarios de esta aplicación), ya que este último a menudo se confunde con &quot;sigue siendo privado&quot; cuando no lo es.</li>
+</ul>
+<p>En los tres casos, hay que distinguir los objetos que son públicos por diseño (p. ej., recursos estáticos de un sitio, descargas públicas) de los objetos de configuración, respaldos o datos de usuario que acabaron siendo públicos sin intención: la intención detrás del objeto, y no solo su accesibilidad, determina si un hallazgo es real.</p>
+<h3 id="signedpresigned-url-weaknesses">Debilidades de las URL firmadas/prefirmadas</h3>
+<p>Las URL firmadas (URL prefirmadas de S3, tokens SAS de Azure, URL firmadas de GCS) permiten a una aplicación conceder acceso limitado en el tiempo a un objeto privado sin compartir credenciales completas. Se debe revisar:</p>
+<ul>
+<li>Expiración: confirmar que la expiración establecida en la URL firmada (<code>X-Amz-Expires</code> en S3, <code>se=</code> en Azure SAS, <code>Expires</code>/<code>X-Goog-Expires</code> en GCS) sea tan corta como lo permita el caso de uso; una URL firmada con una expiración de varios días o varios años es, en la práctica, una credencial permanente si se filtra (p. ej., mediante el historial del navegador, cabeceras referer, logs de proxy/acceso, o por haber sido compartida/reenviada).</li>
+<li>Alcance: confirmar que la firma tenga como alcance únicamente el objeto/acción específicos que se necesitan (p. ej., las firmas de GCS/S3 pueden limitarse a un solo objeto y a un solo método HTTP; los tokens SAS de Azure pueden tener alcance sobre toda la cuenta si se generan como SAS a nivel de cuenta en lugar de SAS a nivel de servicio/contenedor/blob; hay que comprobar qué nivel se usó).</li>
+<li>Filtración y reutilización: comprobar si las URL firmadas se registran en texto plano en proxies intermedios, CDN o logs de la aplicación, y si la misma URL firmada se reutiliza entre múltiples usuarios/sesiones en lugar de generarse por petición; una URL filtrada es válida para cualquiera hasta que expire o se revoque, y la mayoría de los esquemas no tienen forma de revocar anticipadamente una única URL firmada, salvo rotando la clave/credencial subyacente.</li>
+<li>Validación de la firma: como comprobación básica de manipulación, hay que intentar modificar la ruta del objeto o los parámetros de consulta de una URL firmada válida (p. ej., apuntándola a un objeto distinto manteniendo la misma firma) y confirmar que la petición sea rechazada y no atendida.</li>
+</ul>
+<h3 id="versioning-and-lifecycle-issues">Problemas de versionado y ciclo de vida</h3>
+<p>El versionado de objetos (conservar versiones anteriores de un objeto después de que se sobrescribe o elimina) y las políticas de ciclo de vida (reglas que trasladan o hacen expirar objetos con el tiempo) suelen habilitarse por razones de durabilidad/cumplimiento, pero pueden socavar la expectativa de que los datos &quot;eliminados&quot; realmente hayan desaparecido:</p>
+<ul>
+<li>Si el versionado está habilitado, confirmar que un objeto &quot;eliminado&quot; (p. ej., uno que contiene datos que deberían borrarse por cumplimiento normativo, o un archivo de credenciales antiguo que fue rotado) no siga siendo recuperable mediante un ID de versión anterior. Para S3: <code>aws s3api list-object-versions --bucket &lt;bucket&gt;</code>; para GCS: <code>gsutil ls -a gs://&lt;bucket&gt;/&lt;object&gt;</code>; para Azure: instantáneas/versiones de blobs mediante <code>az storage blob list --include v</code>.</li>
+<li>Confirmar que los ajustes de control de acceso se aplican de forma coherente en todas las versiones: una corrección del control de acceso de un bucket/contenedor aplicada después de un incidente puede afectar solo a la versión actual, dejando accesibles versiones anteriores del mismo objeto si el proveedor gestiona por separado el acceso versionado.</li>
+<li>Revisar las reglas de ciclo de vida que trasladan objetos a una clase/nivel de almacenamiento diferente o a un bucket/cuenta diferente (p. ej., niveles de archivado, replicación entre regiones); confirmar que el destino tenga controles de acceso equivalentes, ya que un traslado por ciclo de vida puede mover silenciosamente datos sensibles a una ubicación que no estaba dentro del alcance de la revisión original del control de acceso.</li>
+<li>Cuando una aplicación depende de &quot;eliminar&quot; para borrar datos sensibles (p. ej., en una solicitud de eliminación de datos de un usuario), confirmar que esto da lugar a una eliminación real (incluidas todas las versiones y cualquier copia replicada o trasladada por ciclo de vida) y no solo a quitar la accesibilidad de la versión actual.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://aws.amazon.com/cli/" target="_blank" rel="noopener">AWS CLI</a></li>
+<li><a href="https://learn.microsoft.com/en-us/cli/azure/" target="_blank" rel="noopener">Azure CLI</a> / <a href="https://azure.microsoft.com/en-us/products/storage/storage-explorer" target="_blank" rel="noopener">Azure Storage Explorer</a></li>
+<li><a href="https://docs.cloud.google.com/sdk/gcloud/reference/storage" target="_blank" rel="noopener">gcloud storage</a> (Google Cloud CLI; legacy <a href="https://cloud.google.com/storage/docs/gsutil" target="_blank" rel="noopener">gsutil</a>)</li>
+<li><a href="https://github.com/sa7mon/S3Scanner" target="_blank" rel="noopener">S3Scanner</a> - descubrimiento de buckets y enumeración de permisos</li>
+<li><a href="https://github.com/initstring/cloud_enum" target="_blank" rel="noopener">cloud_enum</a> - enumeración de almacenamiento multinube (AWS/Azure/GCP)</li>
+<li><a href="https://github.com/nccgroup/ScoutSuite" target="_blank" rel="noopener">ScoutSuite</a> / <a href="https://github.com/prowler-cloud/prowler" target="_blank" rel="noopener">Prowler</a> - revisión más amplia de la postura de seguridad en la nube, incluidos hallazgos de ACL/IAM de almacenamiento</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html" target="_blank" rel="noopener">Working with Amazon S3 Buckets</a></li>
+<li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html" target="_blank" rel="noopener">AWS: Blocking Public Access to Your S3 Storage</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/storage/blobs/anonymous-read-access-configure" target="_blank" rel="noopener">Azure: Configure Anonymous Public Read Access for Containers and Blobs</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview" target="_blank" rel="noopener">Azure: Grant Limited Access with Shared Access Signatures (SAS)</a></li>
+<li><a href="https://cloud.google.com/storage/docs/access-control" target="_blank" rel="noopener">Google Cloud Storage: Access Control</a></li>
+<li><a href="https://docs.cloud.google.com/storage/docs/access-control/signed-urls" target="_blank" rel="noopener">Google Cloud Storage: Signed URLs</a></li>
+<li><a href="http://flaws2.cloud" target="_blank" rel="noopener">flAWS 2 - Learn AWS Security</a></li>
+<li><a href="https://curl.se/docs/manual.html" target="_blank" rel="noopener">curl Tutorial</a></li>
+</ul>

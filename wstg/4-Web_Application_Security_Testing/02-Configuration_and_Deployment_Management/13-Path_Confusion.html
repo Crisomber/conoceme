@@ -1,0 +1,64 @@
+<h1 id="path-confusion">Confusión de rutas (Path Confusion)</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-13</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La confusión de rutas (Path Confusion) ocurre cuando distintos componentes de la cadena de la petición (enrutadores, proxies, cachés, WAF, la propia aplicación) no coinciden en qué identifica una ruta de URL determinada, debido a diferencias en la normalización de rutas, las barras finales, la distinción entre mayúsculas y minúsculas o la codificación. Esta discrepancia permite a un atacante hacer que un componente trate una ruta de una manera mientras otro la trata de forma diferente, evadiendo un control de seguridad que depende de la coincidencia de rutas (p. ej., una regla de control de acceso, un manejador de rutas o una clave de caché).</p>
+<p>Por ejemplo, si las rutas no están configuradas correctamente y el objetivo también usa un CDN, un atacante puede aprovechar la discrepancia entre lo que sirve el origen y lo que la caché almacena o usa como clave para ejecutar ataques de web cache deception.</p>
+<p>Nota de alcance: esta prueba trata de la confusión de identidad sobre la propia cadena de la ruta entre componentes que deberían coincidir en ella; no trata de suministrar secuencias <code>../</code> o de recorrido codificadas para escapar de un directorio (eso es path traversal, cubierto en las pruebas de validación de entrada / inyección, p. ej., WSTG-ATHZ-01 / pruebas de recorrido de directorios). Los hallazgos de Path Confusion normalmente implican una ruta sintácticamente válida que no intenta salir del directorio previsto, pero que es interpretada de forma inconsistente por distintas capas.</p>
+<p>Por lo tanto, para evitar otros ataques, el evaluador debe valorar esta configuración.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Asegurar que las rutas de la aplicación estén configuradas y normalizadas de manera coherente en todos los componentes (aplicación, proxy, caché, CDN, WAF) que toman decisiones basadas en la ruta.</li>
+<li>Identificar los casos en que las barras finales, la distinción entre mayúsculas y minúsculas o las diferencias de codificación hacen que un control de seguridad (reglas de autenticación/acceso, enrutamiento, claves de caché) sea evadido o se comporte de forma inconsistente.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>En un escenario de pruebas de caja negra, el evaluador debe reemplazar todas las rutas existentes por rutas que no existan y luego examinar el comportamiento y el código de estado del objetivo.</p>
+<p>Por ejemplo, hay una ruta en la aplicación que es un panel (dashboard) y muestra el saldo de la cuenta del usuario (dinero, créditos de juego, etc.).</p>
+<p>Suponiendo que la ruta es <code>https://example.com/user/dashboard</code>, el evaluador debe probar los distintos modos que el desarrollador pudo haber considerado para esta ruta. Para vulnerabilidades de Web Cache Deception, el analista debe considerar una ruta como <code>https:// example.com/user/dashboard/non.js</code>; si la información del panel es visible y el objetivo usa un CDN (u otra caché web), es probable que los ataques de Web Cache Deception sean aplicables.</p>
+<p>Para cada ruta protegida o enrutada, también hay que probar las siguientes variantes y comparar el código de estado, el cuerpo de la respuesta y qué control (si lo hay) se aplica, frente a la ruta de referencia:</p>
+<ul>
+<li>Barra final: <code>/user/dashboard</code> vs <code>/user/dashboard/</code> - comprobar si una regla de control de acceso, una ruta o una clave de caché se aplica solo a una de las variantes.</li>
+<li>Distinción entre mayúsculas y minúsculas: <code>/user/dashboard</code> vs <code>/User/Dashboard</code> - comprobar si el origen y cualquier proxy/caché/WAF frontal normalizan las mayúsculas y minúsculas de forma coherente.</li>
+<li>Normalización de rutas / segmentos de puntos que se mantienen dentro del alcance: <code>/user/dashboard/./</code> o <code>/user//dashboard</code> (barras repetidas) - no es un recorrido fuera del directorio, solo codificaciones alternativas del mismo recurso.</li>
+<li>Codificación porcentual de separadores de ruta o caracteres reservados: <code>/user%2Fdashboard</code>, <code>/user/dashboard%2F..%2F</code> (donde el resultado decodificado sigue resolviéndose dentro del alcance) - comprobar si el componente que aplica el control de seguridad decodifica antes o después de hacer la coincidencia.</li>
+<li>Combinaciones de codificación/mayúsculas y minúsculas mezcladas para ver si un WAF o una capa de control de acceso hace la coincidencia sobre la cadena en bruto mientras que la aplicación lo hace sobre la cadena decodificada/normalizada (o viceversa).</li>
+</ul>
+<p>Existe un hallazgo cuando alguna variante alcanza un resultado distinto (evade la autenticación, llega a un manejador de ruta diferente, o es almacenada en caché/servida) del de la ruta canónica, debido a que los componentes no coinciden en la identidad de la ruta, y no porque la ruta haya escapado de su directorio previsto.</p>
+<h3 id="white-box-testing">Pruebas de caja blanca</h3>
+<p>Hay que examinar la configuración de enrutamiento de la aplicación. La mayoría de las veces, los desarrolladores usan expresiones regulares en el enrutamiento de la aplicación.</p>
+<p>En este ejemplo, en el archivo <code>urls.py</code> de una aplicación del framework Django, vemos un ejemplo de Path Confusion. El desarrollador no usó la expresión regular correcta, lo que dio como resultado una vulnerabilidad:</p>
+<pre><code class="language-python">    from django.urls import re_path
+    from . import views
+
+    urlpatterns = [
+
+        re_path(r&#39;.*^dashboard&#39;, views.path_confusion ,name = &#39;index&#39;),
+
+    ]
+</code></pre>
+<p>Si el usuario también abre en el navegador la ruta <code>https://example.com/dashboard/none.js</code>, puede mostrarse la información del panel del usuario y, si el objetivo usa un CDN o una caché web, puede llevarse a cabo un ataque de Web Cache Deception.</p>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Suite</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Evitar clasificar/manejar el contenido en caché según la extensión del archivo o la ruta (aprovechar el content-type).</li>
+<li>Asegurar que los mecanismos de caché respeten las cabeceras cache-control especificadas por la aplicación.</li>
+<li>Implementar un manejo de File Not Found y de redirecciones conforme a las RFC.</li>
+<li>Normalizar las rutas (mayúsculas y minúsculas, barra final, codificación, separadores repetidos) de forma coherente, y a la misma forma canónica, en cada componente que tome una decisión de seguridad basada en la ruta (aplicación, proxy inverso, caché, CDN, WAF).</li>
+<li>Realizar la coincidencia de rutas relevante para la seguridad (control de acceso, enrutamiento) después de la normalización/decodificación, y no sobre la cadena en bruto de la línea de petición.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://portswigger.net/research/bypassing-web-cache-poisoning-countermeasures" target="_blank" rel="noopener">Bypassing Web Cache Poisoning Countermeasures</a></li>
+<li><a href="https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari" target="_blank" rel="noopener">Cached and Confused: Web Cache Deception in the Wild (USENIX Security 2020)</a></li>
+<li><a href="https://omergil.blogspot.com/2017/02/web-cache-deception-attack.html" target="_blank" rel="noopener">Web Cache Deception Attack</a></li>
+</ul>

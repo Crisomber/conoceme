@@ -1,0 +1,73 @@
+<h1 id="introduction-to-business-logic">Introducción a la lógica de negocio</h1>
+<p>Identificar fallos de lógica de negocio en una aplicación web dinámica y multifuncional requiere pensar de maneras poco convencionales. Supóngase que el mecanismo de autenticación de una aplicación se desarrolló con la intención de que se realicen los pasos 1, 2 y 3, en ese orden específico, para autenticar a un usuario. ¿Qué ocurre si el usuario pasa directamente del paso 1 al paso 3? En este ejemplo simplificado, ¿la aplicación concede el acceso por fallar de forma abierta (failing open), deniega el acceso o simplemente termina con un error 500?</p>
+<p>Se pueden dar muchos ejemplos, pero la lección constante es &quot;pensar más allá de la sabiduría convencional&quot;. Este tipo de vulnerabilidad no puede ser detectado por un escáner de vulnerabilidades y depende de las habilidades y la creatividad del evaluador de penetración. Además, este tipo de vulnerabilidad suele ser una de las más difíciles de detectar, suele ser específica de cada aplicación y, al mismo tiempo, suele ser una de las más perjudiciales para la aplicación si se explota.</p>
+<p>La clasificación de los fallos de lógica de negocio ha sido poco estudiada, aunque su explotación ocurre con frecuencia en sistemas del mundo real y muchos investigadores de vulnerabilidades aplicadas los investigan. El mayor enfoque se da en las aplicaciones web. Dentro de la comunidad hay debate sobre si estos problemas representan conceptos particularmente nuevos o si son variaciones de principios bien conocidos.</p>
+<p>Las pruebas de fallos de lógica de negocio son similares a los tipos de prueba que usan los evaluadores funcionales que se centran en pruebas lógicas o de estados finitos. Estos tipos de pruebas exigen que los profesionales de seguridad piensen de manera algo distinta, desarrollen casos de abuso y uso indebido y empleen muchas de las técnicas de prueba adoptadas por los evaluadores funcionales. La automatización de los casos de abuso de la lógica de negocio no es posible y sigue siendo un arte manual que depende de las habilidades del evaluador y de su conocimiento del proceso de negocio completo y de sus reglas.</p>
+<h2 id="business-limits-and-restrictions">Límites y restricciones del negocio</h2>
+<p>Hay que considerar las reglas de la función de negocio que ofrece la aplicación. ¿Existen límites o restricciones al comportamiento de las personas? Después hay que valorar si la aplicación hace cumplir esas reglas. Por lo general es bastante fácil identificar los casos de prueba y de análisis para verificar la aplicación si se está familiarizado con el negocio. Si se es un evaluador externo, habrá que usar el sentido común o preguntar al negocio si la aplicación debería permitir distintas operaciones.</p>
+<p>A veces, en aplicaciones muy complejas, el evaluador no tendrá inicialmente una comprensión completa de todos los aspectos de la aplicación. En esos casos, lo mejor es que el cliente guíe al evaluador por la aplicación, de modo que pueda comprender mejor los límites y la funcionalidad prevista antes de que comience la prueba propiamente dicha. Además, contar con una línea directa con los desarrolladores (si es posible) durante las pruebas ayudará mucho si surge alguna duda sobre la funcionalidad de la aplicación.</p>
+<h2 id="challenges-of-logic-testing">Desafíos de las pruebas de lógica</h2>
+<p>A las herramientas automatizadas les cuesta entender el contexto, por lo que corresponde a una persona realizar este tipo de pruebas. Los dos ejemplos siguientes ilustran cómo comprender la funcionalidad de la aplicación, las intenciones del desarrollador y algo de pensamiento creativo &quot;fuera de lo convencional&quot; pueden romper la lógica de la aplicación. El primer ejemplo parte de una manipulación simple de parámetros, mientras que el segundo es un ejemplo real de un proceso de varios pasos que lleva a subvertir por completo la aplicación.</p>
+<p><strong>Ejemplo 1</strong>:</p>
+<p>Supóngase que un sitio de comercio electrónico permite a los usuarios seleccionar artículos para comprar, ver una página de resumen y luego efectuar la venta. ¿Qué pasaría si un atacante pudiera volver a la página de resumen, manteniendo su misma sesión válida, inyectar un costo menor para un artículo, completar la transacción y luego pagar?</p>
+<p><strong>Ejemplo 2</strong>:</p>
+<p>Retener o bloquear recursos e impedir que otros compren esos artículos en línea puede dar lugar a que los atacantes compren artículos a un precio más bajo. La contramedida a este problema es implementar tiempos de espera (timeouts) y mecanismos que garanticen que solo se pueda cobrar el precio correcto.</p>
+<p><strong>Ejemplo 3</strong>:</p>
+<p>¿Qué pasaría si un usuario pudiera iniciar una transacción vinculada a su cuenta de club o de fidelización y, una vez que se han añadido los puntos a su cuenta, cancelar la transacción? ¿Se seguirán aplicando los puntos o créditos a su cuenta?</p>
+<h2 id="tools">Herramientas</h2>
+<p>Aunque existen herramientas para probar y verificar que los procesos de negocio funcionan correctamente en situaciones válidas, estas herramientas son incapaces de detectar vulnerabilidades lógicas. Por ejemplo, las herramientas no tienen forma de detectar si un usuario puede eludir el flujo del proceso de negocio editando parámetros, prediciendo nombres de recursos o escalando privilegios para acceder a recursos restringidos, ni cuentan con ningún mecanismo que ayude a los evaluadores humanos a sospechar que se da esa situación.</p>
+<p>A continuación se enumeran algunos tipos de herramientas comunes que pueden ser útiles para identificar problemas de lógica de negocio.</p>
+<p>Al instalar complementos (addons) siempre se deben considerar con cuidado los permisos que solicitan y los hábitos de uso del navegador.</p>
+<h3 id="intercepting-proxy">Proxy de interceptación</h3>
+<p>Para observar los bloques de petición y respuesta del tráfico HTTP</p>
+<ul>
+<li><a href="https://www.zaproxy.org" target="_blank" rel="noopener">Zed Attack Proxy (ZAP)</a></li>
+<li><a href="https://portswigger.net/burp" target="_blank" rel="noopener">Burp Proxy</a></li>
+</ul>
+<h3 id="browser-developer-tools">Herramientas para desarrolladores del navegador</h3>
+<p>Para ver y modificar cabeceras HTTP/HTTPS y parámetros POST, y para observar el DOM del navegador</p>
+<ul>
+<li>Herramientas para desarrolladores integradas en el navegador (paneles Network, Application/Storage y Elements)</li>
+</ul>
+<h2 id="miscellaneous-test-tools">Herramientas de prueba varias</h2>
+<ul>
+<li><a href="https://chromewebstore.google.com/detail/bfbameneiokkgbdmiekhjnmfkcnldhhm" target="_blank" rel="noopener">Web Developer toolbar</a><ul>
+<li>La extensión Web Developer añade al navegador un botón de barra de herramientas con diversas herramientas para desarrolladores web. Es el port oficial de la extensión Web Developer para Firefox.</li>
+</ul>
+</li>
+<li><a href="https://addons.mozilla.org/en-US/firefox/addon/http-request-maker" target="_blank" rel="noopener">HTTP Request Maker for Firefox</a><ul>
+<li>Request Maker es una herramienta para pruebas de penetración. Con ella se pueden capturar fácilmente las peticiones que realizan las páginas web, manipular la URL, las cabeceras y los datos POST y, por supuesto, realizar nuevas peticiones</li>
+</ul>
+</li>
+<li><a href="https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank" rel="noopener">Cookie Editor for Chrome</a></li>
+<li><a href="https://addons.mozilla.org/en-US/firefox/addon/cookie-editor" target="_blank" rel="noopener">Cookie Editor for Firefox</a><ul>
+<li>Cookie Editor es un administrador de cookies. Permite añadir, eliminar, editar, buscar, proteger y bloquear cookies</li>
+</ul>
+</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<h3 id="whitepapers">Whitepapers</h3>
+<ul>
+<li><a href="https://csrc.nist.gov/publications/detail/nistir/7864/final" target="_blank" rel="noopener">The Common Misuse Scoring System (CMSS): Metrics for Software Feature Misuse Vulnerabilities - NISTIR 7864</a></li>
+<li><a href="https://www.semanticscholar.org/paper/b57c6c8022abfd2cb17ec785d3622027b3edfaaf" target="_blank" rel="noopener">Finite State testing of Graphical User Interfaces, Fevzi Belli</a></li>
+<li><a href="https://ieeexplore.ieee.org/document/533956" target="_blank" rel="noopener">Principles and Methods of Testing Finite State Machines - A Survey, David Lee, Mihalis Yannakakis</a></li>
+<li><a href="https://www.researchgate.net/publication/220677013_Security_issues_in_online_games" target="_blank" rel="noopener">Security Issues in Online Games, Jianxin Jeff Yan and Hyun-Jin Choi</a></li>
+<li><a href="https://www.infopoint-security.de/open_downloads/2008/McAfee_wp_online_gaming_0808.pdf" target="_blank" rel="noopener">Securing Virtual Worlds Against Real Attack, Dr. Igor Muttik, McAfee</a></li>
+<li><a href="https://www.slideshare.net/jeremiahgrossman/seven-business-logic-flaws-that-put-your-website-at-risk-harvard-07062008" target="_blank" rel="noopener">Seven Business Logic Flaws That Put Your Website At Risk - Jeremiah Grossman Founder and CTO, WhiteHat Security</a></li>
+<li><a href="https://www.usenix.org/legacy/event/sec10/tech/full_papers/Felmetsger.pdf" target="_blank" rel="noopener">Toward Automated Detection of Logic Vulnerabilities in Web Applications - Viktoria Felmetsger Ludovico Cavedon Christopher Kruegel Giovanni Vigna</a></li>
+</ul>
+<h3 id="owasp-related">Relacionado con OWASP</h3>
+<ul>
+<li><a href="https://www.slideshare.net/slideshow/issa-louisville-2010morana/5391600" target="_blank" rel="noopener">How to Prevent Business Flaws Vulnerabilities in Web Applications, Marco Morana</a></li>
+</ul>
+<h3 id="useful-sites">Sitios útiles</h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Business_logic" target="_blank" rel="noopener">Business logic</a></li>
+<li><a href="https://blog.jeremiahgrossman.com/2006/12/business-logic-flaws.html" target="_blank" rel="noopener">Business Logic Flaws and Yahoo Games</a></li>
+<li><a href="https://cwe.mitre.org/data/definitions/840.html" target="_blank" rel="noopener">CWE-840: Business Logic Errors</a></li>
+<li><a href="https://www.semanticscholar.org/paper/d14a18f08f6488f903f2f691a1d159e95d8ee04f" target="_blank" rel="noopener">Defying Logic: Theory, Design, and Implementation of Complex Systems for Testing Application Logic</a></li>
+</ul>
+<h3 id="books">Libros</h3>
+<ul>
+<li><a href="https://isbnsearch.org/isbn/1420082817" target="_blank" rel="noopener">The Decision Model: A Business Logic Framework Linking Business and Technology, By Barbara Von Halle, Larry Goldberg, Published by CRC Press, ISBN1420082817 (2010)</a></li>
+</ul>

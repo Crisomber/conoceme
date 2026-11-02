@@ -1,0 +1,86 @@
+<h1 id="http-strict-transport-security">HTTP Strict Transport Security</h1>
+<div class="tabla"><table><thead><tr>
+<th>ID</th>
+</tr>
+</thead><tbody><tr>
+<td>WSTG-CONF-07</td>
+</tr>
+</tbody></table></div>
+<h2 id="summary">Resumen</h2>
+<p>La función HTTP Strict Transport Security (HSTS) permite a un servidor web informar al navegador del usuario, mediante una cabecera de respuesta especial, que nunca debe establecer una conexión HTTP sin cifrar con los servidores del dominio especificado. En su lugar, debe establecer automáticamente todas las solicitudes de conexión para acceder al sitio mediante HTTPS. Esto también impide que los usuarios ignoren los errores de certificado.</p>
+<p>Su ausencia, o una configuración débil, puede dar lugar a problemas de seguridad como:</p>
+<ul>
+<li>Atacantes que interceptan y acceden a información transferida por un canal de red sin cifrar.</li>
+<li>Atacantes que realizan ataques de manipulator-in-the-middle (MITM) aprovechándose de usuarios que aceptan certificados no confiables, o degradando/eliminando una redirección a HTTPS (SSL stripping).</li>
+<li>Usuarios que por error introducen una dirección en el navegador usando HTTP en lugar de HTTPS, o usuarios que hacen clic en un enlace de una aplicación web que usa incorrectamente el protocolo HTTP.</li>
+</ul>
+<h2 id="test-objectives">Objetivos de la prueba</h2>
+<ul>
+<li>Revisar la cabecera HSTS, sus directivas y sus valores para comprobar su coherencia con las mejores prácticas actuales.</li>
+<li>Confirmar que el sitio está protegido contra la brecha de confianza de la primera petición, ya sea mediante preload o mediante una ruta de HTTP a HTTPS endurecida de otro modo.</li>
+<li>Confirmar que HSTS se aplica de forma coherente en el dominio y en los subdominios relevantes, y que no oculta problemas de contenido mixto.</li>
+</ul>
+<h2 id="how-to-test">Cómo probar</h2>
+<ul>
+<li>Confirmar la presencia de la cabecera HSTS en la respuesta HTTPS examinando la respuesta del servidor mediante un proxy de intercepción.</li>
+<li>Usar curl de la siguiente manera:</li>
+</ul>
+<pre><code class="language-bash">$ curl -s -D- https://owasp.org | grep -i strict-transport-security:
+Strict-Transport-Security: max-age=31536000
+</code></pre>
+<ul>
+<li>Evaluar los valores de las directivas; un ejemplo de cabecera apta para preload es <code>Strict-Transport-Security: max-age=63072000; includeSubDomains; preload</code>:<ul>
+<li><code>max-age</code> (segundos hasta que el navegador deja de forzar HTTPS para este host) debe ser de al menos <code>31536000</code> (1 año), o <code>63072000</code> (2 años) si el dominio se está enviando a la lista de preload de HSTS, o ya está en ella; hay que señalar cualquier valor sensiblemente menor o <code>max-age=0</code> fuera de una desactivación intencional de HSTS.</li>
+<li>Comprobar si <code>includeSubDomains</code> (extiende la política a todos los subdominios) está presente y, de ser así, verificar por muestreo una selección de subdominios (incluidos los que están fuera de la aplicación inmediata: correo, herramientas internas, staging, etc.) para confirmar que todos sirven HTTPS válido. Un subdominio que no pueda servir HTTPS será inaccesible para los navegadores que hayan almacenado en caché la política.</li>
+<li>Comprobar si <code>preload</code> está presente y, de ser así, confirmar que el dominio realmente aparece en la <a href="https://hstspreload.org/" target="_blank" rel="noopener">lista de preload de HSTS de Chromium</a>, que consumen Chrome, Firefox, Safari y Edge (la directiva <code>preload</code> en sí no tiene efecto en el navegador; solo importa la pertenencia real a la lista):</li>
+</ul>
+</li>
+</ul>
+<pre><code class="language-bash">curl -s &quot;https://hstspreload.org/api/v2/status?domain=example.com&quot;
+</code></pre>
+<p>  Si <code>preload</code> está presente pero el dominio aún no figura en la lista (o fue eliminado), hay que confirmar que se trata de un envío en curso y no de una directiva obsoleta o sin efecto.</p>
+<ul>
+<li>Comprobar la ruta de la primera petición/redirección: HSTS solo protege las peticiones realizadas después de que el navegador ya haya visto la cabecera una vez para ese host (Trust On First Use), por lo que la primera visita de un usuario, o cualquier visita posterior a la expiración de la política en caché, se realiza todavía por HTTP plano a menos que el host esté en la lista de preload, y esa primera petición/redirección puede ser interceptada o alterada antes de que el navegador llegue a conocer HSTS. Se prueba directamente:</li>
+</ul>
+<pre><code class="language-bash">curl -s -D- http://example.com | head -n 5
+</code></pre>
+<p>  Hay que confirmar que esto devuelve una redirección (<code>301</code>/<code>308</code>) al equivalente HTTPS, y que la respuesta HTTPS resultante incluye la cabecera HSTS (según la especificación, los navegadores ignoran la cabecera si se envía por HTTP plano, por lo que debe reafirmarse en el lado HTTPS de la redirección). <code>preload</code> es el único mecanismo que cierra esta brecha por completo, ya que la política se distribuye entonces dentro del navegador en lugar de aprenderse de una respuesta previa.</p>
+<ul>
+<li><p>Comprobar la interacción con el contenido mixto: HSTS fuerza la actualización a HTTPS de la navegación de nivel superior y de las peticiones de subrecursos del mismo host, pero no reescribe referencias explícitas <code>http://</code> de origen cruzado en el marcado. Hay que inspeccionar el código fuente de la página/la pestaña de red en busca de referencias absolutas <code>http://otherhost/...</code>; estas siguen sujetas al bloqueo ordinario de contenido mixto del navegador, independientemente de HSTS (véase <a href="#/4-Web_Application_Security_Testing/11-Client-side/07-Cross_Origin_Resource_Sharing">Cross Origin Resource Sharing</a>). Por separado, hay que confirmar que cualquier enlace <code>http://</code> del mismo host en el marcado sea HTTPS por diseño y no solo &quot;funcione&quot; porque HSTS lo actualizó silenciosamente; esa actualización puede ocultar un enlace que debería haberse corregido.</p>
+</li>
+<li><p>Para aplicaciones detrás de un CDN/balanceador de carga/proxy inverso, confirmar que la cabecera se añade en (o sobrevive hasta) el borde que termina TLS para los usuarios finales, y no solo en un origen interno.</p>
+</li>
+</ul>
+<h3 id="preload-list-submission">Envío a la lista de preload</h3>
+<p>El envío a la lista de preload de HSTS (<a href="https://hstspreload.org/" target="_blank" rel="noopener">hstspreload.org</a>) es un paso manual y fuera de banda, no algo que se habilite solo con la cabecera. Antes de recomendar el envío, hay que confirmar que realmente se cumplen los requisitos previos:</p>
+<ul>
+<li>Servir un certificado HTTPS válido en el dominio base y redirigir a HTTPS cualquier petición HTTP en ese dominio.</li>
+<li>Servir HTTPS, con un certificado válido, en el subdominio <code>www</code> si existe un registro DNS para él.</li>
+<li>Enviar la cabecera <code>Strict-Transport-Security</code> en la respuesta HTTPS del dominio base con un <code>max-age</code> de al menos <code>31536000</code> (un año, aunque el sitio recomienda <code>63072000</code>), y con <code>includeSubDomains</code> y <code>preload</code> presentes.</li>
+<li>Confirmar que todos los subdominios, incluidos los que están fuera de la aplicación inmediata (correo, herramientas internas, staging, etc.), pueden servir HTTPS, ya que <code>includeSubDomains</code> aplica a todos ellos el HTTPS forzado por preload.</li>
+</ul>
+<p>Dado que los cambios en la lista de preload se distribuyen dentro de las versiones de los navegadores y son difíciles y lentos de revertir (la eliminación puede tardar meses en propagarse a los usuarios con compilaciones de navegador antiguas en caché), el envío debe tratarse como una decisión unidireccional a nivel de organización; hay que confirmar que está autorizado antes de enviarlo, y no se debe enviar el dominio de un objetivo durante una evaluación.</p>
+<h2 id="remediation">Corrección</h2>
+<ul>
+<li>Enviar <code>Strict-Transport-Security</code> en todas las respuestas HTTPS, con un <code>max-age</code> de al menos un año.</li>
+<li>Redirigir todo el tráfico HTTP a HTTPS y asegurar que el destino de la redirección devuelva también la cabecera HSTS.</li>
+<li>Usar <code>includeSubDomains</code> una vez que se haya confirmado que todos los subdominios admiten HTTPS.</li>
+<li>Considerar <code>preload</code> y el envío a la lista de preload de HSTS para los dominios que necesiten protección desde la primera conexión, después de confirmar los requisitos previos anteriores y de obtener la aprobación de la organización dada la dificultad de revertirlo.</li>
+<li>No depender del comportamiento de actualización de contenido mixto en lugar de corregir los enlaces <code>http://</code> codificados de forma fija en el marcado.</li>
+</ul>
+<h2 id="tools">Herramientas</h2>
+<ul>
+<li><a href="https://hstspreload.org/" target="_blank" rel="noopener">hstspreload.org</a> - consulta del estado en la lista de preload y envío</li>
+<li><a href="https://www.ssllabs.com/ssltest/" target="_blank" rel="noopener">SSL Labs Server Test</a> - informa la configuración de HSTS junto con la configuración de TLS</li>
+<li><a href="https://www.zaproxy.org/" target="_blank" rel="noopener">ZAP</a> - la regla de escaneo pasivo señala HSTS ausente o débil</li>
+</ul>
+<h2 id="references">Referencias</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP HTTP Strict Transport Security Cheat Sheet</a></li>
+<li><a href="https://www.youtube.com/watch?v=zEV3HOuM_Vw" target="_blank" rel="noopener">OWASP Appsec Tutorial Series - Episode 4: Strict Transport Security</a></li>
+<li><a href="https://tools.ietf.org/html/rfc6797" target="_blank" rel="noopener">RFC 6797 - HTTP Strict Transport Security (HSTS)</a></li>
+<li><a href="https://hstspreload.org/" target="_blank" rel="noopener">hstspreload.org - Preload List Submission Requirements</a></li>
+<li><a href="https://chromium.googlesource.com/chromium/src/+/main/net/http/transport_security_state_static.json" target="_blank" rel="noopener">Chromium HSTS Preload List Source</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security" target="_blank" rel="noopener">MDN: Strict-Transport-Security</a></li>
+<li><a href="https://blog.nginx.org/blog/http-strict-transport-security-hsts-and-nginx" target="_blank" rel="noopener">Enable HTTP Strict Transport Security In Nginx</a></li>
+</ul>
