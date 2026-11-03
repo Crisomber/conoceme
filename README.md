@@ -9,3 +9,5 @@ Sitio de páginas educativas para aprender programación: https://crisomber.gith
 - `wstg.html` + `wstg/` — traducción al español del [OWASP Web Security Testing Guide](https://github.com/OWASP/wstg) (CC BY-SA 4.0). `wstg/` contiene fragmentos HTML generados desde el Markdown traducido, las imágenes originales e `indice.json`; no se editan a mano.
 
 Abre `index.html` en cualquier navegador o visita la versión publicada en GitHub Pages.
+
+Documentación técnica completa (estructura, piezas compartidas, cómo añadir cursos, preguntas y ejercicios): [`docs/DOCUMENTACION.md`](docs/DOCUMENTACION.md).
