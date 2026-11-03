@@ -28,6 +28,14 @@ const CURSOS = [
     estado: "disponible",
   },
   {
+    titulo: "Inglés desde cero",
+    descripcion: "Gramática inglesa con explicaciones en español: singular y plural, adjetivos, imperativos y let's, con 60 ejercicios con corrección automática.",
+    icono: "EN",
+    etiquetas: ["Gramática", "Vocabulario", "Ejercicios"],
+    url: "ingles.html",
+    estado: "disponible",
+  },
+  {
     titulo: "Fundamentos de programación",
     descripcion: "Variables, condiciones, bucles y funciones: la base para cualquier lenguaje.",
     icono: "{ }",
