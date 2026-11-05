@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML y CSS — Crisomber</title>
+<meta name="description" content="HTML y CSS desde cero: etiquetas, atributos, selectores, el modelo de caja y diseño responsive, explicado en español con 60 ejercicios interactivos.">
+<script src="js/tema.js"></script>
+<link rel="stylesheet" href="css/global.css">
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#1d2433; --muted:#5b6578; --line:#e2e6ef;
+  --accent:#d9480f; --accent-soft:#ffe8d9; --ok:#1f8a4c; --ok-soft:#e3f5ea;
+  --bad:#c0392b; --bad-soft:#fbe7e5; --warn-soft:#fff6db; --code:#f0f2f8;
+  --ink:var(--text); --f-display:system-ui,sans-serif; --f-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+    --accent:#ff9a5c; --accent-soft:#3a2415; --ok:#4cc884; --ok-soft:#173326;
+    --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+  --accent:#ff9a5c; --accent-soft:#3a2415; --ok:#4cc884; --ok-soft:#173326;
+  --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page-header{background:var(--card);border-bottom:1px solid var(--line)}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
+h1{font-size:1.25rem;margin:0}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600}
+nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+main{padding:24px 0 60px}
+section.topic{display:none}
+section.topic.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+h2{margin:0 0 4px;font-size:1.5rem}
+h3{margin:22px 0 8px;font-size:1.1rem}
+h3:first-child{margin-top:0}
+.sub{color:var(--muted);margin:0 0 8px}
+table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--accent-soft)}
+.tablewrap{overflow-x:auto}
+ul{padding-left:20px;margin:6px 0}
+li{margin:4px 0}
+.ex{font-style:italic}
+.no{color:var(--bad);text-decoration:line-through}
+.tip{background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:10px 0}
+.en{background:var(--code);border-radius:6px;padding:1px 6px;font-style:italic}
+ol.exercises{list-style:none;padding:0;margin:0;counter-reset:q}
+ol.exercises li{counter-increment:q;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;transition:background .2s}
+ol.exercises li::before{content:counter(q) ". ";font-weight:700;color:var(--accent)}
+ol.exercises li.ok{background:var(--ok-soft);border-color:var(--ok)}
+ol.exercises li.bad{background:var(--bad-soft);border-color:var(--bad)}
+.q{display:inline}
+.hint{color:var(--muted);font-size:.9rem}
+input[type=text]{font:inherit;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);min-width:120px;max-width:100%}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.opts label{border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;background:var(--bg)}
+.opts input{margin-right:6px}
+.fb{display:block;margin-top:6px;font-size:.92rem;font-weight:600}
+li.ok .fb{color:var(--ok)} li.bad .fb{color:var(--bad)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.btn{border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+.btn.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+.score{font-weight:700;font-size:1.05rem}
+footer.page-footer{color:var(--muted);text-align:center;font-size:.85rem;padding:20px 16px}
+@media (max-width:560px){ .card{padding:16px} h2{font-size:1.3rem} }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <span class="brand-mark" aria-hidden="true">&gt;_</span>
+      <span class="brand-name">Crisomber</span>
+    </a>
+    <nav aria-label="Principal">
+      <ul class="nav-list">
+        <li><a href="index.html#sobre-mi">Sobre mí</a></li>
+        <li><a href="index.html#cursos" aria-current="page">Cursos</a></li>
+        <li><a href="index.html#contacto">Contacto</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<header class="page-header">
+  <div class="wrap">
+    <div class="top">
+      <h1>🏗️ HTML y CSS desde cero</h1>
+    </div>
+    <nav role="tablist" id="tabs">
+      <button role="tab" data-t="t1" aria-selected="true">1. Estructura HTML</button>
+      <button role="tab" data-t="t2" aria-selected="false">2. CSS y el modelo de caja</button>
+      <button role="tab" data-t="t3" aria-selected="false">3. Responsive y Flexbox</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="contenido">
+
+<!-- ============ T1 ============ -->
+<section class="topic active" id="t1">
+  <div class="card">
+    <h2>1 · HTML: etiquetas y atributos</h2>
+    <p class="sub">La estructura de una página web: qué es una etiqueta, cómo se anidan y qué atributos llevan.</p>
+
+    <h3>1. La etiqueta básica</h3>
+    <p>Una etiqueta (<i>tag</i>) marca dónde empieza y termina un elemento: <span class="en">&lt;p&gt;texto&lt;/p&gt;</span>. La mayoría tiene apertura y cierre; unas pocas, como <code>&lt;img&gt;</code>, no llevan cierre.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Etiqueta</th><th>Para qué sirve</th></tr>
+      <tr><td><code>&lt;html&gt;</code></td><td>Envuelve todo el documento</td></tr>
+      <tr><td><code>&lt;head&gt;</code></td><td>Metadata: título, enlaces a CSS (no se ve en pantalla)</td></tr>
+      <tr><td><code>&lt;body&gt;</code></td><td>Todo el contenido visible</td></tr>
+      <tr><td><code>&lt;h1&gt;</code> … <code>&lt;h6&gt;</code></td><td>Títulos, de más a menos importante</td></tr>
+      <tr><td><code>&lt;p&gt;</code></td><td>Párrafo de texto</td></tr>
+      <tr><td><code>&lt;a&gt;</code></td><td>Enlace a otra página</td></tr>
+      <tr><td><code>&lt;img&gt;</code></td><td>Imagen</td></tr>
+      <tr><td><code>&lt;ul&gt;</code> / <code>&lt;li&gt;</code></td><td>Lista y cada uno de sus elementos</td></tr>
+    </table></div>
+
+    <h3>2. Atributos</h3>
+    <p>Van dentro de la etiqueta de apertura, con la forma <code>nombre="valor"</code>. Le dan información extra al elemento.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Atributo</th><th>Se usa en</th><th>Para qué</th></tr>
+      <tr><td><code>href</code></td><td><code>&lt;a&gt;</code></td><td>A dónde lleva el enlace</td></tr>
+      <tr><td><code>src</code></td><td><code>&lt;img&gt;</code></td><td>Ruta del archivo de imagen</td></tr>
+      <tr><td><code>alt</code></td><td><code>&lt;img&gt;</code></td><td>Texto alternativo (accesibilidad, SEO)</td></tr>
+      <tr><td><code>class</code></td><td>cualquiera</td><td>Conecta el elemento con reglas CSS</td></tr>
+      <tr><td><code>id</code></td><td>cualquiera</td><td>Identificador único en la página</td></tr>
+    </table></div>
+    <p><span class="en">&lt;img src="foto.jpg" alt="Una foto de la playa"&gt;</span> — siempre agrega <code>alt</code>, lo leen los lectores de pantalla.</p>
+
+    <h3>3. Bloque vs en línea</h3>
+    <div class="tablewrap"><table>
+      <tr><th></th><th>¿Qué es?</th><th>¿Corta línea?</th><th>Ejemplos</th></tr>
+      <tr><td>Bloque</td><td>Caja que ocupa todo el ancho disponible</td><td>Sí, empieza en línea nueva</td><td><code>div</code>, <code>p</code>, <code>h1</code>, <code>section</code>, <code>ul</code>, <code>li</code></td></tr>
+      <tr><td>En línea</td><td>Caja que solo ocupa su propio contenido</td><td>No, sigue en la misma línea</td><td><code>span</code>, <code>a</code>, <code>strong</code>, <code>em</code></td></tr>
+    </table></div>
+    <div class="tip">💡 Truco: si necesitas estilizar solo una palabra en medio de una oración sin romper la línea, usa <code>span</code>. Si necesitas una caja independiente, usa <code>div</code>.</div>
+
+    <h3>4. Anidado (nesting)</h3>
+    <p>Las etiquetas se cierran en el orden inverso en que se abrieron, como paréntesis: la última que abre es la primera que cierra.</p>
+    <p><span class="en">&lt;p&gt;&lt;strong&gt;Texto&lt;/strong&gt;&lt;/p&gt;</span> <span class="no">&lt;p&gt;&lt;strong&gt;Texto&lt;/p&gt;&lt;/strong&gt;</span></p>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 1</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t1"></ol>
+    <div class="actions"><button class="btn" data-check="t1">Comprobar</button><button class="btn sec" data-reset="t1">Reiniciar</button><span class="score" id="score-t1"></span></div>
+  </div>
+</section>
+
+<!-- ============ T2 ============ -->
+<section class="topic" id="t2">
+  <div class="card">
+    <h2>2 · CSS: selectores y el modelo de caja</h2>
+    <p class="sub">Cómo escribir una regla CSS, cómo apuntarla a un elemento concreto, y cómo se mide el espacio de cada caja.</p>
+
+    <h3>1. La forma de una regla CSS</h3>
+    <p>Toda regla CSS tiene esta forma:</p>
+    <p class="en">selector { propiedad: valor; propiedad: valor; }</p>
+    <ul>
+      <li><b>Selector</b>: a qué elementos aplica.</li>
+      <li><b>Propiedad</b>: qué característica cambias (color, tamaño, espacio…).</li>
+      <li><b>Valor</b>: a qué la cambias.</li>
+    </ul>
+    <p><span class="en">.boton { color: red; }</span> <span class="no">.boton { color = red }</span></p>
+
+    <h3>2. Selectores: etiqueta, clase e id</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Tipo</th><th>Sintaxis</th><th>Afecta a</th></tr>
+      <tr><td>Etiqueta</td><td><code>p { }</code></td><td>Todos los <code>&lt;p&gt;</code> de la página</td></tr>
+      <tr><td>Clase</td><td><code>.tarjeta { }</code></td><td>Todo elemento con <code>class="tarjeta"</code> (puede repetirse)</td></tr>
+      <tr><td>Id</td><td><code>#menu { }</code></td><td>El único elemento con <code>id="menu"</code></td></tr>
+    </table></div>
+    <div class="tip">💡 Usa clases para reutilizar estilo en varios elementos. Usa id solo para algo único de verdad en toda la página (como un ancla de navegación).</div>
+
+    <h3>3. El modelo de caja</h3>
+    <p>Todo elemento HTML es, para CSS, una caja rectangular con cuatro capas, de adentro hacia afuera:</p>
+    <div class="tablewrap"><table>
+      <tr><th>Capa</th><th>Qué es</th><th>Propiedad CSS</th></tr>
+      <tr><td>Content</td><td>El contenido mismo (texto, imagen)</td><td><code>width</code> / <code>height</code></td></tr>
+      <tr><td>Padding</td><td>Espacio entre el contenido y el borde</td><td><code>padding</code></td></tr>
+      <tr><td>Border</td><td>La línea que rodea la caja</td><td><code>border</code></td></tr>
+      <tr><td>Margin</td><td>Espacio fuera del borde, hacia otras cajas</td><td><code>margin</code></td></tr>
+    </table></div>
+    <p><span class="en">.caja { padding: 10px; border: 1px solid black; margin: 20px; }</span></p>
+
+    <h3>4. Vincular el CSS al HTML</h3>
+    <p>El CSS vive aparte y se conecta con una etiqueta en el <code>&lt;head&gt;</code>:</p>
+    <p><span class="en">&lt;link rel="stylesheet" href="estilos.css"&gt;</span></p>
+    <p>Luego, cualquier elemento con <code>class="tarjeta"</code> en el HTML recibe automáticamente lo que diga <code>.tarjeta { }</code> en ese CSS.</p>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 2</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t2"></ol>
+    <div class="actions"><button class="btn" data-check="t2">Comprobar</button><button class="btn sec" data-reset="t2">Reiniciar</button><span class="score" id="score-t2"></span></div>
+  </div>
+</section>
+
+<!-- ============ T3 ============ -->
+<section class="topic" id="t3">
+  <div class="card">
+    <h2>3 · Diseño responsive y Flexbox</h2>
+    <p class="sub">Que tu página se vea bien tanto en el celular como en una pantalla grande.</p>
+
+    <h3>1. ¿Qué es diseño responsive?</h3>
+    <p>Es que el mismo HTML se adapte al tamaño de pantalla de quien lo ve, sin necesitar una versión distinta para móvil y otra para escritorio.</p>
+    <p><span class="en">&lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;</span> — sin este meta tag en el <code>&lt;head&gt;</code>, el celular muestra la página como si fuera de escritorio y luego la achica.</p>
+
+    <h3>2. Media queries</h3>
+    <p>Son reglas CSS que solo aplican bajo cierta condición de pantalla:</p>
+    <p class="en">@media (max-width: 600px) { .columna { flex-direction: column; } }</p>
+    <p><span class="en">@media (max-width: 600px) { }</span> <span class="no">@media screen 600px { }</span></p>
+
+    <h3>3. Flexbox básico</h3>
+    <p>Activas flexbox en el contenedor (el padre), no en los elementos hijos:</p>
+    <p class="en">.contenedor { display: flex; }</p>
+    <div class="tablewrap"><table>
+      <tr><th>Propiedad</th><th>Eje que controla</th><th>Valores comunes</th></tr>
+      <tr><td><code>justify-content</code></td><td>Horizontal (principal)</td><td><code>flex-start</code>, <code>center</code>, <code>space-between</code></td></tr>
+      <tr><td><code>align-items</code></td><td>Vertical (cruzado)</td><td><code>flex-start</code>, <code>center</code>, <code>stretch</code></td></tr>
+    </table></div>
+
+    <h3>4. flex-wrap</h3>
+    <p>Por defecto, flexbox intenta meter todo en una sola línea y encoge los elementos. Con <code>flex-wrap: wrap</code>, los que no caben pasan a la siguiente línea en vez de aplastarse.</p>
+    <div class="tip">💡 Combo típico de una barra de tarjetas responsive: <code>display: flex; flex-wrap: wrap; gap: 16px;</code></div>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 3</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t3"></ol>
+    <div class="actions"><button class="btn" data-check="t3">Comprobar</button><button class="btn sec" data-reset="t3">Reiniciar</button><span class="score" id="score-t3"></span></div>
+  </div>
+</section>
+
+</main>
+<footer class="page-footer">Curso de HTML y CSS · Practica todas las veces que quieras 🙂</footer>
+
+<script src="js/global.js"></script>
+<script>
+// type "f" = fill (q contains ___), "c" = choice
+const DATA = {
+  "t1": [
+    {t:"f", q:"La etiqueta del título principal es &lt;___&gt;.", h:"h y un número, nivel 1", a:["h1"]},
+    {t:"c", q:"¿Cuál etiqueta se usa para un párrafo de texto?", o:["p","div","span"], a:0},
+    {t:"f", q:"El atributo que da la ruta de una imagen es ___.", h:"atributo de img", a:["src"]},
+    {t:"f", q:"El atributo que da el texto alternativo de una imagen es ___.", h:"accesibilidad", a:["alt"]},
+    {t:"c", q:"Elige el enlace correcto:", o:["&lt;a href=\"https://x.com\"&gt;Ir&lt;/a&gt;","&lt;a src=\"https://x.com\"&gt;Ir&lt;/a&gt;","&lt;a&gt;https://x.com&lt;/a&gt;"], a:0},
+    {t:"f", q:"Para crear un enlace usamos la etiqueta ___.", h:"ancla", a:["a"]},
+    {t:"c", q:"¿Cuál de estas etiquetas es de bloque?", o:["span","a","div"], a:2},
+    {t:"c", q:"¿Cuál de estas etiquetas es en línea?", o:["p","span","section"], a:1, e:"span no corta la línea de texto."},
+    {t:"f", q:"La etiqueta que crea una lista sin numerar es ___.", h:"unordered list", a:["ul"]},
+    {t:"f", q:"Cada elemento de una lista va dentro de la etiqueta ___.", h:"list item", a:["li"]},
+    {t:"c", q:"¿Cuál es el orden correcto dentro de &lt;html&gt;?", o:["&lt;body&gt; y luego &lt;head&gt;","&lt;head&gt; y luego &lt;body&gt;","no importa el orden"], a:1},
+    {t:"f", q:"El atributo que identifica un elemento único en la página es ___.", h:"debe ser único", a:["id"]},
+    {t:"f", q:"El atributo que conecta un elemento con reglas CSS por clase es ___.", h:"se repite en varios elementos", a:["class"]},
+    {t:"c", q:"Elige el anidado válido:", o:["&lt;p&gt;&lt;strong&gt;Texto&lt;/strong&gt;&lt;/p&gt;","&lt;p&gt;&lt;strong&gt;Texto&lt;/p&gt;&lt;/strong&gt;","&lt;strong&gt;&lt;p&gt;Texto&lt;/strong&gt;&lt;/p&gt;"], a:0, e:"Se cierra en orden inverso al que se abrió."},
+    {t:"c", q:"¿Qué etiqueta NO corta la línea de texto?", o:["div","p","span"], a:2},
+    {t:"f", q:"Todo el contenido visible de la página va dentro de ___.", h:"etiqueta", a:["body"]},
+    {t:"f", q:"El título de la pestaña y los enlaces a CSS van dentro de ___.", h:"no se ve en pantalla", a:["head"]},
+    {t:"c", q:"¿Qué atributo abre un enlace en pestaña nueva?", o:["target=\"_blank\"","open=\"new\"","new=\"tab\""], a:0},
+    {t:"f", q:"Las etiquetas de encabezado van de h1 a h___.", h:"número", a:["6"]},
+    {t:"c", q:"Elige la etiqueta de imagen correcta:", o:["&lt;img alt=\"Una foto\" src=\"foto.jpg\"&gt;","&lt;img&gt;foto.jpg&lt;/img&gt;","&lt;image src=\"foto.jpg\"&gt;"], a:0}
+  ],
+  "t2": [
+    {t:"f", q:"Una regla CSS tiene la forma selector { propiedad: ___; }", h:"lo que cambias", a:["valor"]},
+    {t:"c", q:"¿Cuál selector apunta a una clase?", o:[".caja","caja","#caja"], a:0},
+    {t:"c", q:"¿Cuál selector apunta a un id?", o:[".caja","#caja","caja"], a:1},
+    {t:"f", q:"Para darle color de fondo a algo usamos la propiedad ___.", h:"background", a:["background"]},
+    {t:"f", q:"El espacio entre el contenido y el borde de una caja es el ___.", h:"modelo de caja", a:["padding"]},
+    {t:"f", q:"El espacio fuera del borde, que separa una caja de otra, es el ___.", h:"modelo de caja", a:["margin"]},
+    {t:"c", q:"En el modelo de caja, el orden de adentro hacia afuera es:", o:["content, padding, border, margin","content, margin, padding, border","padding, content, margin, border"], a:0},
+    {t:"f", q:"La propiedad que dibuja una línea alrededor de una caja es ___.", h:"border", a:["border"]},
+    {t:"c", q:"Elige la regla CSS correcta:", o:[".boton { color: red; }",".boton { color = red; }",".boton - color: red;"], a:0},
+    {t:"f", q:"Para vincular un CSS externo usamos la etiqueta &lt;___&gt;.", h:"va en el head", a:["link"]},
+    {t:"c", q:"¿Qué atributo del &lt;link&gt; indica que es una hoja de estilos?", o:["rel=\"stylesheet\"","type=\"css\"","src=\"style.css\""], a:0},
+    {t:"f", q:"Si en el HTML pones class=\"tarjeta\", en el CSS la seleccionas con ___tarjeta.", h:"empieza con un punto", a:[".tarjeta"]},
+    {t:"c", q:"¿Cuál selector afecta a TODOS los párrafos de la página?", o:["p",".p","#p"], a:0},
+    {t:"f", q:"Un id debe ser ___ en toda la página (no se repite).", h:"opuesto de repetido", a:["unico","único"]},
+    {t:"c", q:"Elige la frase correcta:", o:["Una clase se puede usar en varios elementos","Un id se puede usar en varios elementos","Las clases no sirven para CSS"], a:0},
+    {t:"f", q:"La propiedad que cambia el tamaño de la letra es font-___.", h:"size", a:["size"]},
+    {t:"c", q:"¿Qué pasa si dos reglas CSS chocan en el mismo selector?", o:["gana la última declarada","gana la primera declarada","no se aplica ninguna"], a:0},
+    {t:"f", q:"Para redondear las esquinas de una caja usamos border-___.", h:"radius", a:["radius"]},
+    {t:"c", q:"Elige la regla correcta para una caja con borde:", o:[".caja { border: 1px solid black; }",".caja { border: solid 1px black truco; }",".caja { line: 1px solid; }"], a:0},
+    {t:"f", q:"El ancho visible total de una caja incluye content + padding + ___ (sin contar margin).", h:"otra capa de la caja", a:["border"]}
+  ],
+  "t3": [
+    {t:"c", q:"¿Qué es diseño responsive?", o:["Que la página se adapte a distintos tamaños de pantalla","Que la página cargue rápido","Que la página tenga muchos colores"], a:0},
+    {t:"f", q:"La regla CSS que aplica estilos solo bajo cierta condición de pantalla es @___.", h:"media query", a:["media"]},
+    {t:"c", q:"Elige la media query para pantallas de 600px o menos:", o:["@media (max-width: 600px) { }","@media (min-width: 600px) { }","@media screen 600px { }"], a:0},
+    {t:"f", q:"Para activar flexbox en un contenedor usamos display: ___.", h:"flex", a:["flex"]},
+    {t:"c", q:"¿Qué propiedad alinea los elementos en el eje horizontal (principal)?", o:["justify-content","align-items","flex-wrap"], a:0},
+    {t:"c", q:"¿Qué propiedad alinea los elementos en el eje vertical (cruzado)?", o:["align-items","justify-content","flex-direction"], a:0},
+    {t:"f", q:"Para que los elementos pasen a otra línea cuando no caben, usamos flex-___: wrap.", h:"wrap", a:["wrap"]},
+    {t:"c", q:"Elige el valor que centra los elementos horizontalmente:", o:["center","middle","centered"], a:0},
+    {t:"f", q:"Para separar elementos con espacio entre ellos (no en los bordes), usamos justify-content: space-___.", h:"between", a:["between"]},
+    {t:"c", q:"¿Cuál de estos NO es un valor típico de align-items?", o:["center","flex-start","bold"], a:2},
+    {t:"f", q:"El meta tag necesario para responsive en móvil incluye initial-___=1.", h:"scale", a:["scale"]},
+    {t:"c", q:"Elige la frase correcta:", o:["Sin la meta viewport, el móvil puede mostrar la página como si fuera de escritorio","La meta viewport es solo decorativa","El viewport no afecta el diseño responsive"], a:0},
+    {t:"f", q:"flex-direction: ___ pone los elementos en columna en vez de fila.", h:"column", a:["column"]},
+    {t:"c", q:"¿Qué unidad es relativa al ancho de la ventana del navegador?", o:["vw","px","pt"], a:0},
+    {t:"f", q:"Para que una imagen nunca se desborde de su contenedor: img { max-width: ___%; }", h:"número", a:["100"]},
+    {t:"c", q:"Elige la media query que aplica solo en pantallas grandes (más de 900px):", o:["@media (min-width: 900px) { }","@media (max-width: 900px) { }","@media (width: 900px) { }"], a:0},
+    {t:"f", q:"En flexbox, cada hijo directo del contenedor se llama un ___ item.", h:"flex", a:["flex"]},
+    {t:"c", q:"¿Qué ventaja tiene flexbox para alinear elementos?", o:["Es más simple y predecible para centrar y distribuir espacio","No funciona en navegadores modernos","No permite alinear verticalmente"], a:0},
+    {t:"f", q:"Para centrar un elemento horizontal y vertical en un flex container: justify-content: center; align-items: ___.", h:"center", a:["center"]},
+    {t:"c", q:"Elige la frase correcta:", o:["El diseño responsive usa media queries y unidades flexibles para adaptarse a cualquier pantalla","El diseño responsive solo sirve para computadoras","Flexbox solo funciona en una dirección fija"], a:0}
+  ]
+};
+
+const norm = s => s.toLowerCase().replace(/[’‘`]/g,"'").replace(/[.,!?¿¡]/g," ").replace(/\s+/g," ").trim();
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(set){
+  const ol = document.querySelector(`ol[data-set="${set}"]`);
+  ol.innerHTML = DATA[set].map((x,i) => {
+    const id = `${set}-${i}`;
+    if (x.t === "f"){
+      const parts = x.q.split("___");
+      const inp = `<input type="text" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Respuesta ${i+1}">`;
+      return `<li data-i="${i}"><span class="q">${parts[0]}${inp}${parts[1]||""}</span> <span class="hint">(${esc(x.h)})</span><span class="fb"></span></li>`;
+    }
+    const opts = x.o.map((o,j) => `<label><input type="radio" name="${id}" value="${j}">${o}</label>`).join("");
+    return `<li data-i="${i}"><span class="q">${x.q}</span><div class="opts">${opts}</div><span class="fb"></span></li>`;
+  }).join("");
+  ol.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set); });
+  document.getElementById(`score-${set}`).textContent = "";
+}
+
+function check(set){
+  let ok = 0;
+  document.querySelectorAll(`ol[data-set="${set}"] li`).forEach(li => {
+    const i = +li.dataset.i, x = DATA[set][i], id = `${set}-${i}`, fb = li.querySelector(".fb");
+    let good, answered, right;
+    if (x.t === "f"){
+      const v = norm(document.getElementById(id).value);
+      answered = v !== "";
+      good = x.a.some(a => norm(a) === v);
+      right = x.a[0];
+    } else {
+      const sel = li.querySelector(`input[name="${id}"]:checked`);
+      answered = !!sel;
+      good = answered && +sel.value === x.a;
+      right = x.o[x.a];
+    }
+    li.classList.remove("ok","bad");
+    if (good){ ok++; li.classList.add("ok"); fb.textContent = "✔ ¡Correcto!" + (x.e ? " " + x.e : ""); }
+    else { li.classList.add("bad"); fb.textContent = (answered ? "✘ " : "✘ Sin responder. ") + "Respuesta: " + right + (x.e ? " — " + x.e : ""); }
+  });
+  const n = DATA[set].length, msg = ok === n ? " 🎉 ¡Perfecto!" : ok >= n*0.7 ? " 👍 ¡Muy bien!" : " 💪 ¡Repasa la teoría y vuelve a intentarlo!";
+  document.getElementById(`score-${set}`).textContent = `Puntuación: ${ok}/${n}` + msg;
+}
+
+Object.keys(DATA).forEach(render);
+document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => check(b.dataset.check));
+document.querySelectorAll("[data-reset]").forEach(b => b.onclick = () => render(b.dataset.reset));
+
+const tabs = document.querySelectorAll("#tabs button");
+function show(t){
+  tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.t === t));
+  document.querySelectorAll("section.topic").forEach(s => s.classList.toggle("active", s.id === t));
+  try { localStorage.setItem("htmlcss-tab", t); } catch(e){}
+  window.scrollTo({top:0});
+}
+tabs.forEach(b => b.onclick = () => show(b.dataset.t));
+try { const t = localStorage.getItem("htmlcss-tab"); if (t && document.getElementById(t)) show(t); } catch(e){}
+</script>
+</body>
+</html>

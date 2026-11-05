@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JavaScript — Crisomber</title>
+<meta name="description" content="JavaScript desde cero: variables, funciones, el DOM y eventos, explicado en español con 60 ejercicios interactivos.">
+<script src="js/tema.js"></script>
+<link rel="stylesheet" href="css/global.css">
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#1d2433; --muted:#5b6578; --line:#e2e6ef;
+  --accent:#b45309; --accent-soft:#fdf0d5; --ok:#1f8a4c; --ok-soft:#e3f5ea;
+  --bad:#c0392b; --bad-soft:#fbe7e5; --warn-soft:#fff6db; --code:#f0f2f8;
+  --ink:var(--text); --f-display:system-ui,sans-serif; --f-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+    --accent:#f2a73b; --accent-soft:#3a2f0f; --ok:#4cc884; --ok-soft:#173326;
+    --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+  --accent:#f2a73b; --accent-soft:#3a2f0f; --ok:#4cc884; --ok-soft:#173326;
+  --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page-header{background:var(--card);border-bottom:1px solid var(--line)}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
+h1{font-size:1.25rem;margin:0}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600}
+nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+main{padding:24px 0 60px}
+section.topic{display:none}
+section.topic.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+h2{margin:0 0 4px;font-size:1.5rem}
+h3{margin:22px 0 8px;font-size:1.1rem}
+h3:first-child{margin-top:0}
+.sub{color:var(--muted);margin:0 0 8px}
+table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--accent-soft)}
+.tablewrap{overflow-x:auto}
+ul{padding-left:20px;margin:6px 0}
+li{margin:4px 0}
+.ex{font-style:italic}
+.no{color:var(--bad);text-decoration:line-through}
+.tip{background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:10px 0}
+.en{background:var(--code);border-radius:6px;padding:1px 6px;font-style:italic}
+ol.exercises{list-style:none;padding:0;margin:0;counter-reset:q}
+ol.exercises li{counter-increment:q;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;transition:background .2s}
+ol.exercises li::before{content:counter(q) ". ";font-weight:700;color:var(--accent)}
+ol.exercises li.ok{background:var(--ok-soft);border-color:var(--ok)}
+ol.exercises li.bad{background:var(--bad-soft);border-color:var(--bad)}
+.q{display:inline}
+.hint{color:var(--muted);font-size:.9rem}
+input[type=text]{font:inherit;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);min-width:120px;max-width:100%}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.opts label{border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;background:var(--bg)}
+.opts input{margin-right:6px}
+.fb{display:block;margin-top:6px;font-size:.92rem;font-weight:600}
+li.ok .fb{color:var(--ok)} li.bad .fb{color:var(--bad)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.btn{border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+.btn.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+.score{font-weight:700;font-size:1.05rem}
+.site-footer p{color:var(--muted);text-align:center;font-size:.85rem;padding:0;margin:0}
+footer.page-footer{color:var(--muted);text-align:center;font-size:.85rem;padding:20px 16px}
+@media (max-width:560px){ .card{padding:16px} h2{font-size:1.3rem} }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <span class="brand-mark" aria-hidden="true">&gt;_</span>
+      <span class="brand-name">Crisomber</span>
+    </a>
+    <nav aria-label="Principal">
+      <ul class="nav-list">
+        <li><a href="index.html#sobre-mi">Sobre mí</a></li>
+        <li><a href="index.html#cursos" aria-current="page">Cursos</a></li>
+        <li><a href="index.html#contacto">Contacto</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<header class="page-header">
+  <div class="wrap">
+    <div class="top">
+      <h1>⚡ JavaScript para tus páginas</h1>
+    </div>
+    <nav role="tablist" id="tabs">
+      <button role="tab" data-t="t1" aria-selected="true">1. Variables y funciones</button>
+      <button role="tab" data-t="t2" aria-selected="false">2. El DOM</button>
+      <button role="tab" data-t="t3" aria-selected="false">3. Eventos</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="contenido">
+
+<!-- ============ 1 ============ -->
+<section class="topic active" id="t1">
+  <div class="card">
+    <h2>1 · Variables and functions</h2>
+    <p class="sub">Cómo guardar datos en una variable y cómo empaquetar código reutilizable en una función.</p>
+
+    <h3>1. let y const (y por qué ya no se usa var)</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Palabra clave</th><th>¿Se puede reasignar?</th><th>¿Respeta el bloque { }?</th></tr>
+      <tr><td>let</td><td>Sí</td><td>Sí</td></tr>
+      <tr><td>const</td><td>No</td><td>Sí</td></tr>
+      <tr><td>var (antiguo)</td><td>Sí</td><td>No — se "escapa" del bloque</td></tr>
+    </table></div>
+    <ul>
+      <li>Usa <b>const</b> por defecto: avisa si accidentalmente intentas cambiar algo que no debería cambiar.</li>
+      <li>Usa <b>let</b> solo cuando sí necesitas reasignar el valor más adelante (por ejemplo, un contador).</li>
+      <li><b>var</b> casi no se usa hoy: no respeta el alcance de bloque, lo que puede causar errores difíciles de rastrear.</li>
+    </ul>
+    <p><span class="en">const nombre = "Ana"; let edad = 25; edad = 26;</span></p>
+    <p><span class="no">var nombre = "Ana"; // evita var en código nuevo</span></p>
+
+    <h3>2. Tipos de datos</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Tipo</th><th>Ejemplo</th><th>typeof</th></tr>
+      <tr><td>string</td><td>"hola"</td><td>"string"</td></tr>
+      <tr><td>number</td><td>42, 3.14</td><td>"number"</td></tr>
+      <tr><td>boolean</td><td>true, false</td><td>"boolean"</td></tr>
+      <tr><td>array</td><td>[1, 2, 3]</td><td>"object"</td></tr>
+      <tr><td>object</td><td>{nombre: "Ana"}</td><td>"object"</td></tr>
+    </table></div>
+    <div class="tip">💡 Ojo: <b>typeof</b> de un array también da "object". Para saber si algo es un array de verdad se usa <b>Array.isArray(valor)</b>.</div>
+
+    <h3>3. Funciones</h3>
+    <p>Una función empaqueta código para reutilizarlo. La forma clásica:</p>
+    <p><span class="en">function suma(a, b) { return a + b; }</span></p>
+    <p><span class="no">function suma(a, b) { a + b } // falta el return</span></p>
+
+    <h3>4. Arrow functions</h3>
+    <p>Son una forma más corta de escribir funciones, muy usada en JavaScript moderno:</p>
+    <p><span class="en">const suma = (a, b) =&gt; a + b;</span></p>
+    <p><span class="no">const suma = (a, b) -&gt; a + b; // esa flecha no existe en JS</span></p>
+    <div class="tip">💡 Si la función solo tiene un <b>return</b>, puedes omitir las llaves <b>{ }</b> y la palabra <b>return</b>, como en el ejemplo de arriba.</div>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 1</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t1"></ol>
+    <div class="actions"><button class="btn" data-check="t1">Comprobar</button><button class="btn sec" data-reset="t1">Reiniciar</button><span class="score" id="score-t1"></span></div>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="topic" id="t2">
+  <div class="card">
+    <h2>2 · The DOM</h2>
+    <p class="sub">Cómo JavaScript lee y cambia lo que se ve en la página.</p>
+
+    <h3>1. Qué es el DOM</h3>
+    <p>El <b>DOM</b> (Document Object Model) es la representación de tu HTML como un árbol de elementos que JavaScript puede leer y modificar. Cuando JS "cambia la página", en realidad está cambiando el DOM, y el navegador vuelve a dibujar lo que cambió.</p>
+
+    <h3>2. querySelector y querySelectorAll</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Método</th><th>Qué devuelve</th><th>Ejemplo</th></tr>
+      <tr><td>document.querySelector(sel)</td><td>El primer elemento que coincide</td><td>document.querySelector(".card")</td></tr>
+      <tr><td>document.querySelectorAll(sel)</td><td>Todos los que coinciden (una lista)</td><td>document.querySelectorAll("li")</td></tr>
+    </table></div>
+    <ul>
+      <li>El selector es el mismo que usarías en CSS: <span class="en">"h1"</span>, <span class="en">".card"</span> (clase), <span class="en">"#titulo"</span> (id).</li>
+      <li>Si no encuentra nada, <b>querySelector</b> devuelve <span class="en">null</span>, no da error.</li>
+    </ul>
+
+    <h3>3. Leer y cambiar texto y atributos</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Propiedad / método</th><th>Para qué sirve</th></tr>
+      <tr><td>elemento.textContent</td><td>Lee o cambia el texto visible (sin interpretar HTML)</td></tr>
+      <tr><td>elemento.innerHTML</td><td>Lee o cambia el contenido interpretando etiquetas HTML</td></tr>
+      <tr><td>elemento.getAttribute("href")</td><td>Lee el valor de un atributo</td></tr>
+      <tr><td>elemento.setAttribute("href", "...")</td><td>Cambia el valor de un atributo</td></tr>
+    </table></div>
+    <div class="tip">💡 Si el texto viene de un usuario (un formulario, por ejemplo), usa <b>textContent</b> en vez de <b>innerHTML</b> — evita que alguien meta HTML o scripts no deseados.</div>
+
+    <h3>4. Crear elementos</h3>
+    <p><span class="en">const li = document.createElement("li"); li.textContent = "Nuevo"; lista.append(li);</span></p>
+    <p><span class="no">lista.append("Nuevo"); // falta crear el elemento, eso solo agrega texto suelto</span></p>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 2</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t2"></ol>
+    <div class="actions"><button class="btn" data-check="t2">Comprobar</button><button class="btn sec" data-reset="t2">Reiniciar</button><span class="score" id="score-t2"></span></div>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="topic" id="t3">
+  <div class="card">
+    <h2>3 · Events</h2>
+    <p class="sub">Cómo hacer que tu página reaccione a lo que hace el usuario.</p>
+
+    <h3>1. addEventListener</h3>
+    <p><span class="en">boton.addEventListener("click", function() { alert("¡Hola!"); });</span></p>
+    <ul>
+      <li>Primer argumento: el nombre del evento, como string (<span class="en">"click"</span>).</li>
+      <li>Segundo argumento: la función que se ejecuta cuando pasa ese evento.</li>
+    </ul>
+
+    <h3>2. Eventos comunes</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Evento</th><th>Cuándo se dispara</th></tr>
+      <tr><td>click</td><td>Al hacer clic en el elemento</td></tr>
+      <tr><td>submit</td><td>Al enviar un formulario (&lt;form&gt;)</td></tr>
+      <tr><td>input</td><td>Cada vez que el usuario escribe en un campo</td></tr>
+      <tr><td>keydown</td><td>Al presionar una tecla</td></tr>
+    </table></div>
+
+    <h3>3. event.target</h3>
+    <p>La función que pones en addEventListener recibe un objeto (normalmente llamado <span class="en">e</span> o <span class="en">event</span>) con información de lo que pasó. <b>e.target</b> es el elemento exacto que disparó el evento — muy útil cuando el mismo listener está en varios elementos.</p>
+    <p><span class="en">function manejar(e) { console.log(e.target.textContent); }</span></p>
+
+    <h3>4. preventDefault</h3>
+    <p>Algunos eventos tienen un comportamiento por defecto del navegador — por ejemplo, enviar un <span class="en">&lt;form&gt;</span> recarga la página. <b>e.preventDefault()</b> evita ese comportamiento, para poder manejarlo tú mismo con JavaScript.</p>
+    <p><span class="en">formulario.addEventListener("submit", function(e) { e.preventDefault(); });</span></p>
+    <div class="tip">💡 Sin <b>preventDefault()</b>, un formulario recarga la página al enviarse — y pierdes cualquier estado que tuvieras en JavaScript.</div>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 3</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t3"></ol>
+    <div class="actions"><button class="btn" data-check="t3">Comprobar</button><button class="btn sec" data-reset="t3">Reiniciar</button><span class="score" id="score-t3"></span></div>
+  </div>
+</section>
+
+</main>
+<footer class="page-footer">Curso de JavaScript · Practica todas las veces que quieras 🙂</footer>
+
+<script src="js/global.js"></script>
+<script>
+// type "f" = fill (q contains ___), "c" = choice
+const DATA = {
+  "t1": [
+    {t:"c", q:"¿Cuál palabra clave declara una variable que SÍ se puede reasignar pero respeta el bloque { }?", o:["const","let","function"], a:1},
+    {t:"f", q:"const PI = ___; // declara una constante con el valor 3.14", h:"solo el número", a:["3.14"]},
+    {t:"c", q:"¿Qué pasa si intentas reasignar una variable declarada con const?", o:["Se reasigna sin problema","JavaScript lanza un error","Se convierte automáticamente en let"], a:1},
+    {t:"c", q:"¿Cuál es el problema principal de var?", o:["No existe en JavaScript","No respeta el alcance de bloque { } (scope), puede 'escaparse'","Solo funciona con números"], a:1},
+    {t:"f", q:"typeof 42 devuelve el string ___", h:"tipo de dato (una palabra)", a:["number"]},
+    {t:"f", q:"typeof \"hola\" devuelve el string ___", h:"tipo de dato (una palabra)", a:["string"]},
+    {t:"f", q:"typeof true devuelve el string ___", h:"tipo de dato (una palabra)", a:["boolean"]},
+    {t:"c", q:"¿Cuál de estos es un array en JavaScript?", o:["{nombre: \"Ana\"}","[1, 2, 3]","\"1,2,3\""], a:1},
+    {t:"c", q:"¿Cuál de estos es un object (objeto) en JavaScript?", o:["[1, 2, 3]","{nombre: \"Ana\", edad: 25}","function suma(){}"], a:1},
+    {t:"f", q:"function suma(a, b) { return a + ___; }", h:"el otro parámetro", a:["b"]},
+    {t:"c", q:"¿Cuál es la forma correcta de una función normal (function declaration)?", o:["function suma(a, b) { return a + b; }","suma(a, b) => { return a + b; }","function = suma(a, b) { a + b }"], a:0},
+    {t:"c", q:"¿Cuál es la forma correcta de una arrow function equivalente?", o:["const suma = (a, b) => a + b;","const suma = (a, b) -> a + b;","arrow suma(a, b) { a + b }"], a:0},
+    {t:"f", q:"const suma = (a, b) => a ___ b; // versión corta con arrow function", h:"operador de suma", a:["+"]},
+    {t:"c", q:"¿Qué tipo de dato es [1, \"dos\", true]?", o:["object","array","string"], a:1, e:"typeof de un array da \"object\", pero conceptualmente es un array."},
+    {t:"c", q:"¿Cuál es la ventaja principal de usar const por defecto (en vez de let)?", o:["Es más rápido de escribir","Avisa si accidentalmente reasignas algo que no debería cambiar","Permite usar más tipos de datos"], a:1},
+    {t:"f", q:"let contador = 0; contador = contador + 1; // ahora contador vale ___", h:"número", a:["1"]},
+    {t:"c", q:"¿Cuál declaración NO deberías usar en código nuevo?", o:["let","const","var"], a:2},
+    {t:"f", q:"const nombre = \"Luis\"; // typeof nombre es ___", h:"una palabra", a:["string"]},
+    {t:"c", q:"Una arrow function sin nombre que se guarda en una variable, como const saludar = () => {...}, se llama:", o:["función anónima asignada a una constante","método estático","clase"], a:0},
+    {t:"f", q:"const esMayor = (a, b) => a ___ b; // compara si a es mayor que b", h:"operador de comparación", a:[">"]}
+  ],
+  "t2": [
+    {t:"c", q:"¿Qué es el DOM?", o:["Un lenguaje de programación distinto de JavaScript","La representación en forma de árbol de los elementos HTML de una página, que JS puede leer y modificar","Un archivo CSS especial"], a:1},
+    {t:"f", q:"document.___(\"h1\") devuelve el PRIMER elemento <h1> de la página", h:"método", a:["querySelector"]},
+    {t:"f", q:"document.___(\"li\") devuelve TODOS los <li> de la página (una lista)", h:"método, termina en All", a:["querySelectorAll"]},
+    {t:"c", q:"¿Qué selector usarías dentro de querySelector para buscar un elemento con class=\"card\"?", o:["querySelector(\"card\")","querySelector(\".card\")","querySelector(\"#card\")"], a:1},
+    {t:"c", q:"¿Qué selector usarías para buscar un elemento con id=\"titulo\"?", o:["querySelector(\"titulo\")","querySelector(\".titulo\")","querySelector(\"#titulo\")"], a:2},
+    {t:"c", q:"¿Cuál es la diferencia principal entre textContent e innerHTML?", o:["No hay diferencia","textContent trata todo como texto plano; innerHTML interpreta etiquetas HTML","innerHTML es más rápido siempre"], a:1},
+    {t:"f", q:"elemento.___ = \"Hola\"; // cambia el texto visible sin interpretar etiquetas HTML", h:"propiedad", a:["textContent"]},
+    {t:"c", q:"¿Por qué hay que tener cuidado al usar innerHTML con texto que viene de un usuario?", o:["Porque es más lento","Porque puede ejecutar HTML/scripts no deseados (riesgo de seguridad)","Porque no funciona en móviles"], a:1},
+    {t:"f", q:"const el = document.querySelector(\"p\"); el.___(\"hidden\", \"\"); // le agrega el atributo hidden", h:"método para poner un atributo", a:["setAttribute"]},
+    {t:"c", q:"¿Cómo lees el valor de un atributo, por ejemplo href de un link?", o:["elemento.getAttribute(\"href\")","elemento.readAttribute(\"href\")","elemento.href()"], a:0},
+    {t:"f", q:"const nuevo = document.___(\"div\"); // crea un elemento <div> nuevo, todavía no visible en la página", h:"método", a:["createElement"]},
+    {t:"c", q:"Después de crear un elemento con createElement, ¿qué falta para que aparezca en la página?", o:["Nada, aparece solo","Agregarlo a la página con append (o appendChild)","Ponerle una clase CSS"], a:1},
+    {t:"f", q:"contenedor.___(nuevo); // agrega el elemento 'nuevo' como último hijo de 'contenedor'", h:"método", a:["append"]},
+    {t:"c", q:"document.querySelectorAll(\"li\") devuelve:", o:["Un solo elemento","Una lista (NodeList) de todos los elementos que coinciden","Un número"], a:1},
+    {t:"f", q:"document.querySelectorAll(\"li\").___(li => console.log(li)); // recorre cada elemento de la lista", h:"método de array/lista", a:["forEach"]},
+    {t:"c", q:"¿Cuál es MÁS seguro para mostrar texto que escribió un usuario?", o:["innerHTML","textContent","document.write"], a:1},
+    {t:"f", q:"const img = document.createElement(\"img\"); img.___ = \"foto.png\"; // le da la ruta de la imagen", h:"atributo src", a:["src"]},
+    {t:"c", q:"¿Qué hace document.querySelector(\".card\") si no existe ningún elemento con class=\"card\"?", o:["Lanza un error siempre","Devuelve null","Devuelve un array vacío"], a:1},
+    {t:"f", q:"elemento.classList.___(\"activo\"); // le agrega la clase 'activo' sin borrar las que ya tenía", h:"método de classList", a:["add"]},
+    {t:"c", q:"¿Cuál es la diferencia entre querySelector y querySelectorAll?", o:["querySelector devuelve el primer elemento que coincide; querySelectorAll devuelve todos","Son exactamente lo mismo","querySelectorAll solo funciona con id"], a:0}
+  ],
+  "t3": [
+    {t:"f", q:"boton.___(\"click\", function() { ... }); // escucha cuando se hace clic", h:"método", a:["addEventListener"]},
+    {t:"c", q:"¿Cuál es el primer argumento de addEventListener?", o:["La función que se ejecuta","El nombre del evento, como un string (\"click\")","El elemento HTML"], a:1},
+    {t:"c", q:"¿Cuál es el segundo argumento de addEventListener?", o:["El nombre del evento","La función que se ejecuta cuando pasa el evento","Un número de milisegundos"], a:1},
+    {t:"f", q:"input.addEventListener(\"___\", function(e) { ... }); // se dispara cada vez que el usuario escribe en el input", h:"nombre del evento", a:["input"]},
+    {t:"c", q:"¿Qué evento se dispara cuando el usuario presiona una tecla?", o:["click","keydown","submit"], a:1},
+    {t:"c", q:"¿Qué evento se dispara al enviar un formulario (<form>)?", o:["submit","send","post"], a:0},
+    {t:"f", q:"elemento.addEventListener(\"___\", cambiar); // se dispara cuando el usuario hace clic", h:"nombre del evento", a:["click"]},
+    {t:"c", q:"Dentro de una función de evento, function(e) {...}, ¿qué representa e?", o:["El elemento donde pusiste el addEventListener","Un objeto con información del evento (como e.target)","Nada, es opcional y no sirve"], a:1},
+    {t:"f", q:"function manejar(e) { console.log(e.___); } // propiedad que indica el elemento exacto que disparó el evento", h:"propiedad del evento", a:["target"]},
+    {t:"c", q:"¿Para qué sirve e.preventDefault()?", o:["Para borrar el elemento","Para evitar el comportamiento por defecto del navegador, como recargar la página al enviar un formulario","Para detener todos los demás scripts"], a:1},
+    {t:"f", q:"formulario.addEventListener(\"submit\", function(e) { e.___(); }); // evita que la página se recargue", h:"método del evento", a:["preventDefault"]},
+    {t:"c", q:"¿Cuál es un buen ejemplo de cuándo usar preventDefault()?", o:["Siempre, en cualquier evento","En un formulario que quieres validar con JavaScript antes de enviarlo de verdad","Nunca es necesario"], a:1},
+    {t:"c", q:"¿Qué evento usarías para reaccionar mientras el usuario escribe en un <input>, letra por letra?", o:["click","input","load"], a:1},
+    {t:"f", q:"document.addEventListener(\"keydown\", function(e) { console.log(e.___); }); // propiedad que dice qué tecla se presionó", h:"propiedad del evento", a:["key"]},
+    {t:"c", q:"Si pones el mismo addEventListener en 5 botones distintos (en un bucle), ¿cómo sabes cuál botón fue clicado dentro de la función?", o:["No se puede saber","Con e.target, que apunta al elemento exacto que recibió el clic","Hay que usar 5 funciones distintas"], a:1},
+    {t:"f", q:"const boton = document.querySelector(\"button\"); boton.addEventListener(\"click\", () => { ___.textContent = \"¡Clic!\"; }); // usa el nombre de la variable del botón", h:"nombre de la variable", a:["boton"]},
+    {t:"c", q:"¿Qué pasa si NO usas preventDefault() en un formulario con submit?", o:["Nada cambia","El navegador hace su comportamiento por defecto: recarga la página, perdiendo el estado de JS","Se cancela automáticamente el evento"], a:1},
+    {t:"f", q:"elemento.addEventListener(\"click\", function(e) { console.log(e.target.___); }); // propiedad que da el texto visible del elemento clicado", h:"propiedad", a:["textContent"]},
+    {t:"c", q:"¿Cuál de estos NO es un evento válido de JavaScript?", o:["mouseover","click","clickeado"], a:2},
+    {t:"c", q:"¿Por qué es mejor usar addEventListener que escribir onclick=\"...\" directamente en el HTML?", o:["No hay diferencia real","addEventListener separa el comportamiento (JS) de la estructura (HTML) y permite varios listeners en el mismo elemento","onclick no funciona en navegadores modernos"], a:1}
+  ]
+};
+
+const norm = s => s.toLowerCase().replace(/[’‘`]/g,"'").replace(/[.,!?¿¡]/g," ").replace(/\s+/g," ").trim();
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(set){
+  const ol = document.querySelector(`ol[data-set="${set}"]`);
+  ol.innerHTML = DATA[set].map((x,i) => {
+    const id = `${set}-${i}`;
+    if (x.t === "f"){
+      const parts = esc(x.q).split("___");
+      const inp = `<input type="text" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Respuesta ${i+1}">`;
+      return `<li data-i="${i}"><span class="q">${parts[0]}${inp}${parts[1]||""}</span> <span class="hint">(${esc(x.h)})</span><span class="fb"></span></li>`;
+    }
+    const opts = x.o.map((o,j) => `<label><input type="radio" name="${id}" value="${j}">${esc(o)}</label>`).join("");
+    return `<li data-i="${i}"><span class="q">${esc(x.q)}</span><div class="opts">${opts}</div><span class="fb"></span></li>`;
+  }).join("");
+  ol.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set); });
+  document.getElementById(`score-${set}`).textContent = "";
+}
+
+function check(set){
+  let ok = 0;
+  document.querySelectorAll(`ol[data-set="${set}"] li`).forEach(li => {
+    const i = +li.dataset.i, x = DATA[set][i], id = `${set}-${i}`, fb = li.querySelector(".fb");
+    let good, answered, right;
+    if (x.t === "f"){
+      const v = norm(document.getElementById(id).value);
+      answered = v !== "";
+      good = x.a.some(a => norm(a) === v);
+      right = x.a[0];
+    } else {
+      const sel = li.querySelector(`input[name="${id}"]:checked`);
+      answered = !!sel;
+      good = answered && +sel.value === x.a;
+      right = x.o[x.a];
+    }
+    li.classList.remove("ok","bad");
+    if (good){ ok++; li.classList.add("ok"); fb.textContent = "✔ ¡Correcto!" + (x.e ? " " + x.e : ""); }
+    else { li.classList.add("bad"); fb.textContent = (answered ? "✘ " : "✘ Sin responder. ") + "Respuesta: " + right + (x.e ? " — " + x.e : ""); }
+  });
+  const n = DATA[set].length, msg = ok === n ? " 🎉 ¡Perfecto!" : ok >= n*0.7 ? " 👍 ¡Muy bien!" : " 💪 ¡Repasa la teoría y vuelve a intentarlo!";
+  document.getElementById(`score-${set}`).textContent = `Puntuación: ${ok}/${n}` + msg;
+}
+
+Object.keys(DATA).forEach(render);
+document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => check(b.dataset.check));
+document.querySelectorAll("[data-reset]").forEach(b => b.onclick = () => render(b.dataset.reset));
+
+const tabs = document.querySelectorAll("#tabs button");
+function show(t){
+  tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.t === t));
+  document.querySelectorAll("section.topic").forEach(s => s.classList.toggle("active", s.id === t));
+  try { localStorage.setItem("js-tab", t); } catch(e){}
+  window.scrollTo({top:0});
+}
+tabs.forEach(b => b.onclick = () => show(b.dataset.t));
+try { const t = localStorage.getItem("js-tab"); if (t && document.getElementById(t)) show(t); } catch(e){}
+</script>
+</body>
+</html>
