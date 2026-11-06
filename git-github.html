@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git y GitHub — Crisomber</title>
+<meta name="description" content="Git y GitHub desde cero: control de versiones, comandos esenciales y cómo colaborar en GitHub, explicado en español con 60 ejercicios interactivos.">
+<script src="js/tema.js"></script>
+<link rel="stylesheet" href="css/global.css">
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#1d2433; --muted:#5b6578; --line:#e2e6ef;
+  --accent:#c23b1f; --accent-soft:#fde4dd; --ok:#1f8a4c; --ok-soft:#e3f5ea;
+  --bad:#c0392b; --bad-soft:#fbe7e5; --warn-soft:#fff6db; --code:#f0f2f8;
+  --ink:var(--text); --f-display:system-ui,sans-serif; --f-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+    --accent:#ff7a5c; --accent-soft:#3a1f18; --ok:#4cc884; --ok-soft:#173326;
+    --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --card:#1a1f2a; --text:#e7eaf1; --muted:#9aa3b5; --line:#2c3342;
+  --accent:#ff7a5c; --accent-soft:#3a1f18; --ok:#4cc884; --ok-soft:#173326;
+  --bad:#ff7a6b; --bad-soft:#3a1f1c; --warn-soft:#3a3218; --code:#232937;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page-header{background:var(--card);border-bottom:1px solid var(--line)}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
+h1{font-size:1.25rem;margin:0}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600}
+nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+main{padding:24px 0 60px}
+section.topic{display:none}
+section.topic.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+h2{margin:0 0 4px;font-size:1.5rem}
+h3{margin:22px 0 8px;font-size:1.1rem}
+h3:first-child{margin-top:0}
+.sub{color:var(--muted);margin:0 0 8px}
+table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--accent-soft)}
+.tablewrap{overflow-x:auto}
+ul{padding-left:20px;margin:6px 0}
+li{margin:4px 0}
+.ex{font-style:italic}
+.no{color:var(--bad);text-decoration:line-through}
+.tip{background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:10px 0}
+.en{background:var(--code);border-radius:6px;padding:1px 6px;font-style:italic}
+ol.exercises{list-style:none;padding:0;margin:0;counter-reset:q}
+ol.exercises li{counter-increment:q;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;transition:background .2s}
+ol.exercises li::before{content:counter(q) ". ";font-weight:700;color:var(--accent)}
+ol.exercises li.ok{background:var(--ok-soft);border-color:var(--ok)}
+ol.exercises li.bad{background:var(--bad-soft);border-color:var(--bad)}
+.q{display:inline}
+.hint{color:var(--muted);font-size:.9rem}
+input[type=text]{font:inherit;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);min-width:120px;max-width:100%}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.opts label{border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;background:var(--bg)}
+.opts input{margin-right:6px}
+.fb{display:block;margin-top:6px;font-size:.92rem;font-weight:600}
+li.ok .fb{color:var(--ok)} li.bad .fb{color:var(--bad)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.btn{border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+.btn.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+.score{font-weight:700;font-size:1.05rem}
+.site-footer p{color:var(--muted);text-align:center;font-size:.85rem;padding:0;margin:0}
+footer.page-footer{color:var(--muted);text-align:center;font-size:.85rem;padding:20px 16px}
+@media (max-width:560px){ .card{padding:16px} h2{font-size:1.3rem} }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <span class="brand-mark" aria-hidden="true">&gt;_</span>
+      <span class="brand-name">Crisomber</span>
+    </a>
+    <nav aria-label="Principal">
+      <ul class="nav-list">
+        <li><a href="index.html#sobre-mi">Sobre mí</a></li>
+        <li><a href="index.html#cursos" aria-current="page">Cursos</a></li>
+        <li><a href="index.html#contacto">Contacto</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<header class="page-header">
+  <div class="wrap">
+    <div class="top">
+      <h1>🔧 Git y GitHub desde cero</h1>
+    </div>
+    <nav role="tablist" id="tabs">
+      <button role="tab" data-t="t1" aria-selected="true">1. Control de versiones</button>
+      <button role="tab" data-t="t2" aria-selected="false">2. Comandos esenciales</button>
+      <button role="tab" data-t="t3" aria-selected="false">3. GitHub y colaborar</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="contenido">
+
+<!-- ============ 1 ============ -->
+<section class="topic active" id="t1">
+  <div class="card">
+    <h2>1 · Control de versiones</h2>
+    <p class="sub">Qué es Git, qué es un repositorio y por qué importa el historial de cambios.</p>
+
+    <h3>1. ¿Qué es un sistema de control de versiones?</h3>
+    <p>Antes de Git, mucha gente "versionaba" sus proyectos a mano, duplicando carpetas o archivos:</p>
+    <p><span class="no">proyecto_final.zip, proyecto_final_v2.zip, proyecto_final_v2_DEFINITIVO.zip</span></p>
+    <p>Un sistema de control de versiones hace eso automáticamente y mucho mejor: guarda <b>todo el historial</b> de cambios de tus archivos, con fecha, autor y mensaje, dentro del propio proyecto:</p>
+    <p><span class="en">un solo proyecto, con historial completo guardado por Git</span></p>
+    <div class="tip">💡 Git no borra el pasado: siempre puedes volver a ver (o recuperar) cómo estaba tu código en cualquier punto anterior.</div>
+
+    <h3>2. Las tres piezas clave</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Término</th><th>Qué es</th></tr>
+      <tr><td>Repositorio ("repo")</td><td>Una carpeta cuyo historial de cambios vigila Git</td></tr>
+      <tr><td>Commit</td><td>Una "foto" guardada del proyecto en un momento dado, con un mensaje</td></tr>
+      <tr><td>Historial (log)</td><td>La lista ordenada de todos los commits de ese repositorio</td></tr>
+    </table></div>
+
+    <h3>3. ¿Por qué hacer commits pequeños?</h3>
+    <ul>
+      <li>Es más fácil entender <i>qué</i> cambió y <i>por qué</i>.</li>
+      <li>Si algo se rompe, es más fácil encontrar en qué commit pasó.</li>
+      <li>Puedes deshacer un cambio concreto sin perder los demás.</li>
+    </ul>
+
+    <h3>4. Dónde vive todo esto</h3>
+    <p>Dentro de cada repositorio, Git guarda todo el historial en una carpeta oculta llamada <code>.git</code>. Esa copia vive en <b>tu computadora</b> (local); más adelante veremos cómo compartirla con otros a través de GitHub (remoto).</p>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 1</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t1"></ol>
+    <div class="actions"><button class="btn" data-check="t1">Comprobar</button><button class="btn sec" data-reset="t1">Reiniciar</button><span class="score" id="score-t1"></span></div>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="topic" id="t2">
+  <div class="card">
+    <h2>2 · Comandos esenciales</h2>
+    <p class="sub">Los comandos que más vas a usar, día a día, trabajando con Git.</p>
+
+    <h3>1. Crear y preparar cambios</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Comando</th><th>Qué hace</th></tr>
+      <tr><td><code>git init</code></td><td>Convierte la carpeta actual en un repositorio Git</td></tr>
+      <tr><td><code>git add archivo.txt</code></td><td>Prepara (staging) ese archivo para el próximo commit</td></tr>
+      <tr><td><code>git add .</code></td><td>Prepara TODOS los archivos modificados</td></tr>
+    </table></div>
+    <p><span class="en">editar archivo → git add archivo → git commit</span> <span class="no">editar archivo → git commit (sin add)</span></p>
+
+    <h3>2. Guardar cambios: commit</h3>
+    <p>Un commit siempre lleva un mensaje corto que explica el cambio, con la bandera <code>-m</code>:</p>
+    <p><span class="en">git commit -m "Arregla el botón de enviar"</span> <span class="no">git commit -m "cambios"</span></p>
+    <div class="tip">💡 Un buen mensaje de commit explica el <i>porqué</i>, no solo repite "cambios" o "fix".</div>
+
+    <h3>3. Revisar: status y log</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Comando</th><th>Qué muestra</th></tr>
+      <tr><td><code>git status</code></td><td>Qué archivos cambiaron, cuáles están en staging y cuáles no</td></tr>
+      <tr><td><code>git log</code></td><td>El historial de commits: autor, fecha y mensaje</td></tr>
+      <tr><td><code>git log --oneline</code></td><td>El mismo historial, una línea por commit</td></tr>
+      <tr><td><code>git diff</code></td><td>Qué cambió línea por línea, antes de hacer add</td></tr>
+    </table></div>
+
+    <h3>4. Ramas: branch, checkout y switch</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Comando</th><th>Qué hace</th></tr>
+      <tr><td><code>git branch</code></td><td>Lista las ramas del repositorio</td></tr>
+      <tr><td><code>git branch login</code></td><td>Crea una rama nueva llamada "login"</td></tr>
+      <tr><td><code>git switch login</code></td><td>Te mueve a la rama "login" (forma moderna)</td></tr>
+      <tr><td><code>git checkout -b login</code></td><td>Crea la rama "login" y te mueve a ella, en un solo paso</td></tr>
+    </table></div>
+    <div class="tip">💡 Una rama es una línea de desarrollo independiente: puedes probar cosas ahí sin afectar el código principal (main).</div>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 2</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t2"></ol>
+    <div class="actions"><button class="btn" data-check="t2">Comprobar</button><button class="btn sec" data-reset="t2">Reiniciar</button><span class="score" id="score-t2"></span></div>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="topic" id="t3">
+  <div class="card">
+    <h2>3 · GitHub y colaborar</h2>
+    <p class="sub">Git funciona en tu computadora; GitHub es donde lo compartes con otros.</p>
+
+    <h3>1. Local vs remoto (origin)</h3>
+    <p>Tu copia del repositorio en tu computadora es la copia <b>local</b>. La copia alojada en un servidor (como GitHub) es el <b>remoto</b>. Por convención, Git le llama <code>origin</code> al remoto principal.</p>
+
+    <h3>2. Subir y bajar cambios: push y pull</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Comando</th><th>Qué hace</th></tr>
+      <tr><td><code>git push origin main</code></td><td>Sube tus commits locales a la rama "main" del remoto</td></tr>
+      <tr><td><code>git pull</code></td><td>Descarga y combina (merge) los cambios del remoto en tu copia local</td></tr>
+      <tr><td><code>git fetch</code></td><td>Descarga la información del remoto, pero sin combinarla todavía</td></tr>
+    </table></div>
+    <div class="tip">💡 Antes de empezar a trabajar en un repo compartido, haz <code>git pull</code> para traer los últimos cambios de tus compañeros.</div>
+
+    <h3>3. Clonar y hacer fork</h3>
+    <p><span class="en">git clone https://github.com/usuario/repo.git</span> descarga una copia completa de un repositorio remoto a tu computadora, lista para trabajar.</p>
+    <p>Si no tienes permiso de escritura sobre un repositorio ajeno, puedes hacer un <b>fork</b>: una copia personal de ese repositorio en tu propia cuenta de GitHub.</p>
+
+    <h3>4. Pull request: proponer un cambio</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Paso</th><th>Qué haces</th></tr>
+      <tr><td>1</td><td>Creas una rama nueva y haces tus commits ahí</td></tr>
+      <tr><td>2</td><td><code>git push</code> esa rama a GitHub</td></tr>
+      <tr><td>3</td><td>Abres un <b>Pull Request (PR)</b>: una propuesta de cambios para que alguien la revise</td></tr>
+      <tr><td>4</td><td>Si todo está bien, se hace <b>merge</b> (fusión) a la rama principal</td></tr>
+    </table></div>
+    <p><span class="en">rama nueva → commits → push → Pull Request → review → merge</span> <span class="no">push directo a main, sin revisión</span></p>
+  </div>
+  <div class="card">
+    <h2>Ejercicios 3</h2>
+    <p class="sub">20 ejercicios. Escribe o elige la respuesta y pulsa <b>Comprobar</b>.</p>
+    <ol class="exercises" data-set="t3"></ol>
+    <div class="actions"><button class="btn" data-check="t3">Comprobar</button><button class="btn sec" data-reset="t3">Reiniciar</button><span class="score" id="score-t3"></span></div>
+  </div>
+</section>
+
+</main>
+<footer class="page-footer">Curso de Git y GitHub · Practica todas las veces que quieras 🙂</footer>
+
+<script src="js/global.js"></script>
+<script>
+// type "f" = fill (q contains ___), "c" = choice
+const DATA = {
+  "t1": [
+    {t:"c", q:"¿Qué es un sistema de control de versiones?", o:["Una herramienta que guarda el historial de cambios de tus archivos","Un editor de texto","Un lenguaje de programación"], a:0},
+    {t:"c", q:"¿Para qué sirve principalmente Git?", o:["Para poder volver a versiones anteriores de tu código","Para subir fotos a internet","Para compilar programas"], a:0},
+    {t:"f", q:"Una carpeta cuyos cambios Git está vigilando se llama un ___.", h:"repo", a:["repositorio","repo"]},
+    {t:"c", q:"¿Qué comando convierte una carpeta normal en un repositorio Git?", o:["git init","git start","git new"], a:0},
+    {t:"f", q:"Guardar un punto concreto en la historia de tu proyecto, con un mensaje, se llama hacer un ___.", h:"commit", a:["commit"]},
+    {t:"c", q:"¿Qué contiene un commit?", o:["Una foto (snapshot) de cómo estaban tus archivos, más un mensaje","Solo el nombre del autor","Solo la fecha"], a:0},
+    {t:"c", q:"Elige la mejor práctica:", o:["Commits pequeños y frecuentes, con mensajes claros","Un solo commit gigante al final del proyecto","Commits sin mensaje"], a:0},
+    {t:"f", q:"La lista ordenada de todos los commits de un proyecto es su ___.", h:"historial", a:["historial","historial de commits","log"]},
+    {t:"c", q:"¿Qué comando muestra el historial de commits?", o:["git log","git history","git list"], a:0},
+    {t:"c", q:"Antes de Git, ¿cómo se solía 'versionar' el código a mano?", o:["Carpetas tipo proyecto_final_v2_definitivo.zip","Con control de versiones automático","No se necesitaba versionar nada"], a:0, e:"Git reemplaza ese caos de carpetas con un historial real."},
+    {t:"f", q:"Git guarda los cambios de forma ___, no vuelve a guardar el archivo completo cada vez.", h:"opuesto a 'completa'", a:["incremental","diferencial"]},
+    {t:"c", q:"¿Qué identifica de forma única a cada commit?", o:["Un hash (código alfanumérico)","El color del texto","El nombre de la carpeta"], a:0},
+    {t:"c", q:"Si cometes un error, ¿qué te permite hacer el historial de Git?", o:["Volver a una versión anterior del proyecto","Borrar Git por completo","Nada, los errores son permanentes"], a:0},
+    {t:"f", q:"Git es un sistema de control de versiones ___ (no depende de un único servidor para funcionar).", h:"opuesto a centralizado", a:["distribuido"]},
+    {t:"c", q:"¿Dónde vive el historial completo en Git?", o:["En la copia local de cada persona que clonó el repo","Solo en un servidor central","Únicamente en la nube de Google"], a:0},
+    {t:"c", q:"¿Qué NO es Git?", o:["Un editor de texto","Un sistema de control de versiones","Una herramienta de línea de comandos"], a:0},
+    {t:"f", q:"Antes de poder hacer commit, los cambios deben pasar por el área de ___.", h:"preparación / staging", a:["preparación","staging","área de preparación"]},
+    {t:"c", q:"Un mensaje de commit como \"cambios\" es:", o:["Poco descriptivo, mala práctica","Perfecto siempre","Obligatorio que sea así"], a:0},
+    {t:"c", q:"¿Qué ventaja da tener historial de commits en equipo?", o:["Saber quién cambió qué y cuándo, y poder revertir","Que el código ocupe menos espacio en disco","Que el programa corra más rápido"], a:0},
+    {t:"f", q:"Un repositorio guarda todo su historial dentro de una carpeta oculta llamada ___.", h:"empieza con un punto", a:[".git"]}
+  ],
+  "t2": [
+    {t:"f", q:"Para convertir la carpeta actual en un repositorio Git: git ___", h:"init", a:["init"]},
+    {t:"c", q:"¿Qué hace 'git add archivo.txt'?", o:["Prepara (staging) ese archivo para el próximo commit","Lo sube directo a GitHub","Lo borra del proyecto"], a:0},
+    {t:"f", q:"Escribe el comando completo para agregar TODOS los archivos modificados al área de preparación:", h:"git add + un punto", a:["git add ."]},
+    {t:"c", q:"¿Qué bandera de 'git commit' se usa para escribir el mensaje en la misma línea?", o:["-m","-msg","-text"], a:0},
+    {t:"f", q:"git commit -m \"Arregla el login\" crea un ___ con ese mensaje.", h:"commit", a:["commit"]},
+    {t:"c", q:"¿Qué muestra 'git status'?", o:["Qué archivos cambiaron, cuáles están en staging y cuáles no","El historial completo de commits","La versión de Git instalada"], a:0},
+    {t:"c", q:"¿Qué muestra 'git log'?", o:["El historial de commits, con autor, fecha y mensaje","Los archivos modificados ahora mismo","La lista de ramas"], a:0},
+    {t:"f", q:"Para ver el historial en una sola línea por commit: git log --___", h:"compacto", a:["oneline"]},
+    {t:"c", q:"¿Qué es una 'branch' (rama) en Git?", o:["Una línea de desarrollo independiente dentro del mismo repo","Un tipo de archivo especial","Un comando para borrar código"], a:0},
+    {t:"f", q:"Para ver todas las ramas del repositorio: git ___", h:"branch", a:["branch"]},
+    {t:"f", q:"Para crear una rama nueva llamada 'login': git branch ___", h:"nombre de la rama", a:["login"]},
+    {t:"c", q:"¿Qué comando usas para MOVERTE a una rama ya existente?", o:["git checkout nombre-rama","git branch nombre-rama","git add nombre-rama"], a:0, e:"'git branch' crea ramas; para moverte a una usas checkout (o 'git switch')."},
+    {t:"c", q:"¿Cuál es el comando más moderno para cambiar de rama?", o:["git switch","git move","git jump"], a:0},
+    {t:"f", q:"Para crear y cambiarte a una rama nueva en un solo paso: git checkout -___ nombre-rama", h:"una letra", a:["b"]},
+    {t:"c", q:"Elige el flujo correcto para guardar un cambio:", o:["Editar archivo → git add → git commit -m \"mensaje\"","git commit → editar archivo → git add","git init → git commit, sin editar nada"], a:0},
+    {t:"c", q:"Si 'git status' muestra un archivo en rojo, ¿qué significa normalmente?", o:["Que está modificado pero NO está en staging todavía","Que ya se subió a GitHub","Que tiene un error de sintaxis"], a:0},
+    {t:"c", q:"Si un archivo aparece en verde en 'git status', ¿qué significa?", o:["Que está en staging, listo para el próximo commit","Que fue borrado","Que no existe"], a:0},
+    {t:"f", q:"Para ver qué cambió línea por línea antes de hacer add: git ___", h:"diff", a:["diff"]},
+    {t:"c", q:"¿Cuál de estos comandos NO existe en Git?", o:["git upload","git commit","git status"], a:0},
+    {t:"c", q:"¿Cuál es la mejor práctica para el tamaño de un commit?", o:["Pequeño y enfocado en un solo cambio","Lo más grande posible","Uno solo por semana"], a:0}
+  ],
+  "t3": [
+    {t:"c", q:"¿Qué es un 'remote' en Git?", o:["La versión del repositorio alojada en un servidor (como GitHub)","Un tipo de commit especial","Un archivo de configuración"], a:0},
+    {t:"f", q:"El nombre que Git le da por defecto al remoto principal es ___.", h:"origin", a:["origin"]},
+    {t:"c", q:"¿Qué hace 'git push'?", o:["Sube tus commits locales al remoto","Descarga cambios del remoto","Borra el repositorio"], a:0},
+    {t:"f", q:"Para subir tus commits a la rama 'main' del remoto 'origin': git push ___ main", h:"nombre del remoto", a:["origin"]},
+    {t:"c", q:"¿Qué hace 'git pull'?", o:["Descarga y combina los cambios del remoto en tu copia local","Sube tus cambios al remoto","Crea una rama nueva"], a:0},
+    {t:"c", q:"¿Qué hace 'git clone URL'?", o:["Descarga una copia completa de un repositorio remoto a tu computadora","Borra un repositorio remoto","Sube un commit nuevo"], a:0},
+    {t:"c", q:"La primera vez que quieres trabajar en un repo que ya existe en GitHub, usas:", o:["git clone","git init","git push"], a:0},
+    {t:"f", q:"GitHub es un servicio en la ___ para alojar repositorios Git y colaborar.", h:"opuesto a local", a:["nube"]},
+    {t:"c", q:"¿Qué es un Pull Request (PR)?", o:["Una propuesta de cambios para que alguien la revise antes de fusionarla","Un comando de Git","Una forma de borrar una rama"], a:0},
+    {t:"c", q:"¿Dónde revisas los cambios (diff) de un Pull Request?", o:["En la página del PR en GitHub","Solo en la terminal","No se puede revisar un PR"], a:0},
+    {t:"f", q:"Juntar los cambios de una rama (o un PR) con otra se llama hacer ___.", h:"fusión", a:["merge","fusión"]},
+    {t:"c", q:"¿Qué botón usas en GitHub para aplicar un Pull Request a la rama principal?", o:["Merge pull request","Delete","Clone"], a:0},
+    {t:"c", q:"Si dos personas cambiaron la misma línea de un archivo de formas distintas, al fusionar aparece un:", o:["Conflicto de merge","Commit nuevo automático","Error de Git permanente"], a:0},
+    {t:"c", q:"¿Para qué sirve principalmente abrir un Pull Request en vez de subir directo a main?", o:["Para que el equipo revise y discuta el cambio antes de aceptarlo","Para que el código corra más rápido","Git obliga técnicamente a usarlo siempre"], a:0},
+    {t:"f", q:"El flujo típico es: crear una rama → hacer commits → git push → abrir un ___ en GitHub.", h:"PR", a:["pull request","PR"]},
+    {t:"c", q:"¿Qué comando trae SOLO la información del remoto, sin combinarla todavía?", o:["git fetch","git pull","git push"], a:0, e:"'fetch' descarga sin mezclar; 'pull' es fetch + merge."},
+    {t:"c", q:"Diferencia entre 'git pull' y 'git fetch':", o:["pull descarga y combina; fetch solo descarga","Son exactamente lo mismo","fetch sube cambios, pull los descarga"], a:0},
+    {t:"c", q:"¿Qué necesitas antes de poder hacer 'git push' a un repositorio de otra persona?", o:["Permiso de escritura (ser colaborador) o hacer un fork","Nada, cualquiera puede subir a cualquier repo","Solo tener Git instalado"], a:0},
+    {t:"f", q:"Una copia personal de un repositorio ajeno, en tu propia cuenta de GitHub, se llama un ___.", h:"fork", a:["fork"]},
+    {t:"c", q:"Buen hábito antes de empezar a trabajar cada día en un repo compartido:", o:["Hacer git pull para traer los últimos cambios","Hacer git push inmediatamente sin revisar nada","Borrar la rama main"], a:0}
+  ]
+};
+
+const norm = s => s.toLowerCase().replace(/[’‘`]/g,"'").replace(/[.,!?¿¡]/g," ").replace(/\s+/g," ").trim();
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(set){
+  const ol = document.querySelector(`ol[data-set="${set}"]`);
+  ol.innerHTML = DATA[set].map((x,i) => {
+    const id = `${set}-${i}`;
+    if (x.t === "f"){
+      const parts = esc(x.q).split("___");
+      const inp = `<input type="text" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Respuesta ${i+1}">`;
+      return `<li data-i="${i}"><span class="q">${parts[0]}${inp}${parts[1]||""}</span> <span class="hint">(${esc(x.h)})</span><span class="fb"></span></li>`;
+    }
+    const opts = x.o.map((o,j) => `<label><input type="radio" name="${id}" value="${j}">${esc(o)}</label>`).join("");
+    return `<li data-i="${i}"><span class="q">${esc(x.q)}</span><div class="opts">${opts}</div><span class="fb"></span></li>`;
+  }).join("");
+  ol.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set); });
+  document.getElementById(`score-${set}`).textContent = "";
+}
+
+function check(set){
+  let ok = 0;
+  document.querySelectorAll(`ol[data-set="${set}"] li`).forEach(li => {
+    const i = +li.dataset.i, x = DATA[set][i], id = `${set}-${i}`, fb = li.querySelector(".fb");
+    let good, answered, right;
+    if (x.t === "f"){
+      const v = norm(document.getElementById(id).value);
+      answered = v !== "";
+      good = x.a.some(a => norm(a) === v);
+      right = x.a[0];
+    } else {
+      const sel = li.querySelector(`input[name="${id}"]:checked`);
+      answered = !!sel;
+      good = answered && +sel.value === x.a;
+      right = x.o[x.a];
+    }
+    li.classList.remove("ok","bad");
+    if (good){ ok++; li.classList.add("ok"); fb.textContent = "✔ ¡Correcto!" + (x.e ? " " + x.e : ""); }
+    else { li.classList.add("bad"); fb.textContent = (answered ? "✘ " : "✘ Sin responder. ") + "Respuesta: " + right + (x.e ? " — " + x.e : ""); }
+  });
+  const n = DATA[set].length, msg = ok === n ? " 🎉 ¡Perfecto!" : ok >= n*0.7 ? " 👍 ¡Muy bien!" : " 💪 ¡Repasa la teoría y vuelve a intentarlo!";
+  document.getElementById(`score-${set}`).textContent = `Puntuación: ${ok}/${n}` + msg;
+}
+
+Object.keys(DATA).forEach(render);
+document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => check(b.dataset.check));
+document.querySelectorAll("[data-reset]").forEach(b => b.onclick = () => render(b.dataset.reset));
+
+const tabs = document.querySelectorAll("#tabs button");
+function show(t){
+  tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.t === t));
+  document.querySelectorAll("section.topic").forEach(s => s.classList.toggle("active", s.id === t));
+  try { localStorage.setItem("git-tab", t); } catch(e){}
+  window.scrollTo({top:0});
+}
+tabs.forEach(b => b.onclick = () => show(b.dataset.t));
+try { const t = localStorage.getItem("git-tab"); if (t && document.getElementById(t)) show(t); } catch(e){}
+</script>
+</body>
+</html>
