@@ -129,3 +129,34 @@ function crearTarjeta(curso) {
 
 document.getElementById("lista-cursos").replaceChildren(...CURSOS.map(crearTarjeta));
 document.getElementById("anio").textContent = new Date().getFullYear();
+
+// ---------- Animaciones al hacer scroll ----------
+// Solo se activan con JS y si la persona no pidió reducir el movimiento,
+// así el contenido siempre es visible sin ellas.
+const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+if (!sinMovimiento && "IntersectionObserver" in window) {
+  // Cada grupo se anima en cascada: sus elementos aparecen uno tras otro
+  const GRUPOS = [
+    ".hero-copy > *, .terminal",
+    "#sobre-mi .photo-frame, #sobre-mi .about-grid > div > *",
+    "#cursos .wrap > :not(.cards), #lista-cursos > .card",
+    "#contacto .contact > div > *, .socials li",
+  ];
+
+  const observador = new IntersectionObserver((entradas) => {
+    for (const entrada of entradas) {
+      if (!entrada.isIntersecting) continue;
+      entrada.target.classList.add("is-visible");
+      observador.unobserve(entrada.target);
+    }
+  }, { threshold: 0.15 });
+
+  for (const selector of GRUPOS) {
+    document.querySelectorAll(selector).forEach((el, i) => {
+      el.classList.add("reveal");
+      el.style.setProperty("--retraso", Math.min(i, 6) * 0.08 + "s");
+      observador.observe(el);
+    });
+  }
+}
