@@ -1140,8 +1140,17 @@ if (window.Cuenta) {
   window.Cuenta.alCambiar(async (usuario) => {
     if (!usuario) return;
     const mapa = await window.Cuenta.cargarProgreso("base-de-datos");
-    const nube = mapa.get("estado");
-    if (nube) { progress = Object.assign({ quiz: {}, ex: {} }, nube); updateProgress(); }
+    const nube = mapa.get("estado") || {};
+    // Combinar en vez de reemplazar: lo que se hizo sin sesión no se pierde.
+    // Si una pregunta está en ambos lados, gana la nube (historial de la cuenta).
+    const combinado = {
+      quiz: Object.assign({}, progress.quiz, nube.quiz),
+      ex: Object.assign({}, progress.ex, nube.ex),
+    };
+    const cambioNube = JSON.stringify(combinado) !== JSON.stringify(Object.assign({ quiz: {}, ex: {} }, nube));
+    progress = combinado;
+    if (cambioNube) saveProgress(); // sube lo local que faltaba y actualiza localStorage
+    else { try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); } catch (e) {} updateProgress(); }
   });
 }
 

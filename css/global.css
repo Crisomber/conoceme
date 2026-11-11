@@ -166,6 +166,11 @@
   background: transparent; color: var(--ink);
 }
 .cuenta-menu-salir:hover { border-color: var(--accent); color: var(--accent); }
+.cuenta-aviso {
+  position: absolute; right: 0; top: calc(100% + .4rem); z-index: 60; width: max-content; max-width: 16rem;
+  margin: 0; padding: .5rem .75rem; border-radius: 8px; font-size: .82rem; font-weight: 600;
+  background: var(--bad, #c0392b); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
 
 .cuenta-modal-fondo {
   position: fixed; inset: 0; z-index: 100;
