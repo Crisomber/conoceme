@@ -303,7 +303,7 @@ footer .wrap { padding-block: 24px 90px; }
 
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
-<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+<header class="site-header" data-ocultar-al-bajar data-boton-tema data-boton-cuenta>
   <div class="wrap header-inner">
     <a class="brand" href="index.html" aria-label="Inicio">
       <span class="brand-mark" aria-hidden="true">&gt;_</span>
@@ -1031,6 +1031,8 @@ SELECT * FROM clientes WHERE id IN (1, 8);</pre></div>
   </div>
 </aside>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2.47.10/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-asm.js"></script>
 <script>
@@ -1128,7 +1130,20 @@ function highlight(src) {
 const STORE_KEY = "bd-desde-cero-v1";
 let progress = { quiz: {}, ex: {} };
 try { const raw = localStorage.getItem(STORE_KEY); if (raw) progress = Object.assign({ quiz: {}, ex: {} }, JSON.parse(raw)); } catch (e) {}
-function saveProgress() { try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); } catch (e) {} updateProgress(); }
+function saveProgress() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(progress)); } catch (e) {}
+  if (window.Cuenta && window.Cuenta.usuario()) window.Cuenta.guardarProgreso("base-de-datos", "estado", progress);
+  updateProgress();
+}
+
+if (window.Cuenta) {
+  window.Cuenta.alCambiar(async (usuario) => {
+    if (!usuario) return;
+    const mapa = await window.Cuenta.cargarProgreso("base-de-datos");
+    const nube = mapa.get("estado");
+    if (nube) { progress = Object.assign({ quiz: {}, ex: {} }, nube); updateProgress(); }
+  });
+}
 
 /* ---------- Banco de preguntas ---------- */
 const QUIZ = {
