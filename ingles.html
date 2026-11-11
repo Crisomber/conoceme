@@ -83,7 +83,7 @@ footer.page-footer{color:var(--muted);text-align:center;font-size:.85rem;padding
 <body>
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
-<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+<header class="site-header" data-ocultar-al-bajar data-boton-tema data-boton-cuenta>
   <div class="wrap header-inner">
     <a class="brand" href="index.html" aria-label="Inicio">
       <span class="brand-mark" aria-hidden="true">&gt;_</span>
@@ -273,6 +273,9 @@ footer.page-footer{color:var(--muted);text-align:center;font-size:.85rem;padding
 </main>
 <footer class="page-footer">Basado en el Grammar Bank, unidad 2 · Practica todas las veces que quieras 🙂</footer>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2.47.10/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ejercicios.js"></script>
 <script src="js/global.js"></script>
 <script>
 // type "f" = fill (q contains ___), "c" = choice
@@ -345,62 +348,7 @@ const DATA = {
   ]
 };
 
-const norm = s => s.toLowerCase().replace(/[’‘`]/g,"'").replace(/[.,!?¿¡]/g," ").replace(/\s+/g," ").trim();
-const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-function render(set){
-  const ol = document.querySelector(`ol[data-set="${set}"]`);
-  ol.innerHTML = DATA[set].map((x,i) => {
-    const id = `${set}-${i}`;
-    if (x.t === "f"){
-      const parts = esc(x.q).split("___");
-      const inp = `<input type="text" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Respuesta ${i+1}">`;
-      return `<li data-i="${i}"><span class="q">${parts[0]}${inp}${parts[1]||""}</span> <span class="hint">(${esc(x.h)})</span><span class="fb"></span></li>`;
-    }
-    const opts = x.o.map((o,j) => `<label><input type="radio" name="${id}" value="${j}">${esc(o)}</label>`).join("");
-    return `<li data-i="${i}"><span class="q">${esc(x.q)}</span><div class="opts">${opts}</div><span class="fb"></span></li>`;
-  }).join("");
-  ol.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set); });
-  document.getElementById(`score-${set}`).textContent = "";
-}
-
-function check(set){
-  let ok = 0;
-  document.querySelectorAll(`ol[data-set="${set}"] li`).forEach(li => {
-    const i = +li.dataset.i, x = DATA[set][i], id = `${set}-${i}`, fb = li.querySelector(".fb");
-    let good, answered, right;
-    if (x.t === "f"){
-      const v = norm(document.getElementById(id).value);
-      answered = v !== "";
-      good = x.a.some(a => norm(a) === v);
-      right = x.a[0];
-    } else {
-      const sel = li.querySelector(`input[name="${id}"]:checked`);
-      answered = !!sel;
-      good = answered && +sel.value === x.a;
-      right = x.o[x.a];
-    }
-    li.classList.remove("ok","bad");
-    if (good){ ok++; li.classList.add("ok"); fb.textContent = "✔ ¡Correcto!" + (x.e ? " " + x.e : ""); }
-    else { li.classList.add("bad"); fb.textContent = (answered ? "✘ " : "✘ Sin responder. ") + "Respuesta: " + right + (x.e ? " — " + x.e : ""); }
-  });
-  const n = DATA[set].length, msg = ok === n ? " 🎉 ¡Perfecto!" : ok >= n*0.7 ? " 👍 ¡Muy bien!" : " 💪 ¡Repasa la teoría y vuelve a intentarlo!";
-  document.getElementById(`score-${set}`).textContent = `Puntuación: ${ok}/${n}` + msg;
-}
-
-Object.keys(DATA).forEach(render);
-document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => check(b.dataset.check));
-document.querySelectorAll("[data-reset]").forEach(b => b.onclick = () => render(b.dataset.reset));
-
-const tabs = document.querySelectorAll("#tabs button");
-function show(t){
-  tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.t === t));
-  document.querySelectorAll("section.topic").forEach(s => s.classList.toggle("active", s.id === t));
-  try { localStorage.setItem("ingles-tab", t); } catch(e){}
-  window.scrollTo({top:0});
-}
-tabs.forEach(b => b.onclick = () => show(b.dataset.t));
-try { const t = localStorage.getItem("ingles-tab"); if (t && document.getElementById(t)) show(t); } catch(e){}
+Ejercicios.iniciar({ curso: "ingles", data: DATA });
 </script>
 </body>
 </html>

@@ -138,3 +138,81 @@
 @media (prefers-reduced-motion: reduce) {
   [data-ocultar-al-bajar] { transition: none; }
 }
+
+/* ---------- Opción: botón de cuenta (login / progreso) ----------
+   Lo crea js/auth.js en los headers con data-boton-cuenta:
+     <header class="site-header" data-boton-cuenta>
+   ------------------------------------------------------------- */
+.cuenta-widget { position: relative; flex: none; }
+.cuenta-boton {
+  font: inherit; font-weight: 600; font-size: .92rem; white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 999px; padding: .5rem 1rem;
+  background: transparent; color: var(--ink); cursor: pointer;
+}
+.cuenta-boton:hover { border-color: var(--accent); }
+.cuenta-boton-activa { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.cuenta-menu {
+  position: absolute; top: calc(100% + .5rem); right: 0; z-index: 30;
+  min-width: 12rem; padding: .75rem;
+  background: color-mix(in srgb, var(--bg) 94%, var(--ink) 6%);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.18);
+}
+.cuenta-menu-correo { margin: 0 0 .6rem; font-size: .85rem; color: var(--muted); word-break: break-all; }
+.cuenta-menu-salir {
+  width: 100%; font: inherit; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px; padding: .5rem .75rem;
+  background: transparent; color: var(--ink);
+}
+.cuenta-menu-salir:hover { border-color: var(--accent); color: var(--accent); }
+.cuenta-aviso {
+  position: absolute; right: 0; top: calc(100% + .4rem); z-index: 60; width: max-content; max-width: 16rem;
+  margin: 0; padding: .5rem .75rem; border-radius: 8px; font-size: .82rem; font-weight: 600;
+  background: var(--bad, #c0392b); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+
+.cuenta-modal-fondo {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center; padding: 1rem;
+  background: rgba(10, 14, 20, .55);
+}
+.cuenta-modal-fondo[hidden] { display: none; }
+.cuenta-modal {
+  position: relative; width: 100%; max-width: 24rem;
+  background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 1.75rem 1.5rem 1.5rem; box-shadow: 0 1.5rem 3rem rgba(0,0,0,.35);
+  font-family: var(--f-body, inherit);
+}
+.cuenta-modal-cerrar {
+  position: absolute; top: .75rem; right: .75rem;
+  width: 2rem; height: 2rem; border-radius: 999px; border: none;
+  background: transparent; color: var(--muted); font-size: 1rem; cursor: pointer;
+}
+.cuenta-modal-cerrar:hover { background: var(--line); color: var(--ink); }
+.cuenta-tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.cuenta-tabs button {
+  flex: 1; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: .4rem .5rem;
+  background: transparent; color: var(--muted);
+}
+.cuenta-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cuenta-modal-titulo { margin: 0 0 .25rem; font-family: var(--f-display, inherit); font-size: 1.3rem; }
+.cuenta-modal-sub { margin: 0 0 1rem; color: var(--muted); font-size: .9rem; }
+.cuenta-form { display: flex; flex-direction: column; gap: .9rem; }
+.cuenta-form label { display: flex; flex-direction: column; gap: .3rem; font-size: .88rem; font-weight: 600; }
+.cuenta-form input {
+  font: inherit; font-size: 1rem; padding: .55rem .7rem;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--ink);
+}
+.cuenta-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cuenta-mensaje { margin: 0; min-height: 1.2em; font-size: .85rem; font-weight: 600; color: var(--ok, #1c7a4b); }
+.cuenta-mensaje.es-error { color: var(--bad, #c0392b); }
+.cuenta-form button[type="submit"] {
+  font: inherit; font-weight: 700; cursor: pointer; margin-top: .25rem;
+  border: none; border-radius: 8px; padding: .7rem 1rem;
+  background: var(--accent); color: #fff;
+}
+.cuenta-form button[type="submit"]:disabled { opacity: .6; cursor: default; }

@@ -163,7 +163,7 @@ a { color: var(--accent); }
 <body>
 <a class="skip-link" href="#doc">Saltar al contenido</a>
 
-<header class="site-header" data-ocultar-al-bajar data-boton-tema>
+<header class="site-header" data-ocultar-al-bajar data-boton-tema data-boton-cuenta>
   <div class="wrap header-inner">
     <a class="brand" href="index.html" aria-label="Inicio">
       <span class="brand-mark" aria-hidden="true">&gt;_</span>
@@ -213,6 +213,8 @@ a { color: var(--accent); }
   </div>
 </footer>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2.47.10/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/global.js"></script>
 <script>
 // =========================================================
@@ -346,6 +348,7 @@ async function mostrar() {
     if (id) p.id = id[0];
     document.title = `${p.t} · Guía OWASP WSTG`;
     try { localStorage.setItem(CLAVE_ULTIMA, p.r); } catch {}
+    if (window.Cuenta && window.Cuenta.usuario()) window.Cuenta.guardarProgreso("wstg", "ultima", { r: p.r });
 
     paginas.forEach((x) => {
       const a = x.li.querySelector("a");
@@ -386,6 +389,20 @@ async function mostrar() {
   }
   window.addEventListener("hashchange", mostrar);
   mostrar();
+
+  if (window.Cuenta) {
+    window.Cuenta.alCambiar(async (usuario) => {
+      if (!usuario) return;
+      const mapa = await window.Cuenta.cargarProgreso("wstg");
+      const nube = mapa.get("ultima");
+      const p2 = nube && nube.r && paginas.find((x) => x.r === nube.r);
+      if (p2) {
+        $("continuar").href = "#/" + p2.r;
+        $("continuar").textContent = `Continuar: ${etiqueta(p2)}`;
+        $("continuar").hidden = false;
+      }
+    });
+  }
 })();
 </script>
 </body>
