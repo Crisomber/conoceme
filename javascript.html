@@ -35,6 +35,11 @@ h1{font-size:1.25rem;margin:0}
 nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
 nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600}
 nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+h1,nav button{transition:color .15s,background-color .15s,border-color .15s}
+h1:hover{color:var(--accent)}
+nav button:hover,nav button:focus-visible{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+nav button[aria-selected="true"]:hover{background:color-mix(in srgb,var(--accent) 85%,var(--text));color:#fff}
+nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
 main{padding:24px 0 60px}
 section.topic{display:none}
 section.topic.active{display:block}
