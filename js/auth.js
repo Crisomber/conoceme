@@ -12,8 +12,10 @@
 //
 // Expone window.Cuenta con:
 //   Cuenta.usuario()                        -> objeto de usuario o null
-//   Cuenta.alCambiar(cb)                    -> cb(usuario|null) ahora y en cada cambio
+//   Cuenta.alCambiar(cb)                    -> cb(usuario|null) ahora y cada vez que cambia
+//                                              el usuario (entrar/salir); no en renovaciones de sesión
 //   Cuenta.guardarProgreso(curso, clave, valor)   -> Promise
+//   Cuenta.guardarVarios(curso, [{clave, valor}]) -> Promise (una sola petición)
 //   Cuenta.cargarProgreso(curso)                  -> Promise<Map clave->valor>
 //   Cuenta.borrarProgreso(curso, prefijoClave)    -> Promise (borra las claves que empiezan con el prefijo)
 // =========================================================
@@ -24,34 +26,48 @@
   const sb = window.supabase.createClient(URL_PROYECTO, LLAVE_PUBLICA);
 
   const listeners = [];
+  const listenersError = [];
   let usuarioActual = null;
+  let idNotificado = null;
 
-  function notificar() {
+  // Solo avisa cuando cambia QUIÉN inició sesión. Supabase dispara eventos
+  // también al renovar el token (~cada hora) y al arrancar (getSession +
+  // INITIAL_SESSION); reaccionar a esos recargaría el progreso y pisaría lo
+  // que el usuario está escribiendo.
+  function establecerSesion(session) {
+    usuarioActual = session ? session.user : null;
+    const id = usuarioActual ? usuarioActual.id : null;
+    if (id === idNotificado) return;
+    idNotificado = id;
     listeners.forEach((cb) => cb(usuarioActual));
   }
 
-  sb.auth.getSession().then(({ data }) => {
-    usuarioActual = data.session ? data.session.user : null;
-    notificar();
-  });
+  sb.auth.getSession().then(({ data }) => establecerSesion(data.session));
+  sb.auth.onAuthStateChange((_evento, session) => establecerSesion(session));
 
-  sb.auth.onAuthStateChange((_evento, session) => {
-    usuarioActual = session ? session.user : null;
-    notificar();
-  });
+  function reportarError(accion, error) {
+    console.error(`No se pudo ${accion}:`, error.message || error);
+    listenersError.forEach((cb) => cb(accion));
+  }
 
-  async function guardarProgreso(curso, clave, valor) {
-    if (!usuarioActual) return;
-    return sb.from("progreso").upsert(
-      {
+  async function guardarVarios(curso, filas) {
+    if (!usuarioActual || !filas.length) return;
+    const ahora = new Date().toISOString();
+    const { error } = await sb.from("progreso").upsert(
+      filas.map(({ clave, valor }) => ({
         user_id: usuarioActual.id,
         curso,
         clave,
         valor,
-        actualizado_en: new Date().toISOString(),
-      },
+        actualizado_en: ahora,
+      })),
       { onConflict: "user_id,curso,clave" }
     );
+    if (error) reportarError("guardar tu progreso", error);
+  }
+
+  function guardarProgreso(curso, clave, valor) {
+    return guardarVarios(curso, [{ clave, valor }]);
   }
 
   async function cargarProgreso(curso) {
@@ -62,7 +78,7 @@
       .select("clave, valor")
       .eq("curso", curso);
     if (error) {
-      console.error("No se pudo cargar el progreso:", error.message);
+      reportarError("cargar tu progreso", error);
       return mapa;
     }
     (data || []).forEach((fila) => mapa.set(fila.clave, fila.valor));
@@ -71,11 +87,12 @@
 
   async function borrarProgreso(curso, prefijoClave) {
     if (!usuarioActual) return;
-    return sb
+    const { error } = await sb
       .from("progreso")
       .delete()
       .eq("curso", curso)
       .like("clave", `${prefijoClave}%`);
+    if (error) reportarError("borrar tu progreso", error);
   }
 
   window.Cuenta = {
@@ -85,6 +102,7 @@
       cb(usuarioActual);
     },
     guardarProgreso,
+    guardarVarios,
     cargarProgreso,
     borrarProgreso,
   };
@@ -210,6 +228,19 @@
     menu.hidden = true;
     menu.innerHTML = `<p class="cuenta-menu-correo"></p><button type="button" class="cuenta-menu-salir">Cerrar sesión</button>`;
     contenedor.append(menu);
+
+    const aviso = document.createElement("p");
+    aviso.className = "cuenta-aviso";
+    aviso.setAttribute("role", "alert");
+    aviso.hidden = true;
+    contenedor.append(aviso);
+    let temporizadorAviso;
+    listenersError.push((accion) => {
+      aviso.textContent = `No se pudo ${accion}. Revisa tu conexión.`;
+      aviso.hidden = false;
+      clearTimeout(temporizadorAviso);
+      temporizadorAviso = setTimeout(() => (aviso.hidden = true), 5000);
+    });
 
     const { abrir } = crearModal();
 

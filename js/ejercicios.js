@@ -32,14 +32,12 @@ window.Ejercicios = (function () {
           return `<li data-i="${i}"><span class="q">${esc(x.q)}</span><div class="opts">${opts}</div><span class="fb"></span></li>`;
         })
         .join("");
-      ol.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set);
-      });
       document.getElementById(`score-${set}`).textContent = "";
     }
 
     function check(set, opts = {}) {
       const guardar = opts.guardar !== false;
+      const filas = [];
       let ok = 0;
       document.querySelectorAll(`ol[data-set="${set}"] li`).forEach((li) => {
         const i = +li.dataset.i,
@@ -69,10 +67,9 @@ window.Ejercicios = (function () {
           li.classList.add("bad");
           fb.textContent = (answered ? "✘ " : "✘ Sin responder. ") + "Respuesta: " + right + (x.e ? " — " + x.e : "");
         }
-        if (guardar && answered && window.Cuenta && window.Cuenta.usuario()) {
-          window.Cuenta.guardarProgreso(curso, `${set}:${i}`, { respuesta, correcto: good });
-        }
+        if (answered) filas.push({ clave: `${set}:${i}`, valor: { respuesta, correcto: good } });
       });
+      if (guardar && window.Cuenta && window.Cuenta.usuario()) window.Cuenta.guardarVarios(curso, filas);
       const n = DATA[set].length,
         msg = ok === n ? " 🎉 ¡Perfecto!" : ok >= n * 0.7 ? " 👍 ¡Muy bien!" : " 💪 ¡Repasa la teoría y vuelve a intentarlo!";
       document.getElementById(`score-${set}`).textContent = `Puntuación: ${ok}/${n}` + msg;
@@ -102,7 +99,13 @@ window.Ejercicios = (function () {
       Object.keys(DATA).forEach((set) => aplicarProgreso(set, mapa));
     }
 
-    Object.keys(DATA).forEach(render);
+    Object.keys(DATA).forEach((set) => {
+      render(set);
+      // Una sola vez por lista (render se repite al reiniciar y antes duplicaba el listener).
+      document.querySelector(`ol[data-set="${set}"]`).addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && e.target.matches("input[type=text]")) check(set);
+      });
+    });
     document.querySelectorAll("[data-check]").forEach((b) => (b.onclick = () => check(b.dataset.check)));
     document.querySelectorAll("[data-reset]").forEach((b) => {
       b.onclick = async () => {
